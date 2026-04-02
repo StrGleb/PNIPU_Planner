@@ -38,6 +38,16 @@ std::string minutes_to_time_string(int total_minutes) {
 	return out.str();
 }
 
+int minutes_to_day(int alarm_time_minutes) {
+	while (alarm_time_minutes < 0)
+		alarm_time_minutes = 24 * 60 + alarm_time_minutes;
+
+	while (alarm_time_minutes > 24 * 60)
+		alarm_time_minutes -= 24 * 60;
+
+	return alarm_time_minutes;
+}
+
 int apply_weather(int final_travel_minutes, double weather_multiplier) {
 	double final = final_travel_minutes * weather_multiplier;
 	final_travel_minutes = std::ceil(final);
@@ -70,6 +80,13 @@ std::string make_comment(bool use_weather, bool round_to_five) {
 }
 
 AlarmResult AlarmService::calculate(const AlarmInput& input) {
+
+	if (input.travel_minutes < 0 || input.prep_minutes < 0 || input.buffer_minutes < 0)
+		throw std::invalid_argument("Entering incorrect data.");
+
+	if (input.weather_multiplier < 1)
+		throw std::invalid_argument("Weather coefficient below 1.");
+
 	int lesson_time_minutes = time_string_to_minutes(input.lesson_time);
 
 	int final_travel_minutes = input.travel_minutes;
@@ -79,6 +96,7 @@ AlarmResult AlarmService::calculate(const AlarmInput& input) {
 	int leave_time_minutes = lesson_time_minutes - final_travel_minutes;
 	int alarm_time_minutes = leave_time_minutes - input.prep_minutes - input.buffer_minutes;
 
+	alarm_time_minutes = minutes_to_day(alarm_time_minutes);
 	if (input.round_to_five)
 		alarm_time_minutes = round_down_to_five(alarm_time_minutes);
 
