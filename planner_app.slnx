@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="planner_app.vcxproj" Id="d1291f35-a7b1-4203-b011-5ace191a9ba6" />
+</Solution>
