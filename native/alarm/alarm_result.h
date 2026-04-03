@@ -3,7 +3,7 @@
 #include <string>
 
 struct AlarmResult {
-    std::string lesson_time;
+    std::string event_time;
     int final_travel_minutes;
     int prep_minutes;
     int buffer_minutes;
@@ -12,5 +12,6 @@ struct AlarmResult {
 
     bool weather_applied;
     double weather_multiplier;
+    bool rounding_applied;
     std::string comment;
 };

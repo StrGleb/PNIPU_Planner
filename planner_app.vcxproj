@@ -128,10 +128,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="builders\alarm_input_builder.cpp" />
     <ClCompile Include="native\alarm\alarm_service.cpp" />
     <ClCompile Include="native\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="builders\alarm_input_builder.h" />
+    <ClInclude Include="domain\event_data.h" />
+    <ClInclude Include="domain\route_info.h" />
+    <ClInclude Include="domain\user_preferences.h" />
+    <ClInclude Include="domain\weather_info.h" />
     <ClInclude Include="native\alarm\alarm_input.h" />
     <ClInclude Include="native\alarm\alarm_result.h" />
     <ClInclude Include="native\alarm\alarm_service.h" />

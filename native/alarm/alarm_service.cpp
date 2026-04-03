@@ -87,7 +87,7 @@ AlarmResult AlarmService::calculate(const AlarmInput& input) {
 	if (input.weather_multiplier < 1)
 		throw std::invalid_argument("Weather coefficient below 1.");
 
-	int lesson_time_minutes = time_string_to_minutes(input.lesson_time);
+	int lesson_time_minutes = time_string_to_minutes(input.event_time);
 
 	int final_travel_minutes = input.travel_minutes;
 	if (input.use_weather)
@@ -102,7 +102,7 @@ AlarmResult AlarmService::calculate(const AlarmInput& input) {
 
 
 	AlarmResult result;
-	result.lesson_time = input.lesson_time;
+	result.event_time = input.event_time;
 	result.final_travel_minutes = final_travel_minutes;
 	result.prep_minutes = input.prep_minutes;
 	result.buffer_minutes = input.buffer_minutes;
@@ -110,6 +110,7 @@ AlarmResult AlarmService::calculate(const AlarmInput& input) {
 	result.alarm_time = minutes_to_time_string(alarm_time_minutes);
 	result.weather_applied = input.use_weather;
 	result.weather_multiplier = input.weather_multiplier;
+	result.rounding_applied = input.round_to_five;
 	result.comment = make_comment(input.use_weather, input.round_to_five);
 	
 	return result;

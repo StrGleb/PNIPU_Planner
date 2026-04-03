@@ -8,7 +8,7 @@ void run_manual_mode() {
     AlarmInput input;
 
     std::cout << "Enter lesson time (HH:MM): ";
-    std::cin >> input.lesson_time;
+    std::cin >> input.event_time;
 
     std::cout << "Enter travel minutes: ";
     std::cin >> input.travel_minutes;
@@ -42,7 +42,7 @@ void run_strict_mode() {
     AlarmService service;
     AlarmInput input;
 
-    std::cin >> input.lesson_time
+    std::cin >> input.event_time
         >> input.travel_minutes
         >> input.prep_minutes
         >> input.buffer_minutes
