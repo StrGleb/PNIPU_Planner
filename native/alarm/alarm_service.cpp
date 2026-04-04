@@ -42,8 +42,8 @@ int minutes_to_day(int alarm_time_minutes) {
 	while (alarm_time_minutes < 0)
 		alarm_time_minutes = 24 * 60 + alarm_time_minutes;
 
-	while (alarm_time_minutes > 24 * 60)
-		alarm_time_minutes -= 24 * 60;
+	if (alarm_time_minutes > 24 * 60)
+		alarm_time_minutes = alarm_time_minutes % (24 * 60);
 
 	return alarm_time_minutes;
 }
@@ -87,13 +87,13 @@ AlarmResult AlarmService::calculate(const AlarmInput& input) {
 	if (input.weather_multiplier < 1)
 		throw std::invalid_argument("Weather coefficient below 1.");
 
-	int lesson_time_minutes = time_string_to_minutes(input.event_time);
+	int event_time_minutes = time_string_to_minutes(input.event_time);
 
 	int final_travel_minutes = input.travel_minutes;
 	if (input.use_weather)
 		final_travel_minutes = apply_weather(final_travel_minutes, input.weather_multiplier);
 
-	int leave_time_minutes = lesson_time_minutes - final_travel_minutes;
+	int leave_time_minutes = event_time_minutes - final_travel_minutes;
 	int alarm_time_minutes = leave_time_minutes - input.prep_minutes - input.buffer_minutes;
 
 	alarm_time_minutes = minutes_to_day(alarm_time_minutes);

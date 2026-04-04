@@ -15,4 +15,6 @@ AlarmInput AlarmInputBuilder::build(
     input.use_weather = weather.use_weather;
     input.weather_multiplier = weather.weather_multiplier;
     input.round_to_five = preferences.round_to_five;
+
+    return input;
 }

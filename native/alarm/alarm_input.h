@@ -10,5 +10,5 @@ struct AlarmInput {
 
     bool use_weather = false;
     double weather_multiplier = 1.0;
-    bool round_to_five;
+    bool round_to_five = false;
 };
