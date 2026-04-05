@@ -1,6 +1,6 @@
 #pragma once
 
-#include "alarm/alarm_input.h"
+#include "alarm_input.h"
 #include "../domain/event_data.h"
 #include "../domain/route_info.h"
 #include "../domain/weather_info.h"

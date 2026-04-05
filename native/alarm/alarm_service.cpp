@@ -40,7 +40,7 @@ std::string minutes_to_time_string(int total_minutes) {
 
 int minutes_to_day(int alarm_time_minutes) {
 	while (alarm_time_minutes < 0)
-		alarm_time_minutes = 24 * 60 + alarm_time_minutes;
+		alarm_time_minutes += 24 * 60;
 
 	if (alarm_time_minutes > 24 * 60)
 		alarm_time_minutes = alarm_time_minutes % (24 * 60);

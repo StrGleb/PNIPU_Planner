@@ -40,7 +40,7 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
@@ -128,19 +128,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="builders\alarm_input_builder.cpp" />
+    <ClCompile Include="native\alarm\alarm_input_builder.cpp" />
     <ClCompile Include="native\alarm\alarm_service.cpp" />
-    <ClCompile Include="native\main.cpp" />
+    <ClCompile Include="native\api\alarm_api.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="builders\alarm_input_builder.h" />
-    <ClInclude Include="domain\event_data.h" />
-    <ClInclude Include="domain\route_info.h" />
-    <ClInclude Include="domain\user_preferences.h" />
-    <ClInclude Include="domain\weather_info.h" />
     <ClInclude Include="native\alarm\alarm_input.h" />
+    <ClInclude Include="native\alarm\alarm_input_builder.h" />
     <ClInclude Include="native\alarm\alarm_result.h" />
     <ClInclude Include="native\alarm\alarm_service.h" />
+    <ClInclude Include="native\api\alarm_api.h" />
+    <ClInclude Include="native\domain\event_data.h" />
+    <ClInclude Include="native\domain\route_info.h" />
+    <ClInclude Include="native\domain\user_preferences.h" />
+    <ClInclude Include="native\domain\weather_info.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

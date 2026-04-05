@@ -1,8 +1,10 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "alarm_api.h"
 
-#include "../native/alarm/alarm_service.h"
-#include "../native/alarm/alarm_input.h"
-#include "../native/alarm/alarm_result.h"
+#include "../alarm/alarm_service.h"
+#include "../alarm/alarm_input.h"
+#include "../alarm/alarm_result.h"
 
 #include <cstring>
 #include <string>
