@@ -9,9 +9,9 @@ extern "C" {
 
 	ALARM_API int calculate_alarm(
 		const char* event_time,
-		int travel_time,
+		int travel_minutes,
 		int prep_minutes,
-		int buffer_time,
+		int buffer_minutes,
 		bool use_weather,
 		double weather_multiplier,
 		bool round_to_five,
