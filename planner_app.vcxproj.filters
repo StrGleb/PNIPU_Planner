@@ -21,9 +21,6 @@
     <ClCompile Include="native\api\alarm_api.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="native\alarm\alarm_input_builder.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="native\alarm\alarm_input.h">
@@ -33,9 +30,6 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="native\alarm\alarm_service.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="native\alarm\alarm_input_builder.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="native\api\alarm_api.h">

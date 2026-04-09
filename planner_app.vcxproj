@@ -128,13 +128,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="native\alarm\alarm_input_builder.cpp" />
     <ClCompile Include="native\alarm\alarm_service.cpp" />
     <ClCompile Include="native\api\alarm_api.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="native\alarm\alarm_input.h" />
-    <ClInclude Include="native\alarm\alarm_input_builder.h" />
     <ClInclude Include="native\alarm\alarm_result.h" />
     <ClInclude Include="native\alarm\alarm_service.h" />
     <ClInclude Include="native\api\alarm_api.h" />

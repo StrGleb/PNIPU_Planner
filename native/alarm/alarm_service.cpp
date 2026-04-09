@@ -79,7 +79,7 @@ std::string make_comment(bool use_weather, bool round_to_five) {
 	return message;
 }
 
-AlarmResult AlarmService::calculate(const AlarmInput& input) {
+AlarmResult AlarmService::calculate(const AlarmInput& input) const {
 
 	if (input.travel_minutes < 0 || input.prep_minutes < 0 || input.buffer_minutes < 0)
 		throw std::invalid_argument("Entering incorrect data.");

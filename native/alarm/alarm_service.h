@@ -5,5 +5,5 @@
 
 class AlarmService {
 public:
-    AlarmResult calculate(const AlarmInput& input);
+    AlarmResult calculate(const AlarmInput& input) const;
 };
