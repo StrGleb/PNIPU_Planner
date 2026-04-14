@@ -1,13 +1,15 @@
 import flet as ft
+import threading
 from time import localtime, strftime, sleep
 
 from views.home_view import build_home_view
 from views.alarm_view import build_alarm_view
 from views.planner_view import build_planner_view
 from views.settings_view import build_settings_view
+from managers.alarm_manager import AlarmManager
+from managers.planner_manager import PlannerManager
 
 
-# --- Глобальные настройки пользователя ---
 USER_NAME = "Семён"
 get_together_time = 0
 user_address = ""
@@ -18,17 +20,54 @@ def main(page: ft.Page):
     page.title = "Planner App"
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
 
-    # Текст часов — создаётся один раз и переиспользуется в alarm_view
     now = lambda: strftime("%H:%M:%S", localtime())
     clock_text = ft.Text(value=now())
 
+    current_route = {"value": "/"}
+
     def update_time():
         while True:
-            clock_text.value = now()
-            clock_text.update()
             sleep(1)
+            clock_text.value = now()
+            if current_route["value"] == "/alarm":
+                try:
+                    page.update()
+                except Exception:
+                    pass
 
-    # --- Navigation bar ---
+    threading.Thread(target=update_time, daemon=True).start()
+
+    alarm_manager = AlarmManager()
+    alarm_manager.start_background_checker()
+
+
+    def global_alarm_callback(alarm):
+        snack = ft.SnackBar(
+            content=ft.Text(f"⏰ Сработал будильник: {alarm.label}!", size=18, weight=ft.FontWeight.BOLD),
+            bgcolor=ft.Colors.BLUE_700,
+            duration=5000,
+        )
+        
+        page.overlay.append(snack)
+        snack.open = True
+        page.update()
+        
+    alarm_manager.set_trigger_callback(global_alarm_callback)
+    # --------------------------
+
+    planner_manager = PlannerManager()
+
+    # Демо-данные
+    planner_manager.load_from_dict({
+        f"{__import__('datetime').date.today().strftime('%d.%m.%Y')} 8:00-9:30":   "Всеобщая история",
+        f"{__import__('datetime').date.today().strftime('%d.%m.%Y')} 9:40-11:10":  "Математика (лек.)",
+    })
+
+    # Хранит cleanup-функцию активного planner view
+    _planner_cleanup = [None]
+
+    # ── Navigation bar ───────────────────────────────────────────────────────────
+
     async def handle_change(e):
         routes = {0: "/", 1: "/planner", 2: "/alarm", 3: "/settings"}
         await page.push_route(routes[e.control.selected_index])
@@ -56,16 +95,23 @@ def main(page: ft.Page):
             ),
         )
 
-    # --- Роутинг ---
+    # ── Роутинг ──────────────────────────────────────────────────────────────────
+
     async def view_pop(view):
         page.views.pop()
         top_view = page.views[-1]
         await page.push_route(top_view.route)
 
     def route_change(route):
+        current_route["value"] = page.route
+
+        # Очищаем overlays предыдущего planner view
+        if _planner_cleanup[0]:
+            _planner_cleanup[0]()
+            _planner_cleanup[0] = None
+
         page.views.clear()
 
-        # Главная страница — всегда в стеке
         page.views.append(
             build_home_view(
                 navigation_bar=create_navigation_bar(index=0),
@@ -78,15 +124,19 @@ def main(page: ft.Page):
                 build_alarm_view(
                     navigation_bar=create_navigation_bar(index=2),
                     clock_text=clock_text,
+                    alarm_manager=alarm_manager,
+                    page=page,
                 )
             )
 
         elif page.route == "/planner":
-            page.views.append(
-                build_planner_view(
-                    navigation_bar=create_navigation_bar(index=1),
-                )
+            view, cleanup = build_planner_view(
+                navigation_bar=create_navigation_bar(index=1),
+                planner_manager=planner_manager,
+                page=page,
             )
+            page.views.append(view)
+            _planner_cleanup[0] = cleanup
 
         elif page.route == "/settings":
             page.views.append(
@@ -102,9 +152,8 @@ def main(page: ft.Page):
         page.update()
 
     page.on_route_change = route_change
-    page.on_view_pop = view_pop
+    page.on_view_pop     = view_pop
     route_change(page.route)
-    # update_time()
 
 
 if __name__ == "__main__":
