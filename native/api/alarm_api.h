@@ -3,6 +3,7 @@
 #ifdef _WIN32
 #define ALARM_API __declspec(dllexport)
 #else
+#define ALARM_API
 #endif
 
 extern "C" {

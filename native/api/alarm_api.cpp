@@ -56,10 +56,16 @@ int calculate_alarm(
 
         return 0;
     }
-    catch (const std::invalid_argument&) {
+    catch (const std::invalid_argument& e) {
+        copy_to_buffer(e.what(), out_comment, out_comment_size);
         return 2;
     }
+    catch (const std::exception& e) {
+        copy_to_buffer(e.what(), out_comment, out_comment_size);
+        return 3;
+    }
     catch (...) {
+        copy_to_buffer("Unknown error", out_comment, out_comment_size);
         return 3;
     }
 }

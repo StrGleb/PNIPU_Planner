@@ -7,12 +7,19 @@
 #include <cmath>
 
 int time_string_to_minutes(const std::string& time_str) {
-	if (time_str.size() != 5 || time_str[2] != ':') {
-		throw std::invalid_argument("Incorrect time format. Use HH:MM");
+	int hours, minutes;
+
+	if (time_str.size() == 5 && time_str[2] == ':') {
+		hours = std::stoi(time_str.substr(0, 2));
+		minutes = std::stoi(time_str.substr(3, 2));
 	}
 
-	int hours = std::stoi(time_str.substr(0, 2));
-	int minutes = std::stoi(time_str.substr(3, 2));
+	else if (time_str.size() == 4 && time_str[1] == ':') {
+		hours = std::stoi(time_str.substr(0, 1));
+		minutes = std::stoi(time_str.substr(2, 2));
+	}
+
+	else throw std::invalid_argument("Incorrect time format. Use HH:MM or H:MM");
 
 	if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
 		throw std::invalid_argument("Incorrect time value");
@@ -84,7 +91,7 @@ AlarmResult AlarmService::calculate(const AlarmInput& input) const {
 	if (input.travel_minutes < 0 || input.prep_minutes < 0 || input.buffer_minutes < 0)
 		throw std::invalid_argument("Entering incorrect data.");
 
-	if (input.weather_multiplier < 1)
+	if (input.use_weather && input.weather_multiplier < 1)
 		throw std::invalid_argument("Weather coefficient below 1.");
 
 	int event_time_minutes = time_string_to_minutes(input.event_time);
