@@ -1,5 +1,6 @@
 import flet as ft
 import threading
+import datetime
 from time import localtime, strftime, sleep
 
 from views.home_view import build_home_view
@@ -8,8 +9,11 @@ from views.planner_view import build_planner_view
 from views.settings_view import build_settings_view
 from managers.alarm_manager import AlarmManager
 from managers.planner_manager import PlannerManager
+from managers.schedule_manager import ScheduleManager
 
 
+
+# ------------------- Важные переменные -------------------
 USER_NAME = "Семён"
 get_together_time = 0
 user_address = ""
@@ -30,7 +34,7 @@ def main(page: ft.Page):
             sleep(1)
             clock_text.value = now()
             try:
-                clock_text.update()   # ← точечное обновление, работает всегда
+                clock_text.update()
             except Exception:
                 pass
 
@@ -55,12 +59,21 @@ def main(page: ft.Page):
     # --------------------------
 
     planner_manager = PlannerManager()
+    schedule_manager = ScheduleManager()
 
     # Демо-данные
-    planner_manager.load_from_dict({
-        f"{__import__('datetime').date.today().strftime('%d.%m.%Y')} 8:00-9:30":   "Всеобщая история",
-        f"{__import__('datetime').date.today().strftime('%d.%m.%Y')} 9:40-11:10":  "Математика (лек.)",
-    })
+    # planner_manager.load_from_dict({
+    #     f"{__import__('datetime').date.today().strftime('%d.%m.%Y')} 8:00-9:30":   "Всеобщая история",
+    #     f"{__import__('datetime').date.today().strftime('%d.%m.%Y')} 9:40-11:10":  "Математика (лек.)",
+    # })
+
+    # При первом запуске заполнить семестр (раскомментировать один раз):
+    schedule_manager.apply_semester(
+        planner_manager,
+        start_date=datetime.date(2026, 3, 30),
+        end_date=datetime.date(2026, 6, 30),
+        first_week_even=False,   # 1 неделя = нечётная
+    )
 
     # Хранит cleanup-функцию активного planner view
     _planner_cleanup = [None]

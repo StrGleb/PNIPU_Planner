@@ -53,7 +53,6 @@ def build_planner_view(
         return "ЧЁТ" if state["week_even"] else "НЕЧЁТ"
 
     # ── Overlays ─────────────────────────────────────────────────────────────────
-    # Создаём один раз, переиспользуем — обновляем content перед открытием.
 
     add_dialog = ft.AlertDialog(modal=True, title=ft.Text("Новая пара"))
     input_dialog = ft.AlertDialog(modal=True, title=ft.Text(""))
@@ -328,7 +327,7 @@ def build_planner_view(
         timeline_col.controls = [build_timeline_stack()]
         safe_update(date_text, timeline_col)
 
-    # Первоначальное заполнение (без .update())
+    # Первоначальное заполнение
     timeline_col.controls = [build_timeline_stack()]
 
     # ── Шапка ────────────────────────────────────────────────────────────────────
