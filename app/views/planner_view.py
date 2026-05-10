@@ -27,8 +27,6 @@ def build_planner_view(
     чтобы убрать overlays из page.overlay.
     """
 
-    _mounted = {"value": False}
-
     state = {
         "date":       datetime.date.today(),
         "week_even":  True,   # True = чётная неделя
@@ -37,8 +35,6 @@ def build_planner_view(
     # ── Утилиты ──────────────────────────────────────────────────────────────────
 
     def safe_update(*controls):
-        if not _mounted["value"]:
-            return
         for c in controls:
             try:
                 c.update()
@@ -449,14 +445,6 @@ def build_planner_view(
         bgcolor=ft.Colors.BLUE_200,
         on_click=open_add_dialog,
     )
-
-    # ── Флаг монтирования ────────────────────────────────────────────────────────
-
-    def on_page_updated(e):
-        _mounted["value"] = True
-        page.on_update = None
-
-    page.on_update = on_page_updated
 
     # ── View ─────────────────────────────────────────────────────────────────────
 

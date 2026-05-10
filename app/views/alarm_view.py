@@ -10,8 +10,6 @@ def build_alarm_view(
     page: ft.Page,
 ) -> ft.View:
 
-    _mounted = {"value": False}
-
     # ---------- Список будильников ----------
 
     alarms_list = ft.ListView(spacing=10, padding=ft.padding.symmetric(horizontal=16))
@@ -22,8 +20,10 @@ def build_alarm_view(
             alarms_copy = list(alarm_manager.alarms)
         for alarm in alarms_copy:
             alarms_list.controls.append(_build_alarm_tile(alarm))
-        if _mounted["value"]:
-            alarms_list.update()
+        try:
+            alarms_list.update()   # ← без флага _mounted
+        except Exception:
+            pass
 
     def _build_alarm_tile(alarm: Alarm) -> ft.Dismissible:
         toggle = ft.Switch(
@@ -48,7 +48,7 @@ def build_alarm_view(
 
         return ft.Dismissible(
             content=tile,
-            dismiss_direction=ft.DismissDirection.END_TO_START,   # исправлено: direction → dismiss_direction
+            dismiss_direction=ft.DismissDirection.END_TO_START,
             dismiss_thresholds={ft.DismissDirection.END_TO_START: 0.3},
             background=ft.Container(
                 content=ft.Row(
@@ -107,8 +107,8 @@ def build_alarm_view(
 
         alarm_manager.add(Alarm(hour=h, minute=m))
         add_dialog.open = False
-        page.update()
-        refresh_list()
+        refresh_list()   # ← сначала обновляем список
+        page.update()    # ← потом закрываем диалог
 
     add_dialog = ft.AlertDialog(
         title=ft.Text("Новый будильник"),

@@ -29,11 +29,10 @@ def main(page: ft.Page):
         while True:
             sleep(1)
             clock_text.value = now()
-            if current_route["value"] == "/alarm":
-                try:
-                    page.update()
-                except Exception:
-                    pass
+            try:
+                clock_text.update()   # ← точечное обновление, работает всегда
+            except Exception:
+                pass
 
     threading.Thread(target=update_time, daemon=True).start()
 
