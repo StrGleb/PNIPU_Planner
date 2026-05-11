@@ -11,12 +11,14 @@ from managers.alarm_manager import AlarmManager
 from managers.planner_manager import PlannerManager
 from managers.schedule_manager import ScheduleManager
 from managers.config_manager import ConfigManager
+from managers.tasks_manager import TasksManager
 
 
 def main(page: ft.Page):
-    page.title = "Planner App"
+    page.title = "Университетский помощник"
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
     config_manager = ConfigManager()
+    tasks_manager = TasksManager() 
 
     now = lambda: strftime("%H:%M:%S", localtime())
     clock_text = ft.Text(value=now())
@@ -105,7 +107,6 @@ def main(page: ft.Page):
         )
 
     # ── Роутинг ──────────────────────────────────────────────────────────────────
-
     async def view_pop(view):
         page.views.pop()
         top_view = page.views[-1]
@@ -125,6 +126,7 @@ def main(page: ft.Page):
             build_home_view(
                 navigation_bar=create_navigation_bar(index=0),
                 user_name=config_manager.config.user_name or "Студент",
+                tasks_manager=tasks_manager,
             )
         )
 
@@ -143,6 +145,7 @@ def main(page: ft.Page):
                 navigation_bar=create_navigation_bar(index=1),
                 planner_manager=planner_manager,
                 config_manager=config_manager,
+                tasks_manager=tasks_manager,
                 page=page,
             )
             page.views.append(view)

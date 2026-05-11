@@ -4,6 +4,8 @@ from typing import Callable
 from managers.planner_manager import PlannerManager
 from managers.config_manager import ConfigManager
 from models.lesson_model import Lesson
+from managers.tasks_manager import TasksManager
+from models.task_model import TASK_TYPE_HOMEWORK, TASK_TYPE_TEST
 
 
 # ── Константы таймлайна ────────────────────────────────────────────────────────
@@ -22,6 +24,7 @@ def build_planner_view(
     navigation_bar: ft.NavigationBar,
     planner_manager: PlannerManager,
     config_manager: ConfigManager,
+    tasks_manager: TasksManager,
     page: ft.Page,
 ) -> tuple[ft.View, Callable]:
     """
@@ -189,17 +192,38 @@ def build_planner_view(
 
         def _after_add_hw(lid, text):
             planner_manager.add_homework(lid, text)
+            lesson = planner_manager.get_lesson(lid)
+            if lesson:
+                tasks_manager.add_task(
+                    task_type = TASK_TYPE_HOMEWORK,
+                    date_str = lesson.date_str,
+                    time_start = lesson.time_start,
+                    subject = lesson.subject,
+                    text = text,
+                    lesson_id = lid,
+                )
             lesson_fresh = planner_manager.get_lesson(lid)
             if lesson_fresh:
                 open_detail(lesson_fresh)
 
         def _after_add_tw(lid, text):
             planner_manager.add_test_work(lid, text)
+            lesson = planner_manager.get_lesson(lid)
+            if lesson:
+                tasks_manager.add_task(
+                    task_type = TASK_TYPE_TEST,
+                    date_str = lesson.date_str,
+                    time_start = lesson.time_start,
+                    subject = lesson.subject,
+                    text = text,
+                    lesson_id = lid,
+                )
             lesson_fresh = planner_manager.get_lesson(lid)
             if lesson_fresh:
                 open_detail(lesson_fresh)
 
         def delete_lesson(e):
+            tasks_manager.remove_tasks_for_lesson(current.id)
             planner_manager.remove_lesson(current.id)
             detail_sheet.open = False
             page.update()
