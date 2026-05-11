@@ -35,8 +35,8 @@ def build_settings_view(
         value=cfg.theme,
         options=THEME_OPTIONS,
         width=200,
-        on_change=on_theme_change,
     )
+    dd_theme.on_change = on_theme_change
 
     # ── Имя ──────────────────────────────────────────────────────────────────────
     tf_name = ft.TextField(
@@ -73,8 +73,8 @@ def build_settings_view(
         value=cfg.user_faculty if cfg.user_faculty in FACULTIES else FACULTIES[0],
         options=[ft.DropdownOption(f) for f in FACULTIES],
         width=280,
-        on_change=lambda e: config_manager.set_user_faculty(e.control.value),
     )
+    dd_faculty.on_change = lambda e: config_manager.set_user_faculty(e.control.value)
 
     # ── Машина ───────────────────────────────────────────────────────────────────
     cb_car = ft.Checkbox(
