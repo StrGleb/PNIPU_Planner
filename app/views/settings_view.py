@@ -106,6 +106,22 @@ def build_settings_view(
         on_change=lambda e: config_manager.set_first_week_even(e.control.value),
     )
 
+    # ── Время до ВУЗа ────────────────────────────────────────────────────────────
+    def on_travel_blur(e):
+        try:
+            v = int(e.control.value)
+            config_manager.set_travel_time(max(0, v))
+        except ValueError:
+            e.control.value = str(cfg.travel_time)
+            page.update()
+
+    tf_travel = ft.TextField(
+        value=str(cfg.travel_time),
+        width=90,
+        keyboard_type=ft.KeyboardType.NUMBER,
+        on_blur=on_travel_blur,
+    )
+
     # ── View ─────────────────────────────────────────────────────────────────────
     def row(label: str, control, hint: str = "") -> ft.Column:
         items = [
@@ -137,6 +153,7 @@ def build_settings_view(
             row("Время на сборы (мин)", tf_time),
             row("Адрес проживания", tf_address),
             row("Факультет", dd_faculty),
+            row("Время до ВУЗа (мин)", tf_travel, "Временное решение — до реализации GPS"),
             cb_car,
             ft.Container(height=12),
 

@@ -2,9 +2,7 @@ import threading
 from time import sleep
 from datetime import datetime
 from typing import Callable
-
 from models.alarm_model import Alarm
-
 
 class AlarmManager:
     """
@@ -18,8 +16,7 @@ class AlarmManager:
         self._on_trigger: Callable[[Alarm], None] | None = None
         self._lock = threading.Lock()
 
-    # --- Public API ---
-
+    # ── Public API ───────────────────────────────────────────────────────────
     def add(self, alarm: Alarm) -> None:
         with self._lock:
             self.alarms.append(alarm)
@@ -44,9 +41,9 @@ class AlarmManager:
         t = threading.Thread(target=self._check_loop, daemon=True)
         t.start()
 
-    # --- Internal ---
-
+    # ── Internal ───────────────────────────────────────────────────────────
     def _check_loop(self) -> None:
+        # !!!НА ДАННЫЙ МОМЕНТ НЕ РАБОТАЕТ!!!
         while True:
             now = datetime.now()
             key = f"{now.hour}:{now.minute}"

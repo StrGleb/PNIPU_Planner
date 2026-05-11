@@ -5,6 +5,7 @@ class UserConfig:
     theme: str = "system" # "light" | "dark" | "system"
     user_name: str = ""
     get_together_time: int = 0 # минут на сборы
+    travel_time: int = 0 # минут от дома до ВУЗа
     user_address: str = ""
     user_faculty: str = ""
     has_car: bool = False
@@ -22,6 +23,7 @@ class UserConfig:
             "has_car": self.has_car,
             "semester_start": self.semester_start,
             "first_week_even": self.first_week_even,
+            "travel_time": self.travel_time,
         }
 
     @classmethod
@@ -35,4 +37,5 @@ class UserConfig:
             has_car = bool(d.get("has_car", False)),
             semester_start = d.get("semester_start", "30.03.2026"),
             first_week_even = bool(d.get("first_week_even", False)),
+            travel_time = int(d.get("travel_time", 0)),
         )

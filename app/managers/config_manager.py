@@ -65,3 +65,7 @@ class ConfigManager:
     def set_first_week_even(self, value: bool) -> None:
         self.config.first_week_even = value
         self.save()
+
+    def set_travel_time(self, value: int) -> None:
+        self.config.travel_time = value
+        self.save()

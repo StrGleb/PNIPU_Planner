@@ -124,29 +124,30 @@ def main(page: ft.Page):
 
         page.views.append(
             build_home_view(
-                navigation_bar=create_navigation_bar(index=0),
-                user_name=config_manager.config.user_name or "Студент",
-                tasks_manager=tasks_manager,
+                navigation_bar = create_navigation_bar(index = 0),
+                user_name = config_manager.config.user_name or "Студент",
+                tasks_manager = tasks_manager,
             )
         )
 
         if page.route == "/alarm":
             page.views.append(
                 build_alarm_view(
-                    navigation_bar=create_navigation_bar(index=2),
-                    clock_text=clock_text,
-                    alarm_manager=alarm_manager,
-                    page=page,
+                    navigation_bar = create_navigation_bar(index = 2),
+                    clock_text = clock_text,
+                    alarm_manager = alarm_manager,
+                    config_manager = config_manager,
+                    page = page,
                 )
             )
 
         elif page.route == "/planner":
             view, cleanup = build_planner_view(
-                navigation_bar=create_navigation_bar(index=1),
-                planner_manager=planner_manager,
-                config_manager=config_manager,
-                tasks_manager=tasks_manager,
-                page=page,
+                navigation_bar = create_navigation_bar(index=1),
+                planner_manager = planner_manager,
+                config_manager = config_manager,
+                tasks_manager = tasks_manager,
+                page = page,
             )
             page.views.append(view)
             _planner_cleanup[0] = cleanup
@@ -154,9 +155,9 @@ def main(page: ft.Page):
         elif page.route == "/settings":
             page.views.append(
                 build_settings_view(
-                    navigation_bar=create_navigation_bar(index=3),
-                    config_manager=config_manager, # Все настройки переданы через конфиг
-                    page=page, # Функционал переключения темы приложения
+                    navigation_bar = create_navigation_bar(index = 3),
+                    config_manager = config_manager, # Все настройки переданы через конфиг
+                    page = page, # Функционал переключения темы приложения
                 )
             )
 
