@@ -2,13 +2,15 @@ import flet as ft
 import datetime
 from typing import Callable
 from managers.planner_manager import PlannerManager
+from managers.config_manager import ConfigManager
 from models.lesson_model import Lesson
 
+
 # ── Константы таймлайна ────────────────────────────────────────────────────────
-HOUR_HEIGHT = 80    # пикселей на 1 час
-START_HOUR = 8     # таймлайн начинается в 08:00
-END_HOUR = 21    # таймлайн заканчивается в 20:00 (21 — не включается)
-TIME_COL_W = 52    # ширина колонки с временем
+HOUR_HEIGHT = 80 # пикселей на 1 час
+START_HOUR = 8 # таймлайн начинается в 08:00
+END_HOUR = 21 # таймлайн заканчивается в 20:00 (21 — не включается)
+TIME_COL_W = 52 # ширина колонки с временем
 
 LESSON_BG = ft.Colors.GREEN_200
 LESSON_BORDER = ft.Colors.GREEN_400
@@ -19,21 +21,34 @@ LESSON_TIME = ft.Colors.GREEN_800
 def build_planner_view(
     navigation_bar: ft.NavigationBar,
     planner_manager: PlannerManager,
+    config_manager: ConfigManager,
     page: ft.Page,
 ) -> tuple[ft.View, Callable]:
     """
-    Возвращает (View, cleanup_fn).
     cleanup_fn нужно вызвать при уходе с маршрута /planner,
-    чтобы убрать overlays из page.overlay.
+    чтобы убрать overlays из page.overlay
     """
 
     state = {
-        "date":       datetime.date.today(),
-        "week_even":  True,   # True = чётная неделя
+        "date": datetime.date.today(),
     }
 
-    # ── Утилиты ──────────────────────────────────────────────────────────────────
 
+    # ── Утилиты ──────────────────────────────────────────────────────────────────
+    def get_week_even(date: datetime.date) -> bool:
+        """
+        True - чётная, False - нечётная. 
+        Считается от начала семестра
+        """
+
+        try:
+            start = datetime.datetime.strptime(config_manager.config.semester_start, "%d.%m.%Y").date()
+            weeks_elapsed = (date - start).days // 7
+            # week 0 = первая неделя; её чётность = first_week_even
+            return (weeks_elapsed % 2 == 0) == config_manager.config.first_week_even
+        except Exception:
+            return date.isocalendar()[1] % 2 == 0
+    
     def safe_update(*controls):
         for c in controls:
             try:
@@ -50,16 +65,16 @@ def build_planner_view(
         return f"{names[d.weekday()]}  {d.strftime('%d.%m')}"
 
     def week_label() -> str:
-        return "ЧЁТ" if state["week_even"] else "НЕЧЁТ"
+        return "ЧЁТ" if get_week_even(state["date"]) else "НЕЧЁТ"
+
 
     # ── Overlays ─────────────────────────────────────────────────────────────────
-
-    add_dialog = ft.AlertDialog(modal=True, title=ft.Text("Новая пара"))
-    input_dialog = ft.AlertDialog(modal=True, title=ft.Text(""))
+    add_dialog = ft.AlertDialog(modal = True, title = ft.Text("Новая пара"))
+    input_dialog = ft.AlertDialog(modal = True, title = ft.Text(""))
     detail_sheet = ft.BottomSheet(
-        content=ft.Container(ft.Text(""), padding=16),
-        dismissible=True,
-        on_dismiss=lambda e: None,
+        content=ft.Container(ft.Text(""), padding = 16),
+        dismissible = True,
+        on_dismiss = lambda e: None,
     )
 
     page.overlay.extend([add_dialog, input_dialog, detail_sheet])
@@ -72,14 +87,14 @@ def build_planner_view(
                 except Exception:
                     pass
 
-    # ── Диалог добавления пары ───────────────────────────────────────────────────
 
+    # ── Диалог добавления пары ───────────────────────────────────────────────────
     def open_add_dialog(e=None):
-        date_f = ft.TextField(label="Дата  ДД.ММ.ГГГГ",  value=state["date"].strftime("%d.%m.%Y"))
-        ts_f = ft.TextField(label="Начало  ЧЧ:ММ", width=130)
-        te_f = ft.TextField(label="Конец   ЧЧ:ММ", width=130)
-        subj_f = ft.TextField(label="Предмет")
-        err = ft.Text("", color=ft.Colors.RED_400, size=12)
+        date_f = ft.TextField(label = "Дата  ДД.ММ.ГГГГ",  value = state["date"].strftime("%d.%m.%Y"))
+        ts_f = ft.TextField(label = "Начало  ЧЧ:ММ", width = 130)
+        te_f = ft.TextField(label = "Конец   ЧЧ:ММ", width = 130)
+        subj_f = ft.TextField(label = "Предмет")
+        err = ft.Text("", color = ft.Colors.RED_400, size = 12)
 
         def save(e):
             try:
@@ -108,20 +123,22 @@ def build_planner_view(
 
         add_dialog.content = ft.Column(
             [date_f, ft.Row([ts_f, ft.Text(" – "), te_f]), subj_f, err],
-            tight=True, spacing=10, width=290,
+            tight = True, 
+            spacing = 10, 
+            width = 290,
         )
         add_dialog.actions = [
-            ft.TextButton("Отмена",    on_click=cancel),
-            ft.FilledButton("Добавить", on_click=save),
+            ft.TextButton("Отмена", on_click = cancel),
+            ft.FilledButton("Добавить", on_click = save),
         ]
         add_dialog.open = True
         page.update()
 
-    # ── Диалог ввода одной строки (домашняя / контрольная) ───────────────────────
 
+    # ── Диалог ввода одной строки (домашняя / контрольная) ───────────────────────
     def open_input_dialog(title: str, on_save: Callable[[str], None]):
-        field = ft.TextField(label=title, autofocus=True)
-        err   = ft.Text("", color=ft.Colors.RED_400, size=12)
+        field = ft.TextField(label = title, autofocus = True)
+        err   = ft.Text("", color = ft.Colors.RED_400, size = 12)
 
         def save(e):
             text = (field.value or "").strip()
@@ -138,10 +155,10 @@ def build_planner_view(
             page.update()
 
         input_dialog.title = ft.Text(title)
-        input_dialog.content = ft.Column([field, err], tight=True, spacing=8, width=280)
+        input_dialog.content = ft.Column([field, err], tight = True, spacing = 8, width = 280)
         input_dialog.actions = [
-            ft.TextButton("Отмена",    on_click=cancel),
-            ft.FilledButton("Добавить", on_click=save),
+            ft.TextButton("Отмена",    on_click = cancel),
+            ft.FilledButton("Добавить", on_click = save),
         ]
         input_dialog.open = True
         page.update()
@@ -190,69 +207,72 @@ def build_planner_view(
 
         # Домашние работы
         if current.homeworks:
-            hw_items = [ft.Text(f"• {h}", size=13) for h in current.homeworks]
+            hw_items = [ft.Text(f"• {h}", size = 13) for h in current.homeworks]
         else:
-            hw_items = [ft.Text("отсутствуют", size=13, color=ft.Colors.GREY_500, italic=True)]
+            hw_items = [ft.Text("отсутствуют", size = 13, color = ft.Colors.GREY_500, italic = True)]
 
         # Контрольные
         if current.test_works:
-            tw_items = [ft.Text(f"• {t}", size=13) for t in current.test_works]
+            tw_items = [ft.Text(f"• {t}", size = 13) for t in current.test_works]
         else:
-            tw_items = [ft.Text("отсутствуют", size=13, color=ft.Colors.GREY_500, italic=True)]
+            tw_items = [ft.Text("отсутствуют", size = 13, color = ft.Colors.GREY_500, italic = True)]
 
         detail_sheet.content = ft.Container(
             content=ft.Column(
                 [
                     # Заголовок + крестик
                     ft.Row([
-                        ft.Container(expand=True),
-                        ft.IconButton(ft.Icons.CLOSE, on_click=close_sheet, icon_size=20),
+                        ft.Container(expand = True),
+                        ft.IconButton(ft.Icons.CLOSE, on_click = close_sheet, icon_size = 20),
                     ]),
-                    ft.Text(current.subject, size=18, weight=ft.FontWeight.BOLD),
+                    ft.Text(current.subject, size = 18, weight = ft.FontWeight.BOLD),
                     ft.Text(
                         f"{current.date_str}   {current.time_start} – {current.time_end}",
-                        size=13, color=ft.Colors.GREY_600,
+                        size = 13, color = ft.Colors.GREY_600,
                     ),
                     ft.Divider(),
+
                     # Домашние работы
                     ft.Row([
-                        ft.Text("Домашние работы:", size=14, weight=ft.FontWeight.W_600, expand=True),
-                        ft.IconButton(ft.Icons.ADD, on_click=add_hw, icon_size=20),
+                        ft.Text("Домашние работы:", size = 14, weight = ft.FontWeight.W_600, expand = True),
+                        ft.IconButton(ft.Icons.ADD, on_click = add_hw, icon_size = 20),
                     ]),
                     *hw_items,
                     ft.Divider(),
+
                     # Контрольные
                     ft.Row([
-                        ft.Text("Контрольные работы:", size=14, weight=ft.FontWeight.W_600, expand=True),
-                        ft.IconButton(ft.Icons.ADD, on_click=add_tw, icon_size=20),
+                        ft.Text("Контрольные работы:", size = 14, weight = ft.FontWeight.W_600, expand = True),
+                        ft.IconButton(ft.Icons.ADD, on_click = add_tw, icon_size = 20),
                     ]),
                     *tw_items,
                     ft.Divider(),
+
                     # Удалить
                     ft.Row(
                         [
                             ft.ElevatedButton(
                                 "Удалить пару",
-                                bgcolor=ft.Colors.RED_400,
-                                color=ft.Colors.WHITE,
-                                on_click=delete_lesson,
-                                expand=True,
+                                bgcolor = ft.Colors.RED_400,
+                                color = ft.Colors.WHITE,
+                                on_click = delete_lesson,
+                                expand = True,
                             )
                         ],
                     ),
                 ],
-                scroll=ft.ScrollMode.AUTO,
-                spacing=6,
+                scroll = ft.ScrollMode.AUTO,
+                spacing = 6,
             ),
-            padding=16,
-            height=420,
+            padding = 16,
+            height = 420,
         )
         detail_sheet.open = True
         page.update()
 
     # ── Таймлайн ────────────────────────────────────────────────────────────────
 
-    timeline_col = ft.Column(scroll=ft.ScrollMode.AUTO, expand=True, spacing=0)
+    timeline_col = ft.Column(scroll = ft.ScrollMode.AUTO, expand = True, spacing = 0)
 
     def _build_grid() -> ft.Column:
         total_h = (END_HOUR - START_HOUR) * HOUR_HEIGHT
@@ -324,29 +344,28 @@ def build_planner_view(
 
     def rebuild_timeline():
         date_text.value = fmt_day(state["date"])
+        week_label_ctrl.value = week_label()
         timeline_col.controls = [build_timeline_stack()]
-        safe_update(date_text, timeline_col)
+        safe_update(date_text, week_label_ctrl, timeline_col)
 
     # Первоначальное заполнение
     timeline_col.controls = [build_timeline_stack()]
 
     # ── Шапка ────────────────────────────────────────────────────────────────────
 
-    date_text = ft.Text(fmt_day(state["date"]), size=12, color=ft.Colors.GREY_600)
-    week_label_ctrl = ft.Text(week_label(), size=11, weight=ft.FontWeight.BOLD)
+    date_text = ft.Text(fmt_day(state["date"]), size = 12, color = ft.Colors.GREY_600)
+    week_label_ctrl = ft.Text(
+        week_label(),
+        size = 11,
+        weight = ft.FontWeight.BOLD,
+        color = ft.Colors.GREY_700,
+    )
 
-    def toggle_week(e):
-        state["week_even"] = not state["week_even"]
-        week_label_ctrl.value = week_label()
-        safe_update(week_label_ctrl)
-
-    week_btn = ft.Container(
-        content=week_label_ctrl,
-        bgcolor=ft.Colors.GREY_200,
-        border_radius=8,
-        padding=ft.padding.symmetric(horizontal=12, vertical=8),
-        on_click=toggle_week,
-        ink=True,
+    week_badge = ft.Container(
+        content = week_label_ctrl,
+        bgcolor = ft.Colors.GREY_200,
+        border_radius = 8,
+        padding = ft.padding.symmetric(horizontal = 12, vertical = 8),
     )
 
     header = ft.Container(
@@ -362,7 +381,7 @@ def build_planner_view(
                     spacing=0, expand=True,
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                week_btn,
+                week_badge,
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,

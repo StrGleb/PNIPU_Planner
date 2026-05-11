@@ -10,22 +10,20 @@ from views.settings_view import build_settings_view
 from managers.alarm_manager import AlarmManager
 from managers.planner_manager import PlannerManager
 from managers.schedule_manager import ScheduleManager
-
-
-
-# ------------------- Важные переменные -------------------
-USER_NAME = "Семён"
-get_together_time = 0
-user_address = ""
-user_faculty = ""
+from managers.config_manager import ConfigManager
 
 
 def main(page: ft.Page):
     page.title = "Planner App"
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
+    config_manager = ConfigManager()
 
     now = lambda: strftime("%H:%M:%S", localtime())
     clock_text = ft.Text(value=now())
+
+    # Применение темы приложения при старте
+    modes = {"light": ft.ThemeMode.LIGHT, "dark": ft.ThemeMode.DARK, "system": ft.ThemeMode.SYSTEM}
+    page.theme_mode = modes.get(config_manager.config.theme, ft.ThemeMode.SYSTEM)
 
     current_route = {"value": "/"}
 
@@ -79,7 +77,6 @@ def main(page: ft.Page):
     _planner_cleanup = [None]
 
     # ── Navigation bar ───────────────────────────────────────────────────────────
-
     async def handle_change(e):
         routes = {0: "/", 1: "/planner", 2: "/alarm", 3: "/settings"}
         await page.push_route(routes[e.control.selected_index])
@@ -127,7 +124,7 @@ def main(page: ft.Page):
         page.views.append(
             build_home_view(
                 navigation_bar=create_navigation_bar(index=0),
-                user_name=USER_NAME,
+                user_name=config_manager.config.user_name or "Студент",
             )
         )
 
@@ -145,6 +142,7 @@ def main(page: ft.Page):
             view, cleanup = build_planner_view(
                 navigation_bar=create_navigation_bar(index=1),
                 planner_manager=planner_manager,
+                config_manager=config_manager,
                 page=page,
             )
             page.views.append(view)
@@ -154,10 +152,8 @@ def main(page: ft.Page):
             page.views.append(
                 build_settings_view(
                     navigation_bar=create_navigation_bar(index=3),
-                    user_name=USER_NAME,
-                    get_together_time=get_together_time,
-                    user_address=user_address,
-                    user_faculty=user_faculty,
+                    config_manager=config_manager, # Все настройки переданы через конфиг
+                    page=page, # Функционал переключения темы приложения
                 )
             )
 

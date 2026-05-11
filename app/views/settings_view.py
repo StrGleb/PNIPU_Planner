@@ -1,4 +1,5 @@
 import flet as ft
+from managers.config_manager import ConfigManager
 
 FACULTIES = [
     "ЭТФ", "ХТФ", "АКФ", "Гуманитарный", "МТФ",
@@ -6,117 +7,156 @@ FACULTIES = [
     "Горно-нефтяной", "Автодорожный",
 ]
 
+THEME_OPTIONS = [
+    ft.DropdownOption(key="system", text="Системная"),
+    ft.DropdownOption(key="light",  text="Светлая"),
+    ft.DropdownOption(key="dark",   text="Тёмная"),
+]
+
+
 def build_settings_view(
     navigation_bar: ft.NavigationBar,
-    user_name: str,
-    get_together_time: int,
-    user_address: str,
-    user_faculty: str,
+    config_manager: ConfigManager,
+    page: ft.Page,
 ) -> ft.View:
+    cfg = config_manager.config
+
+    def _apply_theme(theme_key: str):
+        modes = {"light": ft.ThemeMode.LIGHT, "dark": ft.ThemeMode.DARK, "system": ft.ThemeMode.SYSTEM}
+        page.theme_mode = modes.get(theme_key, ft.ThemeMode.SYSTEM)
+        page.update()
+
+    # ── Тема ─────────────────────────────────────────────────────────────────────
+    def on_theme_change(e):
+        config_manager.set_theme(e.control.value)
+        _apply_theme(e.control.value)
+
+    dd_theme = ft.Dropdown(
+        value=cfg.theme,
+        options=THEME_OPTIONS,
+        width=200,
+        on_change=on_theme_change,
+    )
+
+    # ── Имя ──────────────────────────────────────────────────────────────────────
+    tf_name = ft.TextField(
+        value=cfg.user_name,
+        width=280,
+        on_blur=lambda e: config_manager.set_user_name(e.control.value.strip()),
+    )
+
+    # ── Время на сборы ────────────────────────────────────────────────────────────
+    def on_time_blur(e):
+        try:
+            v = int(e.control.value)
+            config_manager.set_get_together_time(max(0, v))
+        except ValueError:
+            e.control.value = str(cfg.get_together_time)
+            page.update()
+
+    tf_time = ft.TextField(
+        value=str(cfg.get_together_time),
+        width=90,
+        keyboard_type=ft.KeyboardType.NUMBER,
+        on_blur=on_time_blur,
+    )
+
+    # ── Адрес ────────────────────────────────────────────────────────────────────
+    tf_address = ft.TextField(
+        value=cfg.user_address,
+        width=280,
+        on_blur=lambda e: config_manager.set_user_address(e.control.value.strip()),
+    )
+
+    # ── Факультет ────────────────────────────────────────────────────────────────
+    dd_faculty = ft.Dropdown(
+        value=cfg.user_faculty if cfg.user_faculty in FACULTIES else FACULTIES[0],
+        options=[ft.DropdownOption(f) for f in FACULTIES],
+        width=280,
+        on_change=lambda e: config_manager.set_user_faculty(e.control.value),
+    )
+
+    # ── Машина ───────────────────────────────────────────────────────────────────
+    cb_car = ft.Checkbox(
+        label="Есть своя машина для поездок в университет",
+        value=cfg.has_car,
+        on_change=lambda e: config_manager.set_has_car(e.control.value),
+    )
+
+    # ── Начало семестра ───────────────────────────────────────────────────────────
+    def on_semester_start_blur(e):
+        import re
+        v = e.control.value.strip()
+        if re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", v):
+            config_manager.set_semester_start(v)
+        else:
+            e.control.value = cfg.semester_start
+            page.update()
+
+    tf_semester = ft.TextField(
+        value=cfg.semester_start,
+        width=140,
+        hint_text="ДД.ММ.ГГГГ",
+        on_blur=on_semester_start_blur,
+    )
+
+    cb_first_even = ft.Checkbox(
+        label="Первая неделя семестра чётная",
+        value=cfg.first_week_even,
+        on_change=lambda e: config_manager.set_first_week_even(e.control.value),
+    )
+
+    # ── View ─────────────────────────────────────────────────────────────────────
+    def row(label: str, control, hint: str = "") -> ft.Column:
+        items = [
+            ft.Text(label, size=13, color=ft.Colors.GREY_600),
+            control,
+        ]
+        if hint:
+            items.append(ft.Text(hint, size=11, color=ft.Colors.GREY_500, italic=True))
+        return ft.Column(items, spacing=4)
+
     return ft.View(
         route="/settings",
         scroll=ft.ScrollMode.HIDDEN,
+        padding=ft.padding.symmetric(horizontal=20, vertical=16),
         controls=[
-            # Заголовок
-            ft.Row(
-                [ft.Text("Настройки", size=28, weight=ft.FontWeight.BOLD)],
-                alignment=ft.MainAxisAlignment.CENTER,
+            ft.Text("Настройки", size=26, weight=ft.FontWeight.BOLD),
+            ft.Container(height=8),
+
+            # Оформление
+            ft.Text("Оформление", size=16, weight=ft.FontWeight.W_600),
+            ft.Divider(height=1),
+            row("Цветовая тема", dd_theme),
+            ft.Container(height=12),
+
+            # Персональные данные
+            ft.Text("Персональные данные", size=16, weight=ft.FontWeight.W_600),
+            ft.Divider(height=1),
+            row("Ваше имя", tf_name),
+            row("Время на сборы (мин)", tf_time),
+            row("Адрес проживания", tf_address),
+            row("Факультет", dd_faculty),
+            cb_car,
+            ft.Container(height=12),
+
+            # Расписание
+            ft.Text("Расписание", size=16, weight=ft.FontWeight.W_600),
+            ft.Divider(height=1),
+            row(
+                "Дата начала семестра",
+                tf_semester,
+                "Используется для расчёта чётности недели",
             ),
-            ft.Container(height=20),
-            
-            # --- Общие ---
-            ft.Row(
-                [ft.Text("Общие", size=18, weight=ft.FontWeight.W_600)],
-                alignment=ft.MainAxisAlignment.START,
-            ),
-            ft.Container(height=10),
-            ft.Row(
-                [
-                    ft.Text("Тема:", width=120, text_align=ft.TextAlign.RIGHT),
-                    ft.Dropdown(
-                        value="Светлая",
-                        options=[
-                            ft.DropdownOption("Тёмная"),
-                            ft.DropdownOption("Светлая"),
-                        ],
-                        width=200,
-                    ),
-                ],
-                alignment=ft.MainAxisAlignment.START,
-            ),
-            
-            ft.Divider(),
-            
-            # --- Персональные данные ---
-            ft.Row(
-                [ft.Text("Персональные данные", size=18, weight=ft.FontWeight.W_600)],
-                alignment=ft.MainAxisAlignment.START,
-            ),
-            ft.Container(height=10),
-            ft.Column(
-                [
-                    ft.Row(
-                        [
-                            ft.Text("Ваше имя:", width=120, text_align=ft.TextAlign.RIGHT),
-                            ft.TextField(value=user_name, width=300),
-                        ],
-                        alignment=ft.MainAxisAlignment.START,
-                    ),
-                    ft.Row(
-                        [
-                            ft.Text("Время на сборы:", width=120, text_align=ft.TextAlign.RIGHT),
-                            ft.TextField(value=str(get_together_time), width=100),
-                            ft.Text("минут", size=14),
-                        ],
-                        alignment=ft.MainAxisAlignment.START,
-                        spacing=10,
-                    ),
-                    ft.Row(
-                        [
-                            ft.Text("Адрес проживания:", width=120, text_align=ft.TextAlign.RIGHT),
-                            ft.TextField(value=user_address, width=300),
-                        ],
-                        alignment=ft.MainAxisAlignment.START,
-                    ),
-                    ft.Row(
-                        [
-                            ft.Text("Факультет:", width=120, text_align=ft.TextAlign.RIGHT),
-                            ft.Dropdown(
-                                value=user_faculty if user_faculty else "-",
-                                options=[ft.DropdownOption(f) for f in FACULTIES],
-                                width=300,
-                            ),
-                        ],
-                        alignment=ft.MainAxisAlignment.START,
-                    ),
-                    ft.Row(
-                        [
-                            ft.Container(width=120),
-                            ft.Checkbox(
-                                label="Есть своя машина для поездок в университет",
-                                value=False,
-                            ),
-                        ],
-                        alignment=ft.MainAxisAlignment.START,
-                    ),
-                ],
-                spacing=10,
-            ),
-            
-            ft.Divider(),
-            
-            # --- Экспорт ---
-            ft.Row(
-                [ft.Text("Экспорт расписания", size=18, weight=ft.FontWeight.W_600)],
-                alignment=ft.MainAxisAlignment.START,
-            ),
-            ft.Container(height=10),
-            ft.Row(
-                [
-                    ft.Container(width=120),
-                    ft.ElevatedButton("Экспорт из xlsx..."),  # Убрал иконку
-                ],
-                alignment=ft.MainAxisAlignment.START,
+            cb_first_even,
+            ft.Container(height=12),
+
+            # Экспорт
+            ft.Text("Экспорт расписания", size=16, weight=ft.FontWeight.W_600),
+            ft.Divider(height=1),
+            ft.ElevatedButton(
+                "Импортировать из xlsx...",
+                icon=ft.Icons.UPLOAD_FILE,
             ),
         ],
         navigation_bar=navigation_bar,
