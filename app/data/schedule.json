@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "odd": [
+    {"day": 2, "time_start": "9:40",  "time_end": "11:10", "subject": "МАТЕМАТИКА",                              "lesson_type": "лек", "teacher": "доц. Мошонкина Н.А.", "room": "5б к.Д"},
+    {"day": 2, "time_start": "11:30", "time_end": "13:00", "subject": "МАТЕМАТИКА",                              "lesson_type": "пр",  "teacher": "доц. Мошонкина Н.А.", "room": "6б к.Д"},
+    {"day": 2, "time_start": "13:20", "time_end": "14:50", "subject": "МАТЕМАТИКА",                              "lesson_type": "пр",  "teacher": "доц. Мошонкина Н.А.", "room": "6б к.Д"},
+    {"day": 3, "time_start": "11:30", "time_end": "13:00", "subject": "ПРИКЛАДНАЯ ФИЗИЧЕСКАЯ КУЛЬТУРА",          "lesson_type": "пр",  "teacher": "асс. Новиков Е.П.",   "room": ""},
+    {"day": 3, "time_start": "13:20", "time_end": "14:50", "subject": "ИНОСТРАННЫЙ ЯЗЫК",                        "lesson_type": "пр",  "teacher": "доц. Копылова Е.В.",  "room": "400 к.А (ЭТФ)"},
+    {"day": 3, "time_start": "15:00", "time_end": "16:30", "subject": "ОСНОВЫ АЛГОРИТМИЗАЦИИ И ПРОГРАММИРОВАНИЯ","lesson_type": "лаб", "teacher": "доц. Полякова О.А.",  "room": "229 к.А (ЭТФ)"},
+    {"day": 4, "time_start": "11:30", "time_end": "13:00", "subject": "ИНФОРМАТИКА",                             "lesson_type": "лаб", "teacher": "доц. Полякова О.А.",  "room": "229 к.А (ЭТФ)"},
+    {"day": 4, "time_start": "13:20", "time_end": "14:50", "subject": "ТЕОРИЯ АЛГОРИТМОВ И СТРУКТУРЫ ДАННЫХ",    "lesson_type": "лаб", "teacher": "доц. Полякова О.А.",  "room": "229 к.А (ЭТФ)"},
+    {"day": 4, "time_start": "15:00", "time_end": "16:30", "subject": "ИНОСТРАННЫЙ ЯЗЫК",                        "lesson_type": "пр",  "teacher": "доц. Смирнова И.В.",  "room": "408 к.А (ЭТФ)"},
+    {"day": 5, "time_start": "11:30", "time_end": "13:00", "subject": "ТЕОРИЯ АЛГОРИТМОВ И СТРУКТУРЫ ДАННЫХ",    "lesson_type": "лек", "teacher": "доц. Полякова О.А.",  "room": "5б к.Д"},
+    {"day": 5, "time_start": "13:20", "time_end": "14:50", "subject": "ТЕОРИЯ АЛГОРИТМОВ И СТРУКТУРЫ ДАННЫХ",    "lesson_type": "лек", "teacher": "доц. Полякова О.А.",  "room": "5б к.Д"}
+  ],
+  "even": [
+    {"day": 2, "time_start": "13:20", "time_end": "14:50", "subject": "УЧЕБНО-ИССЛЕДОВАТЕЛЬСКАЯ РАБОТА",         "lesson_type": "пр",  "teacher": "доц. Петренко А.А.", "room": "128 к.А (ЭТФ)"},
+    {"day": 2, "time_start": "15:00", "time_end": "16:30", "subject": "ИНОСТРАННЫЙ ЯЗЫК",                        "lesson_type": "пр",  "teacher": "доц. Копылова Е.В.", "room": "400 к.А (ЭТФ)"},
+    {"day": 4, "time_start": "8:00",  "time_end": "9:30",  "subject": "ИСТОРИЯ РОССИИ",                          "lesson_type": "пр",  "teacher": "доц. Белоногов Ю.Г.","room": "5б к.Д"},
+    {"day": 4, "time_start": "9:40",  "time_end": "11:10", "subject": "ИСТОРИЯ РОССИИ",                          "lesson_type": "лек", "teacher": "доц. Белоногов Ю.Г.","room": "5б к.Д"},
+    {"day": 4, "time_start": "11:30", "time_end": "13:00", "subject": "ОСНОВЫ АЛГОРИТМИЗАЦИИ И ПРОГРАММИРОВАНИЯ","lesson_type": "лаб", "teacher": "доц. Полякова О.А.", "room": "229 к.А (ЭТФ)"}
+  ]
+}
