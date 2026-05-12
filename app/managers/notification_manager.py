@@ -36,7 +36,6 @@ def calculate_task_rating(task, today: datetime.date) -> float:
         priority = 3, любой срок → 90+ (всегда уведомление)
         priority = 3, сегодня → 210 (критично)
 
-    БУДЕТ ПЕРЕПИСАНО НА C++
     """
     try:
         task_date = datetime.datetime.strptime(task.date_str, "%d.%m.%Y").date()
@@ -57,6 +56,45 @@ def calculate_task_rating(task, today: datetime.date) -> float:
 
     return priority_score + urgency_score
 
+# ── МАТЕМАТИЧЕСКОЕ ЯДРО АЛГОРИТМА РАСЧЁТА РЕЙТИНГА  (Будущий C++) ─────────────────────────────────
+def compute_rating_value(priority: int, days_until: int) -> float:
+    """
+    Эта функция НЕ ЗНАЕТ о существовании объектов Task.
+    Она принимает только числа. В будущем мы просто заменим её вызов 
+    на вызов модуля core_logic.calculate_rating(priority, days_until)
+    (логика для перехода на C++)
+
+    БУДЕТ ПЕРЕПИСАНО НА C++
+    """
+    priority_score = priority * 30.0
+    
+    if days_until < 0:
+        urgency_score = 150.0  # просрочено
+    elif days_until == 0:
+        urgency_score = 120.0  # сегодня
+    elif days_until <= 14:
+        urgency_score = (1.0 - days_until / 14.0) * 100.0
+    else:
+        urgency_score = 0.0
+
+    return priority_score + urgency_score
+
+# ── АДАПТЕР (Останется в Python) ────────────────────────────────────
+def calculate_task_rating(task, today: datetime.date) -> float:
+    """
+    Адаптер: берет объект, достает из него данные, считает дни,
+    и передает их в «ядро»
+    (Логика для перехода от пользовательских данных в Python к простым типам данных, читаемывх C++)
+    """
+    try:
+        task_date = datetime.datetime.strptime(task.date_str, "%d.%m.%Y").date()
+    except Exception:
+        return 0.0
+
+    days_until = (task_date - today).days
+    
+    # Вызов будущего C++ модуля
+    return compute_rating_value(task.priority, days_until)
 
 # ── Отправка уведомления ──────────────────────────────────────────────────────
 def send_notification(title: str, message: str) -> None:
@@ -79,14 +117,15 @@ def send_notification(title: str, message: str) -> None:
 # ── Основная проверка ─────────────────────────────────────────────────────────
 def check_and_notify(tasks_manager: "TasksManager") -> None:
     """
-    1. Пересчитывает рейтинги всех задач.
-    2. Отправляет уведомление, если есть задачи выше порога NOTIFICATION_THRESHOLD.
+    Логика управления: берет менеджер, итерируется по задачам,
+    дергает вычисления и отправляет уведомления.
     БУДЕТ ПЕРЕПИСАНО НА C++
     """
     today = datetime.date.today()
+    all_tasks = tasks_manager.get_all_tasks()
 
     # Пересчёт рейтингов
-    for task in tasks_manager.get_all_tasks():
+    for task in all_tasks:
         rating = calculate_task_rating(task, today)
         tasks_manager.update_rating(task.id, rating)
 
