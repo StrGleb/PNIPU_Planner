@@ -14,7 +14,6 @@ class PlannerManager:
         self._lessons: dict[str, Lesson] = {}  # id -> Lesson
 
     # ── CRUD ────────────────────────────────────────────────────────────────────
-
     def add_lesson(
         self,
         date: datetime.date,
@@ -22,7 +21,7 @@ class PlannerManager:
         time_end: str,
         subject: str,
     ) -> Lesson:
-        lesson = Lesson(date=date, time_start=time_start, time_end=time_end, subject=subject)
+        lesson = Lesson(date = date, time_start = time_start, time_end = time_end, subject = subject)
         self._lessons[lesson.id] = lesson
         return lesson
 
@@ -45,6 +44,11 @@ class PlannerManager:
         lesson = self._lessons.get(lesson_id)
         if lesson:
             lesson.test_works.append(text)
+
+    def add_lab_work(self, lesson_id: str, text: str) -> None:
+        lesson = self._lessons.get(lesson_id)
+        if lesson:
+            lesson.lab_works.append(text)
 
     # ── Import ───────────────────────────────────────────────────────────────────
 

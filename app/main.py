@@ -12,13 +12,15 @@ from managers.planner_manager import PlannerManager
 from managers.schedule_manager import ScheduleManager
 from managers.config_manager import ConfigManager
 from managers.tasks_manager import TasksManager
+from managers.notification_manager import start_daily_checker
 
 
 def main(page: ft.Page):
     page.title = "Университетский помощник"
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
     config_manager = ConfigManager()
-    tasks_manager = TasksManager() 
+    tasks_manager = TasksManager()
+    start_daily_checker(tasks_manager)
 
     now = lambda: strftime("%H:%M:%S", localtime())
     clock_text = ft.Text(value=now())
