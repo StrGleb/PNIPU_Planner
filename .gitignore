@@ -210,4 +210,7 @@ __marimo__/
 # Blueprint files
 app/test.py
 
-.vscode
+
+# Игнорировать среду разработки
+.venv/
+.vscode/
