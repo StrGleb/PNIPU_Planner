@@ -1,6 +1,5 @@
 """
 Менеджер уведомлений: расчёт рейтинга задач и отправка push-уведомлений.
-Зависимость: pip install plyer
 """
 import datetime
 import threading

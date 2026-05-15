@@ -2,6 +2,7 @@ import flet as ft
 import threading
 import datetime
 from time import localtime, strftime, sleep
+import logging
 
 from views.home_view import build_home_view
 from views.alarm_view import build_alarm_view
@@ -14,6 +15,15 @@ from managers.config_manager import ConfigManager
 from managers.tasks_manager import TasksManager
 from managers.notification_manager import start_daily_checker
 
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    filename="app.log",
+    encoding="utf-8"
+)
+
+logger = logging.getLogger(__name__)
 
 def main(page: ft.Page):
     page.title = "Университетский помощник"
@@ -37,8 +47,8 @@ def main(page: ft.Page):
             clock_text.value = now()
             try:
                 clock_text.update()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"Возникла ошибка при попытке обновления времени в приложении: {e}")
 
     threading.Thread(target=update_time, daemon=True).start()
 
@@ -62,12 +72,6 @@ def main(page: ft.Page):
 
     planner_manager = PlannerManager()
     schedule_manager = ScheduleManager()
-
-    # Демо-данные
-    # planner_manager.load_from_dict({
-    #     f"{__import__('datetime').date.today().strftime('%d.%m.%Y')} 8:00-9:30":   "Всеобщая история",
-    #     f"{__import__('datetime').date.today().strftime('%d.%m.%Y')} 9:40-11:10":  "Математика (лек.)",
-    # })
 
     # При первом запуске заполнить семестр (раскомментировать один раз):
     schedule_manager.apply_semester(

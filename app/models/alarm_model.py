@@ -1,6 +1,7 @@
 import uuid
 from dataclasses import dataclass, field
 from typing import List
+from datetime import datetime
 
 DAY_NAMES = {1: "Пн", 2: "Вт", 3: "Ср", 4: "Чт", 5: "Пт", 6: "Сб", 7: "Вс"}
 
@@ -23,6 +24,17 @@ class Alarm:
         if not self.days:
             return "Каждый день"
         return ", ".join(DAY_NAMES[d] for d in sorted(self.days) if d in DAY_NAMES)
+    
+    def matches_now(self, now: datetime) -> bool:
+        """True если будильник должен сработать прямо сейчас."""
+        if not self.enabled:
+            return False
+        if now.hour != self.hour or now.minute != self.minute:
+            return False
+        if not self.days:
+            return True # каждый день
+        iso_weekday = now.isoweekday() # 1=Пн … 7=Вс
+        return iso_weekday in self.days
 
     def to_dict(self) -> dict:
         return {
