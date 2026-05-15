@@ -13,7 +13,6 @@ from managers.schedule_manager import ScheduleManager
 from managers.config_manager import ConfigManager
 from managers.tasks_manager import TasksManager
 
-
 def main(page: ft.Page):
     page.title = "Университетский помощник"
     page.vertical_alignment = ft.MainAxisAlignment.CENTER

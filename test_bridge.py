@@ -1,17 +1,15 @@
-print("START")
+import os
+import sys
 
-from app.bridges.alarm_calculator_bridge import make_alarm
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "app"))
 
-print("IMPORTED")
+from bridges.planner_bridge import make_alarm
 
 result = make_alarm(
     8,
     30,
     40,
-    25
+    20
 )
 
-print("RESULT:")
 print(result)
-
-print("END")

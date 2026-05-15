@@ -2,6 +2,7 @@ import flet as ft
 from models.alarm_model import Alarm
 from managers.alarm_manager import AlarmManager
 from managers.config_manager import ConfigManager
+from bridges.planner_bridge import is_valid_time
 
 
 def build_alarm_view(
@@ -147,8 +148,9 @@ def build_alarm_view(
         try:
             h = int(hour_field.value)
             m = int(minute_field.value)
-            assert 0 <= h <= 23 and 0 <= m <= 59
-        except (ValueError, AssertionError):
+            if not is_valid_time(h, m):
+                raise ValueError("invalid time")
+        except ValueError:
             dialog_error.value = "Введите корректное время (ч: 0–23, мин: 0–59)"
             page.update()
             return

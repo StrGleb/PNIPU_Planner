@@ -1,5 +1,6 @@
 import flet as ft
 from managers.config_manager import ConfigManager
+from bridges.planner_bridge import normalize_duration_minutes
 
 FACULTIES = [
     "ЭТФ", "ХТФ", "АКФ", "Гуманитарный", "МТФ",
@@ -49,7 +50,7 @@ def build_settings_view(
     def on_time_blur(e):
         try:
             v = int(e.control.value)
-            config_manager.set_get_together_time(max(0, v))
+            config_manager.set_get_together_time(normalize_duration_minutes(v))
         except ValueError:
             e.control.value = str(cfg.get_together_time)
             page.update()
@@ -110,7 +111,7 @@ def build_settings_view(
     def on_travel_blur(e):
         try:
             v = int(e.control.value)
-            config_manager.set_travel_time(max(0, v))
+            config_manager.set_travel_time(normalize_duration_minutes(v))
         except ValueError:
             e.control.value = str(cfg.travel_time)
             page.update()
