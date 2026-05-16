@@ -134,6 +134,7 @@ def main(page: ft.Page):
                 navigation_bar = create_navigation_bar(index = 0),
                 user_name = config_manager.config.user_name or "Студент",
                 tasks_manager = tasks_manager,
+                config_manager = config_manager,
             )
         )
 

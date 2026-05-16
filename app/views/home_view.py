@@ -17,6 +17,7 @@ def build_home_view(
     navigation_bar: ft.NavigationBar,
     user_name: str,
     tasks_manager: TasksManager,
+    config_manager = None,
 ) -> ft.View:
 
     greeting = greeting_choose()
@@ -65,20 +66,33 @@ def build_home_view(
         )
 
     # ── Тестирование геокодирования ────────────────────────────────────────
-    test_result = ft.Text("Результат геокодирования появится здесь", size=12, color=ft.Colors.GREY_600)
+    test_result = ft.Text("", size=12)
     
     def test_geocoder(e):
-        coords = get_coordinates_by_address("Москва, Красная площадь")
+        if not config_manager:
+            test_result.value = "✗ Ошибка: config_manager не инициализирован"
+            test_result.color = ft.Colors.RED
+            test_result.update()
+            return
+        
+        address = config_manager.config.user_address.strip()
+        if not address:
+            test_result.value = "✗ Адрес не указан в настройках"
+            test_result.color = ft.Colors.ORANGE
+            test_result.update()
+            return
+        
+        coords = get_coordinates_by_address(address)
         if coords:
             lon, lat = coords
-            test_result.value = f"✓ Координаты: {lat}, {lon}"
+            test_result.value = f"✓ {address}: {lat}, {lon}"
             test_result.color = ft.Colors.GREEN
         else:
-            test_result.value = "✗ Не удалось получить координаты"
+            test_result.value = f"✗ Адрес не найден: {address}"
             test_result.color = ft.Colors.RED
         test_result.update()
     
-    geocoder_test_btn = ft.IconButton(ft.Icons.LOCATION_ON, on_click=test_geocoder, tooltip="Тест геокодирования")
+    geocoder_test_btn = ft.IconButton(ft.Icons.LOCATION_ON, on_click=test_geocoder, tooltip="Геокодировать адрес проживания")
 
     # ── View ──────────────────────────────────────────────────────────────────
     return ft.View(
@@ -119,7 +133,7 @@ def build_home_view(
 
                     # Тест геокодирования
                     ft.Row([
-                        ft.Text("Тест геокодирования:", size=14, weight=ft.FontWeight.BOLD),
+                        ft.Text("Адрес проживания:", size=14, weight=ft.FontWeight.BOLD),
                         geocoder_test_btn
                     ]),
                     test_result,
