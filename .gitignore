@@ -210,7 +210,13 @@ __marimo__/
 # Blueprint files
 app/test.py
 
+# Игнорировать кэш Python
+__pycache__/
+*.pyc
 
 # Игнорировать среду разработки
 .venv/
 .vscode/
+
+# Игнорировать временные файлы
+.DS_Store

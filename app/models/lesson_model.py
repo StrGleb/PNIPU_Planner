@@ -9,9 +9,10 @@ class Lesson:
     time_start: str # "09:40"
     time_end: str # "11:10"
     subject: str
-    homeworks: list[str] = field(default_factory=list)
-    test_works: list[str] = field(default_factory=list)
-    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    homeworks: list[str] = field(default_factory = list)
+    test_works: list[str] = field(default_factory = list)
+    lab_works: list[str] = field(default_factory = list)
+    id: str = field(default_factory = lambda: str(uuid.uuid4()))
 
     @property
     def date_str(self) -> str:
@@ -25,4 +26,4 @@ class Lesson:
         date_part, time_part = key.split(" ")
         date = datetime.datetime.strptime(date_part, "%d.%m.%Y").date()
         time_start, time_end = time_part.split("-")
-        return cls(date=date, time_start=time_start.strip(), time_end=time_end.strip(), subject=subject)
+        return cls(date = date, time_start = time_start.strip(), time_end = time_end.strip(), subject = subject)

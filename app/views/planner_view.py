@@ -3,8 +3,10 @@ import datetime
 from typing import Callable
 from managers.planner_manager import PlannerManager
 from managers.config_manager import ConfigManager
-from models.lesson_model import Lesson
+from managers.notification_manager import check_and_notify
 from managers.tasks_manager import TasksManager
+from models.lesson_model import Lesson
+from models.task_model import TASK_TYPE_HOMEWORK, TASK_TYPE_TEST, TASK_TYPE_LAB
 from models.task_model import TASK_TYPE_HOMEWORK, TASK_TYPE_TEST
 from bridges.planner_bridge import is_week_even, time_to_minutes
 
@@ -132,7 +134,17 @@ def build_planner_view(
     # ── Диалог ввода одной строки (домашняя / контрольная) ───────────────────────
     def open_input_dialog(title: str, on_save: Callable[[str], None]):
         field = ft.TextField(label = title, autofocus = True)
-        err   = ft.Text("", color = ft.Colors.RED_400, size = 12)
+        err = ft.Text("", color = ft.Colors.RED_400, size = 12)
+        priority_dd = ft.Dropdown(
+            value = "0",
+            options = [
+                ft.DropdownOption(key = "0", text = "0 — Обычная"),
+                ft.DropdownOption(key = "1", text = "1 — Важная"),
+                ft.DropdownOption(key = "2", text = "2 — Срочная"),
+                ft.DropdownOption(key = "3", text = "3 — Критическая"),
+            ],
+            width = 220,
+        )
 
         def save(e):
             text = (field.value or "").strip()
@@ -140,25 +152,28 @@ def build_planner_view(
                 err.value = "Поле не может быть пустым"
                 page.update()
                 return
+            priority = int(priority_dd.value or "0")
             input_dialog.open = False
             page.update()
-            on_save(text)
+            on_save(text, priority)
 
         def cancel(e):
             input_dialog.open = False
             page.update()
 
         input_dialog.title = ft.Text(title)
-        input_dialog.content = ft.Column([field, err], tight = True, spacing = 8, width = 280)
+        input_dialog.content = ft.Column(
+            [field, ft.Text("Приоритет:", size = 13), priority_dd, err],
+            tight = True, spacing = 8, width = 280,
+        )
         input_dialog.actions = [
-            ft.TextButton("Отмена",    on_click = cancel),
+            ft.TextButton("Отмена", on_click = cancel),
             ft.FilledButton("Добавить", on_click = save),
         ]
         input_dialog.open = True
         page.update()
 
     # ── Детальная панель пары (BottomSheet) ──────────────────────────────────────
-
     def open_detail(lesson: Lesson):
         # Берём актуальную версию урока из менеджера
         current = planner_manager.get_lesson(lesson.id)
@@ -170,45 +185,67 @@ def build_planner_view(
             page.update()
 
         def add_hw(e):
-            open_input_dialog(
-                "Домашняя работа",
-                lambda text: _after_add_hw(current.id, text),
-            )
+            open_input_dialog("Домашняя работа",
+                lambda text, p: _after_add_hw(current.id, text, p))
 
         def add_tw(e):
-            open_input_dialog(
-                "Контрольная работа",
-                lambda text: _after_add_tw(current.id, text),
-            )
+            open_input_dialog("Контрольная работа",
+                lambda text, p: _after_add_tw(current.id, text, p))
 
-        def _after_add_hw(lid, text):
+        def add_lb(e):
+            open_input_dialog("Лабораторная работа",
+                lambda text, p: _after_add_lb(current.id, text, p))
+
+        def _after_add_hw(lid, text, priority=0):
             planner_manager.add_homework(lid, text)
             lesson = planner_manager.get_lesson(lid)
             if lesson:
                 tasks_manager.add_task(
-                    task_type = TASK_TYPE_HOMEWORK,
-                    date_str = lesson.date_str,
+                    task_type  = TASK_TYPE_HOMEWORK,
+                    date_str   = lesson.date_str,
                     time_start = lesson.time_start,
-                    subject = lesson.subject,
-                    text = text,
-                    lesson_id = lid,
+                    subject    = lesson.subject,
+                    text       = text,
+                    lesson_id  = lid,
+                    priority   = priority,
                 )
+                check_and_notify(tasks_manager)   # пересчёт рейтинга при добавлении
             lesson_fresh = planner_manager.get_lesson(lid)
             if lesson_fresh:
                 open_detail(lesson_fresh)
 
-        def _after_add_tw(lid, text):
+        def _after_add_tw(lid, text, priority=0):
             planner_manager.add_test_work(lid, text)
             lesson = planner_manager.get_lesson(lid)
             if lesson:
                 tasks_manager.add_task(
-                    task_type = TASK_TYPE_TEST,
-                    date_str = lesson.date_str,
+                    task_type  = TASK_TYPE_TEST,
+                    date_str   = lesson.date_str,
                     time_start = lesson.time_start,
-                    subject = lesson.subject,
-                    text = text,
-                    lesson_id = lid,
+                    subject    = lesson.subject,
+                    text       = text,
+                    lesson_id  = lid,
+                    priority   = priority,
                 )
+                check_and_notify(tasks_manager)
+            lesson_fresh = planner_manager.get_lesson(lid)
+            if lesson_fresh:
+                open_detail(lesson_fresh)
+
+        def _after_add_lb(lid, text, priority=0):
+            planner_manager.add_lab_work(lid, text)
+            lesson = planner_manager.get_lesson(lid)
+            if lesson:
+                tasks_manager.add_task(
+                    task_type  = TASK_TYPE_LAB,
+                    date_str   = lesson.date_str,
+                    time_start = lesson.time_start,
+                    subject    = lesson.subject,
+                    text       = text,
+                    lesson_id  = lid,
+                    priority   = priority,
+                )
+                check_and_notify(tasks_manager)
             lesson_fresh = planner_manager.get_lesson(lid)
             if lesson_fresh:
                 open_detail(lesson_fresh)
@@ -231,6 +268,12 @@ def build_planner_view(
             tw_items = [ft.Text(f"• {t}", size = 13) for t in current.test_works]
         else:
             tw_items = [ft.Text("отсутствуют", size = 13, color = ft.Colors.GREY_500, italic = True)]
+        
+        # Лабораторные работы
+        if current.lab_works:
+            lb_items = [ft.Text(f"• {l}", size=13) for l in current.lab_works]
+        else:
+            lb_items = [ft.Text("отсутствуют", size=13, color=ft.Colors.GREY_500, italic=True)]
 
         detail_sheet.content = ft.Container(
             content=ft.Column(
@@ -261,6 +304,13 @@ def build_planner_view(
                         ft.IconButton(ft.Icons.ADD, on_click = add_tw, icon_size = 20),
                     ]),
                     *tw_items,
+                    ft.Divider(),
+
+                    ft.Row([
+                        ft.Text("Лабораторные работы:", size=14, weight=ft.FontWeight.W_600, expand=True),
+                        ft.IconButton(ft.Icons.ADD, on_click=add_lb, icon_size=20),
+                    ]),
+                    *lb_items,
                     ft.Divider(),
 
                     # Удалить

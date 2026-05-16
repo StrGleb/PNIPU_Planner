@@ -1,13 +1,15 @@
 """
-Персистентное хранилище домашних заданий и контрольных работ.
+Персистентное хранилище задач (д/з, к/р, лабораторные).
 Файл: ~/.pnipu_planner/tasks.json
-ВРЕМЕННАЯ РЕАЛИЗАЦИЯ ЧЕРЕЗ JSON-ФАЙЛ
+ВРЕМЕННАЯ РЕАЛИЗАЦИЯ ЧЕРЕЗ JSON-ФАЙЛ?
 """
+
 import json
 import datetime
 import pathlib
 from typing import List
-from models.task_model import Task, TASK_TYPE_HOMEWORK, TASK_TYPE_TEST
+
+from models.task_model import Task, TASK_TYPE_HOMEWORK, TASK_TYPE_TEST, TASK_TYPE_LAB
 
 
 def _storage_path() -> pathlib.Path:
@@ -17,7 +19,7 @@ def _storage_path() -> pathlib.Path:
 
 class TasksManager:
     def __init__(self):
-        self._path = _storage_path()
+        self._path  = _storage_path()
         self._tasks: List[Task] = self._load()
 
     # ── Загрузка / сохранение ─────────────────────────────────────────────────
@@ -34,12 +36,11 @@ class TasksManager:
     def _save(self) -> None:
         with open(self._path, "w", encoding="utf-8") as f:
             json.dump(
-                {"version": 1, "tasks": [t.to_dict() for t in self._tasks]},
+                {"version": 2, "tasks": [t.to_dict() for t in self._tasks]},
                 f, ensure_ascii=False, indent=2,
             )
 
     # ── CRUD ──────────────────────────────────────────────────────────────────
-
     def add_task(
         self,
         task_type: str,
@@ -48,6 +49,7 @@ class TasksManager:
         subject: str,
         text: str,
         lesson_id: str,
+        priority: int = 0,
     ) -> Task:
         task = Task(
             task_type = task_type,
@@ -56,6 +58,7 @@ class TasksManager:
             subject = subject,
             text = text,
             lesson_id = lesson_id,
+            priority = max(0, min(3, priority)),
         )
         self._tasks.append(task)
         self._save()
@@ -66,17 +69,29 @@ class TasksManager:
         self._save()
 
     def remove_tasks_for_lesson(self, lesson_id: str) -> None:
-        """Удаляет все задачи, привязанные к паре (при удалении пары из Planner)."""
         self._tasks = [t for t in self._tasks if t.lesson_id != lesson_id]
         self._save()
 
+    def update_rating(self, task_id: str, rating: float) -> None:
+        for t in self._tasks:
+            if t.id == task_id:
+                t.rating = rating
+        self._save()
+
     # ── Запросы ───────────────────────────────────────────────────────────────
-    def get_tests_for_date(self, date: datetime.date) -> List[Task]:
+    def get_all_tasks(self) -> List[Task]:
+        return list(self._tasks)
+
+    def _get_by_type_and_date(self, task_type: str, date: datetime.date) -> List[Task]:
         ds = date.strftime("%d.%m.%Y")
-        return [t for t in self._tasks
-                if t.task_type == TASK_TYPE_TEST and t.date_str == ds]
+        result = [t for t in self._tasks if t.task_type == task_type and t.date_str == ds]
+        return sorted(result, key=lambda t: t.priority, reverse=True)
+
+    def get_tests_for_date(self, date: datetime.date) -> List[Task]:
+        return self._get_by_type_and_date(TASK_TYPE_TEST, date)
 
     def get_homework_for_date(self, date: datetime.date) -> List[Task]:
-        ds = date.strftime("%d.%m.%Y")
-        return [t for t in self._tasks
-                if t.task_type == TASK_TYPE_HOMEWORK and t.date_str == ds]
+        return self._get_by_type_and_date(TASK_TYPE_HOMEWORK, date)
+
+    def get_labs_for_date(self, date: datetime.date) -> List[Task]:
+        return self._get_by_type_and_date(TASK_TYPE_LAB, date)
