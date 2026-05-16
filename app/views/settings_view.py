@@ -1,6 +1,6 @@
 import flet as ft
 from managers.config_manager import ConfigManager
-from bridges.planner_bridge import normalize_duration_minutes
+from bridges.planner_bridge import lib
 
 FACULTIES = [
     "ЭТФ - Электротехнический факультет", "ХТФ - Факультет химических технологий, промышленной экологии и биотехнологий", "АКФ - Аэрокосмический факультет", "Гуманитарный факультет", "МТФ - Механико-технологический факультет",
@@ -62,7 +62,7 @@ def build_settings_view(
     def on_time_blur(e):
         try:
             v = int(e.control.value)
-            config_manager.set_get_together_time(normalize_duration_minutes(v))
+            config_manager.set_get_together_time(lib.normalize_duration_minutes(v))
         except ValueError:
             e.control.value = str(cfg.get_together_time)
             page.update()
@@ -123,7 +123,7 @@ def build_settings_view(
     def on_travel_blur(e):
         try:
             v = int(e.control.value)
-            config_manager.set_travel_time(normalize_duration_minutes(v))
+            config_manager.set_travel_time(lib.normalize_duration_minutes(v))
         except ValueError:
             e.control.value = str(cfg.travel_time)
             page.update()
@@ -143,7 +143,7 @@ def build_settings_view(
         ]
         if hint:
             items.append(ft.Text(hint, size = 11, color = ft.Colors.GREY_500, italic = True))
-        return ft.Column(items, spacing =   4)
+        return ft.Column(items, spacing = 4)
 
     return ft.View(
         route="/settings",
@@ -188,7 +188,7 @@ def build_settings_view(
                 "Импортировать из xlsx...",
                 icon=ft.Icons.UPLOAD_FILE,
             ),
-            ft.Container(height=12),
+            ft.Container(height = 12),
 
             # Раздел "О приложении"
             ft.Text("Сведения о приложении", size = 16, weight = ft.FontWeight.W_600),
@@ -197,6 +197,7 @@ def build_settings_view(
                 "О приложении",
                 icon=ft.Icons.INFO_OUTLINE,
             ),
+            ft.Text("Версия: 0.1_beta", size = 12, weight = ft.FontWeight.W_500, color = ft.Colors.GREY_500),
         ],
         navigation_bar = navigation_bar,
     )

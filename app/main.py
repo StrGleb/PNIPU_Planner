@@ -17,10 +17,10 @@ from managers.notification_manager import start_daily_checker
 
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    filename="app.log",
-    encoding="utf-8"
+    level = logging.INFO,
+    format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    filename = "app.log",
+    encoding = "utf-8"
 )
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ def main(page: ft.Page):
     start_daily_checker(tasks_manager)
 
     now = lambda: strftime("%H:%M:%S", localtime())
-    clock_text = ft.Text(value=now())
+    clock_text = ft.Text(value = now())
 
     # Применение темы приложения при старте
     modes = {"light": ft.ThemeMode.LIGHT, "dark": ft.ThemeMode.DARK, "system": ft.ThemeMode.SYSTEM}
@@ -50,17 +50,18 @@ def main(page: ft.Page):
             except Exception as e:
                 logger.error(f"Возникла ошибка при попытке обновления времени в приложении: {e}")
 
-    threading.Thread(target=update_time, daemon=True).start()
+    threading.Thread(target = update_time, daemon = True).start()
 
     alarm_manager = AlarmManager()
     alarm_manager.start_background_checker()
 
 
     def global_alarm_callback(alarm):
+        # Временная заглушка
         snack = ft.SnackBar(
-            content=ft.Text(f"⏰ Сработал будильник: {alarm.label}!", size=18, weight=ft.FontWeight.BOLD),
-            bgcolor=ft.Colors.BLUE_700,
-            duration=5000,
+            content = ft.Text(f"⏰ Сработал будильник: {alarm.label}!", size = 18, weight = ft.FontWeight.BOLD),
+            bgcolor = ft.Colors.BLUE_700,
+            duration = 5000,
         )
         
         page.overlay.append(snack)
@@ -68,7 +69,7 @@ def main(page: ft.Page):
         page.update()
         
     alarm_manager.set_trigger_callback(global_alarm_callback)
-    # --------------------------
+    # ───────────────────────────────────────────────────────────
 
     planner_manager = PlannerManager()
     schedule_manager = ScheduleManager()
@@ -76,9 +77,9 @@ def main(page: ft.Page):
     # При первом запуске заполнить семестр (раскомментировать один раз):
     schedule_manager.apply_semester(
         planner_manager,
-        start_date=datetime.date(2026, 3, 30),
-        end_date=datetime.date(2026, 6, 30),
-        first_week_even=False,   # 1 неделя = нечётная
+        start_date = datetime.date(2026, 3, 30),
+        end_date = datetime.date(2026, 6, 30),
+        first_week_even = False,   # 1 неделя = нечётная
     )
 
     # Хранит cleanup-функцию активного planner view
@@ -91,24 +92,24 @@ def main(page: ft.Page):
 
     def create_navigation_bar(index: int = 0) -> ft.NavigationBar:
         return ft.NavigationBar(
-            selected_index=index,
-            on_change=handle_change,
+            selected_index = index,
+            on_change = handle_change,
             destinations=[
-                ft.NavigationBarDestination(icon=ft.Icons.HOME_ROUNDED, label="Home"),
+                ft.NavigationBarDestination(icon = ft.Icons.HOME_ROUNDED, label = "Home"),
                 ft.NavigationBarDestination(
-                    icon=ft.Icons.CALENDAR_TODAY_OUTLINED,
-                    selected_icon=ft.Icons.CALENDAR_TODAY,
-                    label="Planner",
+                    icon = ft.Icons.CALENDAR_TODAY_OUTLINED,
+                    selected_icon = ft.Icons.CALENDAR_TODAY,
+                    label = "Planner",
                 ),
-                ft.NavigationBarDestination(icon=ft.Icons.ACCESS_ALARM, label="Alarm"),
+                ft.NavigationBarDestination(icon=ft.Icons.ACCESS_ALARM, label = "Alarm"),
                 ft.NavigationBarDestination(
-                    icon=ft.Icons.SETTINGS_APPLICATIONS_OUTLINED,
-                    selected_icon=ft.Icons.SETTINGS_APPLICATIONS,
-                    label="Settings",
+                    icon = ft.Icons.SETTINGS_APPLICATIONS_OUTLINED,
+                    selected_icon = ft.Icons.SETTINGS_APPLICATIONS,
+                    label = "Settings",
                 ),
             ],
             border=ft.Border(
-                top=ft.BorderSide(color=ft.CupertinoColors.SYSTEM_GREY2, width=2)
+                top = ft.BorderSide(color = ft.CupertinoColors.SYSTEM_GREY2, width = 2)
             ),
         )
 
@@ -170,7 +171,7 @@ def main(page: ft.Page):
         page.update()
 
     page.on_route_change = route_change
-    page.on_view_pop     = view_pop
+    page.on_view_pop = view_pop
     route_change(page.route)
 
 

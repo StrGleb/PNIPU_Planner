@@ -11,6 +11,7 @@ from models.task_model import TASK_TYPE_HOMEWORK, TASK_TYPE_TEST
 from bridges.planner_bridge import is_week_even, time_to_minutes
 
 
+
 # ── Константы таймлайна ────────────────────────────────────────────────────────
 HOUR_HEIGHT = 80 # пикселей на 1 час
 START_HOUR = 8 # таймлайн начинается в 08:00
@@ -201,49 +202,49 @@ def build_planner_view(
             lesson = planner_manager.get_lesson(lid)
             if lesson:
                 tasks_manager.add_task(
-                    task_type  = TASK_TYPE_HOMEWORK,
-                    date_str   = lesson.date_str,
+                    task_type = TASK_TYPE_HOMEWORK,
+                    date_str = lesson.date_str,
                     time_start = lesson.time_start,
-                    subject    = lesson.subject,
-                    text       = text,
-                    lesson_id  = lid,
-                    priority   = priority,
+                    subject = lesson.subject,
+                    text = text,
+                    lesson_id = lid,
+                    priority = priority,
                 )
-                check_and_notify(tasks_manager)   # пересчёт рейтинга при добавлении
+                check_and_notify(tasks_manager) # пересчёт рейтинга при добавлении
             lesson_fresh = planner_manager.get_lesson(lid)
             if lesson_fresh:
                 open_detail(lesson_fresh)
 
-        def _after_add_tw(lid, text, priority=0):
+        def _after_add_tw(lid, text, priority = 0):
             planner_manager.add_test_work(lid, text)
             lesson = planner_manager.get_lesson(lid)
             if lesson:
                 tasks_manager.add_task(
-                    task_type  = TASK_TYPE_TEST,
-                    date_str   = lesson.date_str,
+                    task_type = TASK_TYPE_TEST,
+                    date_str = lesson.date_str,
                     time_start = lesson.time_start,
-                    subject    = lesson.subject,
-                    text       = text,
-                    lesson_id  = lid,
-                    priority   = priority,
+                    subject = lesson.subject,
+                    text = text,
+                    lesson_id = lid,
+                    priority = priority,
                 )
                 check_and_notify(tasks_manager)
             lesson_fresh = planner_manager.get_lesson(lid)
             if lesson_fresh:
                 open_detail(lesson_fresh)
 
-        def _after_add_lb(lid, text, priority=0):
+        def _after_add_lb(lid, text, priority = 0):
             planner_manager.add_lab_work(lid, text)
             lesson = planner_manager.get_lesson(lid)
             if lesson:
                 tasks_manager.add_task(
-                    task_type  = TASK_TYPE_LAB,
-                    date_str   = lesson.date_str,
+                    task_type = TASK_TYPE_LAB,
+                    date_str = lesson.date_str,
                     time_start = lesson.time_start,
-                    subject    = lesson.subject,
-                    text       = text,
-                    lesson_id  = lid,
-                    priority   = priority,
+                    subject = lesson.subject,
+                    text = text,
+                    lesson_id = lid,
+                    priority = priority,
                 )
                 check_and_notify(tasks_manager)
             lesson_fresh = planner_manager.get_lesson(lid)
