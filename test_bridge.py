@@ -1,15 +1,9 @@
-import os
-import sys
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "app"))
-
-from bridges.planner_bridge import make_alarm
-
-result = make_alarm(
-    8,
-    30,
-    40,
-    20
+from app.bridges.planner_bridge import (
+    make_alarm,
+    is_valid_time
 )
 
-print(result)
+print(make_alarm(8, 30, 40, 20))
+
+print(is_valid_time(12, 30))
+print(is_valid_time(25, 90))

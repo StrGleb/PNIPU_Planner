@@ -2,6 +2,7 @@
 
 namespace
 {
+    // Преобразует календарную дату в дни с момента эпохи
     int days_from_civil(int year, int month, int day)
     {
         year -= month <= 2;
@@ -13,6 +14,7 @@ namespace
         return era * 146097 + static_cast<int>(doe) - 719468;
     }
 
+    // Целочисленное деление с корректной обработкой отрицательных чисел
     int floor_div(int value, int divisor)
     {
         int quotient = value / divisor;
