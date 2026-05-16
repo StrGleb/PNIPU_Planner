@@ -8,6 +8,7 @@ from managers.tasks_manager import TasksManager
 from models.lesson_model import Lesson
 from models.task_model import TASK_TYPE_HOMEWORK, TASK_TYPE_TEST, TASK_TYPE_LAB
 from models.task_model import TASK_TYPE_HOMEWORK, TASK_TYPE_TEST
+from bridges.planner_bridge import is_week_even, time_to_minutes
 
 
 # ── Константы таймлайна ────────────────────────────────────────────────────────
@@ -40,20 +41,6 @@ def build_planner_view(
 
 
     # ── Утилиты ──────────────────────────────────────────────────────────────────
-    def get_week_even(date: datetime.date) -> bool:
-        """
-        True - чётная, False - нечётная. 
-        Считается от начала семестра
-        """
-
-        try:
-            start = datetime.datetime.strptime(config_manager.config.semester_start, "%d.%m.%Y").date()
-            weeks_elapsed = (date - start).days // 7
-            # week 0 = первая неделя; её чётность = first_week_even
-            return (weeks_elapsed % 2 == 0) == config_manager.config.first_week_even
-        except Exception:
-            return date.isocalendar()[1] % 2 == 0
-    
     def safe_update(*controls):
         for c in controls:
             try:
@@ -61,16 +48,20 @@ def build_planner_view(
             except Exception:
                 pass
 
-    def mins(t: str) -> int:
-        h, m = map(int, t.split(":"))
-        return h * 60 + m
-
     def fmt_day(d: datetime.date) -> str:
         names = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
         return f"{names[d.weekday()]}  {d.strftime('%d.%m')}"
 
     def week_label() -> str:
-        return "ЧЁТ" if get_week_even(state["date"]) else "НЕЧЁТ"
+        try:
+            even = is_week_even(
+                state["date"],
+                config_manager.config.semester_start,
+                config_manager.config.first_week_even,
+            )
+        except Exception:
+            even = state["date"].isocalendar()[1] % 2 == 0
+        return "ЧЁТ" if even else "НЕЧЁТ"
 
 
     # ── Overlays ─────────────────────────────────────────────────────────────────
@@ -106,8 +97,8 @@ def build_planner_view(
                 d = datetime.datetime.strptime(date_f.value.strip(), "%d.%m.%Y").date()
                 ts = ts_f.value.strip()
                 te = te_f.value.strip()
-                datetime.datetime.strptime(ts, "%H:%M")
-                datetime.datetime.strptime(te, "%H:%M")
+                if time_to_minutes(ts) < 0 or time_to_minutes(te) < 0:
+                    raise ValueError("invalid time")
                 subj = subj_f.value.strip()
                 if not subj:
                     raise ValueError("empty subject")
@@ -378,8 +369,10 @@ def build_planner_view(
 
     def _build_lesson_block(lesson: Lesson) -> ft.Container:
         try:
-            s      = mins(lesson.time_start) - START_HOUR * 60
-            e_m    = mins(lesson.time_end)   - START_HOUR * 60
+            s      = time_to_minutes(lesson.time_start) - START_HOUR * 60
+            e_m    = time_to_minutes(lesson.time_end)   - START_HOUR * 60
+            if s < 0 or e_m < 0:
+                raise ValueError("invalid time")
             top_px = s / 60 * HOUR_HEIGHT
             h_px   = max((e_m - s) / 60 * HOUR_HEIGHT, 36)
         except Exception:

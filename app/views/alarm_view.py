@@ -3,6 +3,7 @@ import logging
 from models.alarm_model import Alarm
 from managers.alarm_manager import AlarmManager
 from managers.config_manager import ConfigManager
+from bridges.planner_bridge import is_valid_time
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ def build_alarm_view(
     page: ft.Page,
     ) -> ft.View:
 
-    # ── Список — Column+scroll вместо ListView (обходим баг с bgcolor) ────────
+    # ── Список ────────
     alarms_column = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO)
 
     alarms_container = ft.Container(
@@ -92,7 +93,7 @@ def build_alarm_view(
     # ── Диалог (один экземпляр) ───────────────────────────────────────────────
     alarm_dialog = ft.AlertDialog(
         modal = True,
-        title = ft.Text(""),   # перезаписывается в _open_alarm_dialog
+        title = ft.Text(""),
     )
     page.overlay.append(alarm_dialog)
 
@@ -138,7 +139,7 @@ def build_alarm_view(
                 border_radius = 20,
                 width         = 36,
                 height        = 36,
-                alignment     = ft.Alignment.CENTER,   # ← исправлено
+                alignment     = ft.Alignment.CENTER,
                 on_click      = lambda e, d = day_num: _toggle_day(d),
                 ink           = True,
             )
@@ -186,7 +187,7 @@ def build_alarm_view(
             tight=True, spacing=10, width=280,
         )
         alarm_dialog.actions = [
-            ft.TextButton("Отмена",                                    on_click=_cancel),
+            ft.TextButton("Отмена", on_click = _cancel),
             ft.FilledButton("Сохранить" if is_edit else "Добавить",   on_click=_save),
         ]
         alarm_dialog.open = True
@@ -197,6 +198,24 @@ def build_alarm_view(
         snack = ft.SnackBar(content=ft.Text(msg), bgcolor=ft.Colors.GREEN_700, duration=3000)
         page.overlay.append(snack)
         snack.open = True
+        
+    def _close_dialog():
+        add_dialog.open = False
+        page.update()
+
+    def _save_alarm(e):
+        try:
+            h = int(hour_field.value)
+            m = int(minute_field.value)
+            if not is_valid_time(h, m):
+                raise ValueError("invalid time")
+        except ValueError:
+            dialog_error.value = "Введите корректное время (ч: 0–23, мин: 0–59)"
+            page.update()
+            return
+        alarm_manager.add(Alarm(hour = h, minute = m))
+        add_dialog.open = False
+        refresh_list()
         page.update()
 
     # ── Авто ─────────────────────────────────────────────────────────────────
@@ -220,7 +239,7 @@ def build_alarm_view(
         border_radius = 16,
         width         = 54,
         height        = 54,
-        alignment     = ft.Alignment.CENTER,   # ← исправлено
+        alignment     = ft.Alignment.CENTER,
         on_click      = lambda e: _open_alarm_dialog(existing=None),
         ink           = True,
     )
@@ -248,7 +267,7 @@ def build_alarm_view(
                             spacing=2,
                         ),
                     ),
-                    alarms_container,   # ← Container вместо ListView
+                    alarms_container,
                     bottom_row,
                 ],
                 expand=True, spacing=0,
