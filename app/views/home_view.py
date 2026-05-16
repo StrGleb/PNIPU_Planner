@@ -3,6 +3,7 @@ import datetime
 from utils.time_utils import greeting_choose
 from managers.tasks_manager import TasksManager
 from models.task_model import PRIORITY_COLORS
+from utils.geocoder_utils import get_coordinates_by_address
 
 PRIORITY_DOT_COLORS = {
     0: ft.Colors.GREY_400,
@@ -63,6 +64,22 @@ def build_home_view(
             spacing = 0,
         )
 
+    # ── Тестирование геокодирования ────────────────────────────────────────
+    test_result = ft.Text("Результат геокодирования появится здесь", size=12, color=ft.Colors.GREY_600)
+    
+    def test_geocoder(e):
+        coords = get_coordinates_by_address("Москва, Красная площадь")
+        if coords:
+            lon, lat = coords
+            test_result.value = f"✓ Координаты: {lat}, {lon}"
+            test_result.color = ft.Colors.GREEN
+        else:
+            test_result.value = "✗ Не удалось получить координаты"
+            test_result.color = ft.Colors.RED
+        test_result.update()
+    
+    geocoder_test_btn = ft.IconButton(ft.Icons.LOCATION_ON, on_click=test_geocoder, tooltip="Тест геокодирования")
+
     # ── View ──────────────────────────────────────────────────────────────────
     return ft.View(
         route = "/",
@@ -98,6 +115,14 @@ def build_home_view(
                         _task_box(labs_tmrw, "Лабораторных работ на завтра нет",
                                   ft.Colors.GREEN_100),
                     ),
+                    ft.Container(height = 16),
+
+                    # Тест геокодирования
+                    ft.Row([
+                        ft.Text("Тест геокодирования:", size=14, weight=ft.FontWeight.BOLD),
+                        geocoder_test_btn
+                    ]),
+                    test_result,
                 ],
                 expand = True,
                 scroll = ft.ScrollMode.HIDDEN,
