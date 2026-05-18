@@ -26,13 +26,13 @@ class TemplateLesson:
     @classmethod
     def from_dict(cls, d: dict) -> "TemplateLesson":
         return cls(
-            day=int(d["day"]),
-            time_start=d["time_start"],
-            time_end=d["time_end"],
-            subject=d["subject"],
-            lesson_type=d.get("lesson_type", ""),
-            teacher=d.get("teacher", ""),
-            room=d.get("room", ""),
+            day = int(d["day"]),
+            time_start = d["time_start"],
+            time_end = d["time_end"],
+            subject = d["subject"],
+            lesson_type = d.get("lesson_type", ""),
+            teacher = d.get("teacher", ""),
+            room = d.get("room", ""),
         )
 
 
@@ -40,8 +40,8 @@ class TemplateLesson:
 class ScheduleTemplate:
     """Шаблон расписания — два списка пар (чётная/нечётная)"""
     version: int = 1
-    odd:  List[TemplateLesson] = field(default_factory=list)   # нечётная
-    even: List[TemplateLesson] = field(default_factory=list)   # чётная
+    odd:  List[TemplateLesson] = field(default_factory=list) # нечётная
+    even: List[TemplateLesson] = field(default_factory=list) # чётная
 
     def get_week(self, is_even: bool) -> List[TemplateLesson]:
         return self.even if is_even else self.odd

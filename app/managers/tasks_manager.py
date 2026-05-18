@@ -14,7 +14,7 @@ from models.task_model import Task, TASK_TYPE_HOMEWORK, TASK_TYPE_TEST, TASK_TYP
 
 def _storage_path() -> pathlib.Path:
     d = pathlib.Path.home() / ".pnipu_planner"
-    d.mkdir(parents=True, exist_ok=True)
+    d.mkdir(parents = True, exist_ok = True)
     return d / "tasks.json"
 
 class TasksManager:
@@ -34,10 +34,10 @@ class TasksManager:
             return []
 
     def _save(self) -> None:
-        with open(self._path, "w", encoding="utf-8") as f:
+        with open(self._path, "w", encoding = "utf-8") as f:
             json.dump(
                 {"version": 2, "tasks": [t.to_dict() for t in self._tasks]},
-                f, ensure_ascii=False, indent=2,
+                f, ensure_ascii = False, indent = 2,
             )
 
     # ── CRUD ──────────────────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ class TasksManager:
     def _get_by_type_and_date(self, task_type: str, date: datetime.date) -> List[Task]:
         ds = date.strftime("%d.%m.%Y")
         result = [t for t in self._tasks if t.task_type == task_type and t.date_str == ds]
-        return sorted(result, key=lambda t: t.priority, reverse=True)
+        return sorted(result, key = lambda t: t.priority, reverse = True)
 
     def get_tests_for_date(self, date: datetime.date) -> List[Task]:
         return self._get_by_type_and_date(TASK_TYPE_TEST, date)

@@ -26,13 +26,11 @@ def _get_storage_path() -> pathlib.Path:
 
 class ScheduleManager:
     """Загружает, сохраняет и применяет шаблон расписания."""
-
     def __init__(self):
         self._path = _get_storage_path()
         self.template: ScheduleTemplate = self._load()
 
     # ── Загрузка / сохранение ────────────────────────────────────────────────────
-
     def _load(self) -> ScheduleTemplate:
         # Если персистентного файла ещё нет — копируем встроенный шаблон
         if not self._path.exists():
@@ -55,7 +53,6 @@ class ScheduleManager:
         self.template = self._load()
 
     # ── Применение шаблона к планировщику ────────────────────────────────────────
-
     def apply_week(
         self,
         planner: PlannerManager,
@@ -101,9 +98,9 @@ class ScheduleManager:
         Применяет шаблон на весь семестр
         first_week_even — True если первая неделя чётная
         """
-        monday = start_date - datetime.timedelta(days=start_date.weekday())
+        monday = start_date - datetime.timedelta(days = start_date.weekday())
         is_even = first_week_even
         while monday <= end_date:
             self.apply_week(planner, monday, is_even)
-            monday += datetime.timedelta(weeks=1)
+            monday += datetime.timedelta(weeks = 1)
             is_even = not is_even

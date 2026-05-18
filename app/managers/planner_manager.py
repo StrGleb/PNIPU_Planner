@@ -51,7 +51,6 @@ class PlannerManager:
             lesson.lab_works.append(text)
 
     # ── Import ───────────────────────────────────────────────────────────────────
-
     def load_from_dict(self, data: dict[str, str]) -> None:
         """
         Загружает пары из словаря:
@@ -62,4 +61,4 @@ class PlannerManager:
                 lesson = Lesson.from_dict_entry(key, subject)
                 self._lessons[lesson.id] = lesson
             except Exception:
-                pass  # пропускаем некорректные записи
+                pass
