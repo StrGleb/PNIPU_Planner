@@ -1,8 +1,10 @@
 import flet as ft
 import threading
 import datetime
-from time import localtime, strftime, sleep
+import sys
+import pathlib
 import logging
+from time import localtime, strftime, sleep
 
 from views.home_view import build_home_view
 from views.alarm_view import build_alarm_view
@@ -16,6 +18,8 @@ from managers.tasks_manager import TasksManager
 from managers.notification_manager import start_daily_checker
 
 
+sys.path.insert(0, str(pathlib.Path(__file__).parent))
+
 logging.basicConfig(
     level = logging.INFO,
     format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -25,9 +29,11 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+
 def main(page: ft.Page):
     page.title = "Университетский помощник"
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
+    page.padding = ft.padding.only(top=1000.0)
     config_manager = ConfigManager()
     tasks_manager = TasksManager()
     start_daily_checker(tasks_manager)
@@ -55,7 +61,6 @@ def main(page: ft.Page):
     alarm_manager = AlarmManager()
     alarm_manager.start_background_checker()
 
-
     def global_alarm_callback(alarm):
         # Временная заглушка
         snack = ft.SnackBar(
@@ -79,7 +84,7 @@ def main(page: ft.Page):
         planner_manager,
         start_date = datetime.date(2026, 3, 30),
         end_date = datetime.date(2026, 6, 30),
-        first_week_even = False,   # 1 неделя = нечётная
+        first_week_even = False, # 1 неделя = нечётная
     )
 
     # Хранит cleanup-функцию активного planner view

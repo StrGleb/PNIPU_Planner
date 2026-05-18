@@ -337,7 +337,6 @@ def build_planner_view(
         page.update()
 
     # ── Таймлайн ────────────────────────────────────────────────────────────────
-
     timeline_col = ft.Column(scroll = ft.ScrollMode.AUTO, expand = True, spacing = 0)
 
     def _build_grid() -> ft.Column:
@@ -420,7 +419,6 @@ def build_planner_view(
     timeline_col.controls = [build_timeline_stack()]
 
     # ── Шапка ────────────────────────────────────────────────────────────────────
-
     date_text = ft.Text(fmt_day(state["date"]), size = 12, color = ft.Colors.GREY_600)
     week_label_ctrl = ft.Text(
         week_label(),
@@ -458,7 +456,6 @@ def build_planner_view(
     )
 
     # ── Навигация по дням (стрелки) ──────────────────────────────────────────────
-
     def prev_day(e):
         state["date"] -= datetime.timedelta(days=1)
         rebuild_timeline()
@@ -476,7 +473,6 @@ def build_planner_view(
     )
 
     # ── Боковое меню (NavigationDrawer) ──────────────────────────────────────────
-
     def go_to_today():
         state["date"] = datetime.date.today()
         page.close_drawer()
@@ -525,7 +521,6 @@ def build_planner_view(
     )
 
     # ── FAB ──────────────────────────────────────────────────────────────────────
-
     fab = ft.FloatingActionButton(
         icon=ft.Icons.ADD,
         bgcolor=ft.Colors.BLUE_200,
@@ -533,20 +528,30 @@ def build_planner_view(
     )
 
     # ── View ─────────────────────────────────────────────────────────────────────
-
     view = ft.View(
         route="/planner",
         drawer=nav_drawer,
         floating_action_button=fab,
+        navigation_bar=navigation_bar,
+        padding=0, 
         controls=[
-            ft.Column(
-                [header, ft.Divider(height=1, thickness=0.5), nav_row, timeline_col],
-                expand=True,
-                spacing=0,
+            ft.SafeArea(
+                expand=True, # Принудительно заставляем SafeArea растянуться
+                content=ft.Container(
+                    expand=True, # Заставляем контейнер заполнить всё пространство SafeArea
+                    content=ft.Column(
+                        [
+                            header, 
+                            ft.Divider(height=1, thickness=0.5), 
+                            nav_row, 
+                            timeline_col # Здесь ваш список с прокруткой
+                        ],
+                        expand=True,
+                        spacing=0,
+                    )
+                )
             )
         ],
-        navigation_bar=navigation_bar,
-        padding=0,
     )
 
     return view, cleanup

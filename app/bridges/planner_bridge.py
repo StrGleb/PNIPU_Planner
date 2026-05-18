@@ -3,7 +3,7 @@ import datetime
 from pathlib import Path
 
 # Загружаем нативную C++ DLL для функций подсчета
-dll_path = Path(__file__).parent / ".." / "native" / "alarm_lib.dll"
+dll_path = Path(__file__).parent / ".." / "native" / "bin" / "alarm_lib.dll"
 dll_path = dll_path.resolve()
 
 # Определение типов данных

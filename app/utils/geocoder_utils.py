@@ -2,9 +2,11 @@ import requests
 from typing import Tuple, Optional
 import logging
 import os
+from dotenv import load_dotenv # Добавьте это
 
+# Важные начальные объявления
+load_dotenv("config.env") 
 logger = logging.getLogger(__name__)
-
 YANDEX_GEOCODER_API_URL = "https://geocode-maps.yandex.ru/1.x"
 
 
@@ -16,7 +18,7 @@ def get_coordinates_by_address(address: str) -> Optional[Tuple[float, float]]:
         address: Адрес для геокодирования (строка)
         
     Returns:
-        Кортеж (longitude, latitude) если адрес найден, иначе None
+        tuple (longitude, latitude) если адрес найден, иначе None
         
     Example:
         >>> coords = get_coordinates_by_address("Москва, Красная площадь")
@@ -24,7 +26,7 @@ def get_coordinates_by_address(address: str) -> Optional[Tuple[float, float]]:
         (37.6173, 55.7558)
     """
     try:
-        api_key = os.getenv("YANDEX_GEOCODER_API_KEY", "66b0d80b-b232-44da-95e5-8b67fbbc59df")
+        api_key = os.getenv("YANDEX_GEOCODER_API_KEY")
         params = {
             "apikey": api_key,
             "geocode": address,
@@ -32,7 +34,7 @@ def get_coordinates_by_address(address: str) -> Optional[Tuple[float, float]]:
             "lang": "ru"
         }
         
-        response = requests.get(YANDEX_GEOCODER_API_URL, params=params, timeout=10)
+        response = requests.get(YANDEX_GEOCODER_API_URL, params = params, timeout = 10)
         response.raise_for_status()
         
         data = response.json()
@@ -40,19 +42,19 @@ def get_coordinates_by_address(address: str) -> Optional[Tuple[float, float]]:
         # Проверяем, нашли ли мы адрес
         if data.get("response", {}).get("GeoObjectCollection", {}).get("metaDataProperty", {}).get("GeocoderResponseMetaData", {}).get("found", "0") == "0":
             logger.warning(f"Адрес не найден: {address}")
-            return None
+            return
         
         # Извлекаем координаты первого найденного результата
         features = data.get("response", {}).get("GeoObjectCollection", {}).get("featureMember", [])
         if not features:
             logger.warning(f"Не удалось получить координаты для адреса: {address}")
-            return None
+            return
         
         # Координаты в формате "longitude latitude"
         coordinates_str = features[0].get("GeoObject", {}).get("Point", {}).get("pos", "")
         if not coordinates_str:
             logger.warning(f"Координаты отсутствуют в ответе для адреса: {address}")
-            return None
+            return
         
         # Парсим координаты
         coords = coordinates_str.split()
@@ -61,18 +63,17 @@ def get_coordinates_by_address(address: str) -> Optional[Tuple[float, float]]:
             latitude = float(coords[1])
             logger.info(f"Найдены координаты для '{address}': ({longitude}, {latitude})")
             return (longitude, latitude)
-        
-        return None
+        return
         
     except requests.exceptions.Timeout:
         logger.error(f"Timeout при обращении к Yandex Geocoder API для адреса: {address}")
-        return None
+        return
     except requests.exceptions.RequestException as e:
         logger.error(f"Ошибка при обращении к Yandex Geocoder API: {e}")
-        return None
+        return
     except (KeyError, ValueError, IndexError) as e:
         logger.error(f"Ошибка при парсинге ответа от API для адреса '{address}': {e}")
-        return None
+        return
 
 
 def get_address_info(address: str) -> Optional[dict]:
@@ -83,7 +84,7 @@ def get_address_info(address: str) -> Optional[dict]:
         address: Адрес для геокодирования (строка)
         
     Returns:
-        Словарь с информацией об адресе или None, если адрес не найден
+        dict с информацией об адресе или None, если адрес не найден
         
     Example:
         >>> info = get_address_info("Москва, ул. Красная")
@@ -96,7 +97,7 @@ def get_address_info(address: str) -> Optional[dict]:
         }
     """
     try:
-        api_key = os.getenv("YANDEX_GEOCODER_API_KEY", "66b0d80b-b232-44da-95e5-8b67fbbc59df")
+        api_key = os.getenv("YANDEX_GEOCODER_API_KEY")
         params = {
             "apikey": api_key,
             "geocode": address,
@@ -109,30 +110,30 @@ def get_address_info(address: str) -> Optional[dict]:
         
         data = response.json()
         
-        # Проверяем, нашли ли мы адрес
+        # Проверка: найден ли адрес
         if data.get("response", {}).get("GeoObjectCollection", {}).get("metaDataProperty", {}).get("GeocoderResponseMetaData", {}).get("found", "0") == "0":
             logger.warning(f"Адрес не найден: {address}")
-            return None
+            return
         
         features = data.get("response", {}).get("GeoObjectCollection", {}).get("featureMember", [])
         if not features:
-            return None
+            return
         
         geo_object = features[0].get("GeoObject", {})
         
-        # Извлекаем координаты
+        # Извлечение координат
         coordinates_str = geo_object.get("Point", {}).get("pos", "")
         if not coordinates_str:
-            return None
+            return
         
         coords = coordinates_str.split()
         if len(coords) != 2:
-            return None
+            return
         
         longitude = float(coords[0])
         latitude = float(coords[1])
         
-        # Собираем информацию об адресе
+        # Сбор информации об адресе
         meta_data = geo_object.get("metaDataProperty", {}).get("GeocoderMetaData", {})
         address_details = meta_data.get("Address", {})
         
@@ -153,10 +154,54 @@ def get_address_info(address: str) -> Optional[dict]:
         
     except requests.exceptions.Timeout:
         logger.error(f"Timeout при обращении к Yandex Geocoder API для адреса: {address}")
-        return None
+        return
     except requests.exceptions.RequestException as e:
         logger.error(f"Ошибка при обращении к Yandex Geocoder API: {e}")
-        return None
+        return
     except (KeyError, ValueError, IndexError) as e:
         logger.error(f"Ошибка при парсинге ответа от API для адреса '{address}': {e}")
-        return None
+        return
+
+
+
+# Пример использования геокодера для получения координат по адресу.
+if __name__ == "__main__":
+    def example_get_coordinates():
+        """Пример 1: Получение координат по адресу"""
+        address = "Пермь, ул. Попова 21"
+        coordinates = get_coordinates_by_address(address)
+        
+        if coordinates:
+            longitude, latitude = coordinates
+            print(f"Адрес: {address}")
+            print(f"Координаты: {latitude}, {longitude}")
+            print(f"Ссылка на карту: https://yandex.ru/maps/?ll={longitude},{latitude}&z=15&pt={longitude},{latitude},pm2lbm")
+        else:
+            print(f"Не удалось найти координаты для адреса: {address}")
+
+
+    def example_get_address_info():
+        """Пример 2: Получение полной информации об адресе"""
+        address = "Санкт-Петербург, Невский проспект, 1"
+        info = get_address_info(address)
+        
+        if info:
+            print(f"Найдена информация об адресе:")
+            print(f"  Название: {info['name']}")
+            print(f"  Описание: {info['description']}")
+            print(f"  Адрес: {info['address']}")
+            print(f"  Координаты: {info['coordinates']}")
+            print(f"  Населенный пункт: {info['locality']}")
+        else:
+            print(f"Адрес не найден: {address}")
+
+    if __name__ == "__main__":
+        print("=" * 60)
+        print("Пример 1: Получение координат")
+        print("=" * 60)
+        example_get_coordinates()
+        
+        print("\n" + "=" * 60)
+        print("Пример 2: Получение полной информации об адресе")
+        print("=" * 60)
+        example_get_address_info()

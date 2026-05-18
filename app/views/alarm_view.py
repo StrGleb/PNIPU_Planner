@@ -333,22 +333,28 @@ def build_alarm_view(
     # ── View ─────────────────────────────────────────────────────────────────
     return ft.View(
         route = "/alarm",
+        padding = 0,  # Убираем отступы у View, чтобы SafeArea занял всю площадь
+        navigation_bar = navigation_bar,
         controls = [
-            ft.Column(
-                [
-                    ft.Container(
-                        padding = ft.padding.symmetric(horizontal = 16, vertical = 8),
-                        content = ft.Column(
-                            [ft.Text("Будильники", size = 25, weight = ft.FontWeight.BOLD), clock_text],
-                            spacing = 2,
+            ft.SafeArea(
+                content = ft.Column(
+                    [
+                        ft.Container(
+                            padding = ft.padding.symmetric(horizontal = 16, vertical = 8),
+                            content = ft.Column(
+                                [
+                                    ft.Text("Будильники", size = 25, weight = ft.FontWeight.BOLD), 
+                                    clock_text
+                                ],
+                                spacing = 2,
+                            ),
                         ),
-                    ),
-                    alarms_container,
-                    bottom_row,
-                ],
-                expand = True, spacing = 0,
+                        alarms_container,
+                        bottom_row,
+                    ],
+                    expand = True, 
+                    spacing = 0,
+                )
             )
         ],
-        navigation_bar = navigation_bar,
-        padding = 0,
     )

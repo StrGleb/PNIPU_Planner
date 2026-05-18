@@ -78,6 +78,7 @@ def build_settings_view(
     tf_address = ft.TextField(
         value = cfg.user_address,
         width = 280,
+        hint_text="Пример: улица Попова, 1",
         on_blur = lambda e: config_manager.set_user_address(e.control.value.strip()),
     )
 
@@ -91,7 +92,7 @@ def build_settings_view(
 
     # ── Машина ───────────────────────────────────────────────────────────────────
     cb_car = ft.Checkbox(
-        label = "Есть своя машина для поездок в университет",
+        label = "Есть своя машина для поездок в\n университет",
         value = cfg.has_car,
         on_change = lambda e: config_manager.set_has_car(e.control.value),
     )
@@ -144,60 +145,139 @@ def build_settings_view(
         if hint:
             items.append(ft.Text(hint, size = 11, color = ft.Colors.GREY_500, italic = True))
         return ft.Column(items, spacing = 4)
+    
+    
+    # ── Диалог импорта ────────────────────────────────────────────────────────────
+    dd_semester = ft.Dropdown(
+        label="Выберите период",
+        options=[
+            ft.DropdownOption(text="1 семестр - первая половина"),
+            ft.DropdownOption(text="1 семестр - вторая половина"),
+            ft.DropdownOption(text="2 семестр - первая половина"),
+            ft.DropdownOption(text="2 семестр - вторая половина"),
+        ],
+        width=300,
+    )
+
+    def close_import_dialog(e):
+        dialog.open = False
+        page.update()
+
+    def confirm_import(e):
+        # Имитация загрузки
+        btn_confirm.disabled = True
+        btn_confirm.text = "Загрузка..."
+        progress.visible = True
+        page.update()
+
+        import threading
+        import time
+
+        def finish_import():
+            time.sleep(0.8)  # недолгая задержка
+            dialog.open = False
+            page.snack_bar = ft.SnackBar(ft.Text("Импорт завершён!"))
+            page.snack_bar.open = True
+            page.update()
+
+        threading.Thread(target=finish_import, daemon=True).start()
+
+    progress = ft.ProgressRing(visible=False, width=20, height=20, stroke_width=2)
+
+    btn_confirm = ft.ElevatedButton(
+        "Подтвердить импорт",
+        icon=ft.Icons.CHECK,
+        on_click=confirm_import,
+    )
+
+    dialog = ft.AlertDialog(
+        title=ft.Text("Файл schedule.xlsx загружен"),
+        content=ft.Column(
+            [
+                dd_semester,
+                ft.Container(height=10),
+                ft.Row([progress, btn_confirm], alignment=ft.MainAxisAlignment.CENTER),
+            ],
+            tight=True,
+        ),
+        actions=[
+            ft.TextButton("Отмена", on_click=close_import_dialog),
+        ],
+        actions_alignment=ft.MainAxisAlignment.END,
+    )
+
+    def open_import_dialog(e):
+        page.show_dialog(dialog)
+        page.update()
+
+    btn_import = ft.ElevatedButton(
+        "Импортировать из xlsx...",
+        icon=ft.Icons.UPLOAD_FILE,
+        on_click=open_import_dialog,
+    )
 
     return ft.View(
         route="/settings",
         scroll=ft.ScrollMode.HIDDEN,
-        padding=ft.padding.symmetric(horizontal = 20, vertical = 16),
+        padding=0,  # Убираем отступы у View, чтобы SafeArea занял всю площадь
         controls=[
-            ft.Text("Настройки", size = 26, weight = ft.FontWeight.BOLD),
-            ft.Container(height = 8),
+            ft.SafeArea(
+                content=ft.Container(
+                    # Переносим отступы сюда, чтобы они работали внутри SafeArea
+                    padding=ft.padding.symmetric(horizontal=20, vertical=16),
+                    content=ft.Column(
+                        controls=[
+                            ft.Text("Настройки", size=26, weight=ft.FontWeight.BOLD),
+                            ft.Container(height=8),
 
-            # Оформление
-            ft.Text("Оформление", size = 16, weight = ft.FontWeight.W_600),
-            ft.Divider(height = 1),
-            row("Цветовая тема", dd_theme),
-            ft.Container(height = 12),
+                            # Оформление
+                            ft.Text("Оформление", size=16, weight=ft.FontWeight.W_600),
+                            ft.Divider(height=1),
+                            row("Цветовая тема", dd_theme),
+                            ft.Container(height=12),
 
-            # Персональные данные
-            ft.Text("Персональные данные", size = 16, weight = ft.FontWeight.W_600),
-            ft.Divider(height = 1),
-            row("Ваше имя", tf_name),
-            row("Время на сборы (мин)", tf_time),
-            row("Адрес проживания", tf_address),
-            row("Факультет", dd_faculty),
-            row("Время до ВУЗа (мин)", tf_travel, "Временное решение — до реализации GPS"),
-            cb_car,
-            ft.Container(height = 12),
+                            # Персональные данные
+                            ft.Text("Персональные данные", size=16, weight=ft.FontWeight.W_600),
+                            ft.Divider(height=1),
+                            row("Ваше имя", tf_name),
+                            row("Время на сборы (мин)", tf_time),
+                            row("Адрес проживания", tf_address),
+                            row("Факультет", dd_faculty),
+                            row("Время до ВУЗа (мин)", tf_travel, ""),
+                            cb_car,
+                            ft.Container(height=12),
 
-            # Расписание
-            ft.Text("Расписание", size = 16, weight = ft.FontWeight.W_600),
-            ft.Divider(height = 1),
-            row(
-                "Дата начала семестра",
-                tf_semester,
-                "Используется для расчёта чётности недели",
-            ),
-            cb_first_even,
-            ft.Container(height = 12),
+                            # # Расписание
+                            # ft.Text("Расписание", size=16, weight=ft.FontWeight.W_600),
+                            # ft.Divider(height=1),
+                            # row(
+                            #     "Дата начала семестра",
+                            #     tf_semester,
+                            #     "Используется для расчёта чётности недели",
+                            # ),
+                            # cb_first_even,
+                            # ft.Container(height=12),
 
-            # Экспорт
-            ft.Text("Экспорт расписания", size = 16, weight = ft.FontWeight.W_600),
-            ft.Divider(height = 1),
-            ft.ElevatedButton(
-                "Импортировать из xlsx...",
-                icon=ft.Icons.UPLOAD_FILE,
-            ),
-            ft.Container(height = 12),
+                            # Экспорт
+                            ft.Text("Экспорт расписания", size=16, weight=ft.FontWeight.W_600),
+                            ft.Divider(height=1),
+                            btn_import,
+                            ft.Container(height=12),
 
-            # Раздел "О приложении"
-            ft.Text("Сведения о приложении", size = 16, weight = ft.FontWeight.W_600),
-            ft.Divider(height = 1),
-            ft.ElevatedButton(
-                "О приложении",
-                icon=ft.Icons.INFO_OUTLINE,
-            ),
-            ft.Text("Версия: 0.1_beta", size = 12, weight = ft.FontWeight.W_500, color = ft.Colors.GREY_500),
+                            # Раздел "О приложении"
+                            ft.Text("Сведения о приложении", size=16, weight=ft.FontWeight.W_600),
+                            ft.Divider(height=1),
+                            ft.ElevatedButton(
+                                "О приложении",
+                                icon=ft.Icons.INFO_OUTLINE,
+                            ),
+                            ft.Text("Версия: 0.1_beta", size=12, weight=ft.FontWeight.W_500, color=ft.Colors.GREY_500),
+                            # Добавляем небольшой отступ внизу, чтобы контент не прилипал к навигационной панели
+                            ft.Container(height=20),
+                        ]
+                    )
+                )
+            )
         ],
-        navigation_bar = navigation_bar,
+        navigation_bar=navigation_bar,
     )

@@ -37,7 +37,7 @@ def build_home_view(
             bgcolor = PRIORITY_DOT_COLORS.get(task.priority, ft.Colors.GREY_400),
         )
         return ft.Row(
-            [dot, ft.Text(task.display_line, size = 14, expand = True)],
+            [dot, ft.Text(task.display_line, size = 14, expand = True,  color = ft.Colors.BLACK)],
             spacing = 8,
             vertical_alignment = ft.CrossAxisAlignment.CENTER,
         )
@@ -65,81 +65,77 @@ def build_home_view(
             spacing = 0,
         )
 
+
     # ── Тестирование геокодирования ────────────────────────────────────────
-    test_result = ft.Text("", size=12)
+    # test_result = ft.Text("", size=12)
     
-    def test_geocoder(e):
-        if not config_manager:
-            test_result.value = "✗ Ошибка: config_manager не инициализирован"
-            test_result.color = ft.Colors.RED
-            test_result.update()
-            return
+    # def test_geocoder(e):
+    #     if not config_manager:
+    #         test_result.value = "✗ Ошибка: config_manager не инициализирован"
+    #         test_result.color = ft.Colors.RED
+    #         test_result.update()
+    #         return
         
-        address = config_manager.config.user_address.strip()
-        if not address:
-            test_result.value = "✗ Адрес не указан в настройках"
-            test_result.color = ft.Colors.ORANGE
-            test_result.update()
-            return
+    #     address = config_manager.config.user_address.strip()
+    #     address = "Пермь, " + address
+    #     print(address)
+    #     if not address:
+    #         test_result.value = "✗ Адрес не указан в настройках"
+    #         test_result.color = ft.Colors.ORANGE
+    #         test_result.update()
+    #         return
         
-        coords = get_coordinates_by_address(address)
-        if coords:
-            lon, lat = coords
-            test_result.value = f"✓ {address}: {lat}, {lon}"
-            test_result.color = ft.Colors.GREEN
-        else:
-            test_result.value = f"✗ Адрес не найден: {address}"
-            test_result.color = ft.Colors.RED
-        test_result.update()
+    #     coords = get_coordinates_by_address(address)
+    #     if coords:
+    #         lon, lat = coords
+    #         test_result.value = f"✓ {address}: {lat}, {lon}"
+    #         test_result.color = ft.Colors.GREEN
+    #     else:
+    #         test_result.value = f"✗ Адрес не найден: {address}"
+    #         test_result.color = ft.Colors.RED
+    #     test_result.update()
     
-    geocoder_test_btn = ft.IconButton(ft.Icons.LOCATION_ON, on_click=test_geocoder, tooltip="Геокодировать адрес проживания")
+    # geocoder_test_btn = ft.IconButton(ft.Icons.LOCATION_ON, on_click = test_geocoder, tooltip = "Геокодировать адрес проживания")
 
     # ── View ──────────────────────────────────────────────────────────────────
     return ft.View(
         route = "/",
-        padding = ft.padding.symmetric(horizontal = 20, vertical = 24),
+        padding = 0,  # Убираем стандартные отступы View
         controls = [
-            ft.Column(
-                [
-                    ft.Text(
-                        f"{greeting},\n{user_name or 'Студент'}!",
-                        size = 30, weight = ft.FontWeight.BOLD,
-                    ),
-                    ft.Container(height = 20),
+            ft.SafeArea(
+                content = ft.Container(
+                    # Переносим отступы сюда, чтобы они работали внутри SafeArea
+                    padding = ft.padding.symmetric(horizontal = 20, vertical = 24),
+                    content = ft.Column(
+                        [
+                            ft.Text(
+                                f"{greeting},\n{user_name or 'Студент'}!",
+                                size = 30, weight = ft.FontWeight.BOLD,
+                            ),
+                            ft.Container(height = 20),
 
-                    # К/р сегодня — красноватый фон
-                    _section(
-                        "Ваши к/р сегодня:",
-                        _task_box(tests_today, "Контрольных работ сегодня нет",
-                                  ft.Colors.RED_100),
-                    ),
-                    ft.Container(height =  16),
+                            _section(
+                                "Ваши к/р сегодня:",
+                                _task_box(tests_today, "Контрольных работ сегодня нет", ft.Colors.RED_100),
+                            ),
+                            ft.Container(height = 16),
 
-                    # Д/з на завтра — синеватый фон
-                    _section(
-                        "Ваши домашние работы на завтра:",
-                        _task_box(homework_tmrw, "Домашних работ на завтра нет",
-                                  ft.Colors.BLUE_100),
-                    ),
-                    ft.Container(height = 16),
+                            _section(
+                                "Ваши домашние работы на завтра:",
+                                _task_box(homework_tmrw, "Домашних работ на завтра нет", ft.Colors.BLUE_100),
+                            ),
+                            ft.Container(height = 16),
 
-                    # Лабораторные на завтра — зеленоватый фон
-                    _section(
-                        "Ваши лабораторные на завтра:",
-                        _task_box(labs_tmrw, "Лабораторных работ на завтра нет",
-                                  ft.Colors.GREEN_100),
-                    ),
-                    ft.Container(height = 16),
-
-                    # Тест геокодирования
-                    ft.Row([
-                        ft.Text("Адрес проживания:", size=14, weight=ft.FontWeight.BOLD),
-                        geocoder_test_btn
-                    ]),
-                    test_result,
-                ],
-                expand = True,
-                scroll = ft.ScrollMode.HIDDEN,
+                            _section(
+                                "Ваши лабораторные на завтра:",
+                                _task_box(labs_tmrw, "Лабораторных работ на завтра нет", ft.Colors.GREEN_100),
+                            ),
+                            ft.Container(height = 16),
+                        ],
+                        expand = True,
+                        scroll = ft.ScrollMode.HIDDEN,
+                    )
+                )
             )
         ],
         navigation_bar = navigation_bar,
