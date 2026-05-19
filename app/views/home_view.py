@@ -55,7 +55,7 @@ def build_home_view(
             content = ft.Column(content_controls, spacing = 8),
             bgcolor = box_color,
             border_radius = 16,
-            padding = ft.padding.symmetric(horizontal = 16, vertical = 14),
+            padding = ft.Padding.symmetric(horizontal = 16, vertical = 14),
             width = float("inf"),
         )
 
@@ -100,12 +100,12 @@ def build_home_view(
     # ── View ──────────────────────────────────────────────────────────────────
     return ft.View(
         route = "/",
-        padding = 0,  # Убираем стандартные отступы View
+        padding = 0,
         controls = [
             ft.SafeArea(
                 content = ft.Container(
                     # Переносим отступы сюда, чтобы они работали внутри SafeArea
-                    padding = ft.padding.symmetric(horizontal = 20, vertical = 24),
+                    padding = ft.Padding.symmetric(horizontal = 20, vertical = 24),
                     content = ft.Column(
                         [
                             ft.Text(

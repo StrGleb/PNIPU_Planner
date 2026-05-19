@@ -217,35 +217,34 @@ def build_settings_view(
     )
 
     return ft.View(
-        route="/settings",
-        scroll=ft.ScrollMode.HIDDEN,
-        padding=0,  # Убираем отступы у View, чтобы SafeArea занял всю площадь
-        controls=[
+        route = "/settings",
+        scroll = ft.ScrollMode.HIDDEN,
+        padding = 0,
+        controls = [
             ft.SafeArea(
-                content=ft.Container(
-                    # Переносим отступы сюда, чтобы они работали внутри SafeArea
-                    padding=ft.padding.symmetric(horizontal=20, vertical=16),
-                    content=ft.Column(
-                        controls=[
-                            ft.Text("Настройки", size=26, weight=ft.FontWeight.BOLD),
-                            ft.Container(height=8),
+                content = ft.Container(
+                    padding = ft.Padding.symmetric(horizontal = 20, vertical = 16),
+                    content = ft.Column(
+                        controls = [
+                            ft.Text("Настройки", size = 26, weight = ft.FontWeight.BOLD),
+                            ft.Container(height = 8),
 
                             # Оформление
-                            ft.Text("Оформление", size=16, weight=ft.FontWeight.W_600),
-                            ft.Divider(height=1),
+                            ft.Text("Оформление", size = 16, weight = ft.FontWeight.W_600),
+                            ft.Divider(height = 1),
                             row("Цветовая тема", dd_theme),
-                            ft.Container(height=12),
+                            ft.Container(height = 12),
 
                             # Персональные данные
-                            ft.Text("Персональные данные", size=16, weight=ft.FontWeight.W_600),
-                            ft.Divider(height=1),
+                            ft.Text("Персональные данные", size = 16, weight = ft.FontWeight.W_600),
+                            ft.Divider(height = 1),
                             row("Ваше имя", tf_name),
                             row("Время на сборы (мин)", tf_time),
                             row("Адрес проживания", tf_address),
                             row("Факультет", dd_faculty),
                             row("Время до ВУЗа (мин)", tf_travel, ""),
                             cb_car,
-                            ft.Container(height=12),
+                            ft.Container(height = 12),
 
                             # # Расписание
                             # ft.Text("Расписание", size=16, weight=ft.FontWeight.W_600),
@@ -259,25 +258,24 @@ def build_settings_view(
                             # ft.Container(height=12),
 
                             # Экспорт
-                            ft.Text("Экспорт расписания", size=16, weight=ft.FontWeight.W_600),
-                            ft.Divider(height=1),
+                            ft.Text("Экспорт расписания", size = 16, weight = ft.FontWeight.W_600),
+                            ft.Divider(height = 1),
                             btn_import,
-                            ft.Container(height=12),
+                            ft.Container(height = 12),
 
                             # Раздел "О приложении"
-                            ft.Text("Сведения о приложении", size=16, weight=ft.FontWeight.W_600),
-                            ft.Divider(height=1),
+                            ft.Text("Сведения о приложении", size = 16, weight = ft.FontWeight.W_600),
+                            ft.Divider(height = 1),
                             ft.ElevatedButton(
                                 "О приложении",
-                                icon=ft.Icons.INFO_OUTLINE,
+                                icon = ft.Icons.INFO_OUTLINE,
                             ),
-                            ft.Text("Версия: 0.1_beta", size=12, weight=ft.FontWeight.W_500, color=ft.Colors.GREY_500),
-                            # Добавляем небольшой отступ внизу, чтобы контент не прилипал к навигационной панели
-                            ft.Container(height=20),
+                            ft.Text("Версия: 0.1_beta", size = 12, weight = ft.FontWeight.W_500, color = ft.Colors.GREY_500),
+                            ft.Container(height = 20),
                         ]
                     )
                 )
             )
         ],
-        navigation_bar=navigation_bar,
+        navigation_bar = navigation_bar,
     )

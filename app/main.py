@@ -33,7 +33,6 @@ logger = logging.getLogger(__name__)
 def main(page: ft.Page):
     page.title = "Университетский помощник"
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
-    page.padding = ft.padding.only(top=1000.0)
     config_manager = ConfigManager()
     tasks_manager = TasksManager()
     start_daily_checker(tasks_manager)

@@ -25,7 +25,7 @@ def build_alarm_view(
     alarms_container = ft.Container(
         content = alarms_column,
         expand = True,
-        padding = ft.padding.symmetric(horizontal = 16),
+        padding = ft.Padding.symmetric(horizontal = 16),
     )
 
     def refresh_list():
@@ -64,7 +64,7 @@ def build_alarm_view(
             ),
             bgcolor = ft.Colors.GREY_700,
             border_radius = 16,
-            padding = ft.padding.symmetric(horizontal = 20, vertical = 14),
+            padding = ft.Padding.symmetric(horizontal = 20, vertical = 14),
             on_click = lambda e, a = alarm: _open_alarm_dialog(existing = a),
             ink = True,
         )
@@ -77,7 +77,7 @@ def build_alarm_view(
                 content = ft.Row([ft.Icon(ft.Icons.DELETE, color = ft.Colors.WHITE)], alignment = ft.MainAxisAlignment.END),
                 bgcolor = ft.Colors.RED_400,
                 border_radius = 16,
-                padding = ft.padding.only(right = 20),
+                padding = ft.Padding.only(right = 20),
             ),
             on_dismiss = lambda e, aid = alarm.id: _on_delete(aid),
         )
@@ -304,7 +304,7 @@ def build_alarm_view(
         content = ft.Text("Авто", size = 14, weight = ft.FontWeight.BOLD, color = ft.Colors.WHITE),
         bgcolor = ft.Colors.BLUE_GREY_600,
         border_radius = 16,
-        padding = ft.padding.symmetric(horizontal = 20, vertical = 14),
+        padding = ft.Padding.symmetric(horizontal = 20, vertical = 14),
         on_click = _on_auto,
         ink = True,
     )
@@ -325,7 +325,7 @@ def build_alarm_view(
             [btn_auto, ft.Container(expand=True), btn_add],
             vertical_alignment = ft.CrossAxisAlignment.CENTER,
         ),
-        padding = ft.padding.symmetric(horizontal=16, vertical=12),
+        padding = ft.Padding.symmetric(horizontal=16, vertical=12),
     )
 
     refresh_list()
@@ -333,14 +333,14 @@ def build_alarm_view(
     # ── View ─────────────────────────────────────────────────────────────────
     return ft.View(
         route = "/alarm",
-        padding = 0,  # Убираем отступы у View, чтобы SafeArea занял всю площадь
+        padding = 0,
         navigation_bar = navigation_bar,
         controls = [
             ft.SafeArea(
                 content = ft.Column(
                     [
                         ft.Container(
-                            padding = ft.padding.symmetric(horizontal = 16, vertical = 8),
+                            padding = ft.Padding.symmetric(horizontal = 16, vertical = 8),
                             content = ft.Column(
                                 [
                                     ft.Text("Будильники", size = 25, weight = ft.FontWeight.BOLD), 

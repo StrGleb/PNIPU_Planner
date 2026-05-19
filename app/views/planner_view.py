@@ -348,58 +348,58 @@ def build_planner_view(
                 ft.Row(
                     [
                         ft.Container(
-                            content=ft.Text(f"{hour:02d}:00", size=11, color=ft.Colors.GREY_500),
-                            width=TIME_COL_W,
-                            height=HOUR_HEIGHT,
-                            alignment=ft.Alignment(x=1.0, y=-1.0),
-                            padding=ft.padding.only(right=8, top=2),
+                            content = ft.Text(f"{hour:02d}:00", size = 11, color = ft.Colors.GREY_500),
+                            width = TIME_COL_W,
+                            height = HOUR_HEIGHT,
+                            alignment = ft.Alignment(x = 1.0, y = -1.0),
+                            padding = ft.Padding.only(right = 8, top = 2),
                         ),
                         ft.Container(
-                            expand=True,
-                            height=HOUR_HEIGHT,
-                            border=ft.border.only(top=ft.BorderSide(0.5, ft.Colors.GREY_300)),
+                            expand = True,
+                            height = HOUR_HEIGHT,
+                            border = ft.Border.only(top = ft.BorderSide(0.5, ft.Colors.GREY_300)),
                         ),
                     ],
-                    spacing=0,
-                    height=HOUR_HEIGHT,
-                    vertical_alignment=ft.CrossAxisAlignment.START,
+                    spacing = 0,
+                    height = HOUR_HEIGHT,
+                    vertical_alignment = ft.CrossAxisAlignment.START,
                 )
             )
-        return ft.Column(rows, spacing=0, height=total_h)
+        return ft.Column(rows, spacing = 0, height = total_h)
 
     def _build_lesson_block(lesson: Lesson) -> ft.Container:
         try:
-            s      = time_to_minutes(lesson.time_start) - START_HOUR * 60
-            e_m    = time_to_minutes(lesson.time_end)   - START_HOUR * 60
+            s = time_to_minutes(lesson.time_start) - START_HOUR * 60
+            e_m = time_to_minutes(lesson.time_end) - START_HOUR * 60
             if s < 0 or e_m < 0:
                 raise ValueError("invalid time")
             top_px = s / 60 * HOUR_HEIGHT
-            h_px   = max((e_m - s) / 60 * HOUR_HEIGHT, 36)
+            h_px = max((e_m - s) / 60 * HOUR_HEIGHT, 36)
         except Exception:
             return ft.Container()
 
         return ft.Container(
-            content=ft.Column(
+            content = ft.Column(
                 [
                     ft.Text(
                         f"{lesson.time_start} – {lesson.time_end}",
-                        size=11, weight=ft.FontWeight.BOLD, color=LESSON_TIME,
+                        size = 11, weight = ft.FontWeight.BOLD, color = LESSON_TIME,
                     ),
                     ft.Text(
                         lesson.subject,
-                        size=13, weight=ft.FontWeight.BOLD, color=LESSON_TEXT,
-                        overflow=ft.TextOverflow.ELLIPSIS,
+                        size = 13, weight = ft.FontWeight.BOLD, color = LESSON_TEXT,
+                        overflow = ft.TextOverflow.ELLIPSIS,
                     ),
                 ],
-                spacing=2, tight=True,
+                spacing = 2, tight = True,
             ),
-            bgcolor=LESSON_BG,
-            border=ft.border.all(1, LESSON_BORDER),
-            border_radius=8,
-            padding=ft.padding.symmetric(horizontal=8, vertical=6),
-            top=top_px, left=TIME_COL_W + 4, right=8, height=h_px,
-            on_click=lambda e, l=lesson: open_detail(l),
-            ink=True,
+            bgcolor = LESSON_BG,
+            border = ft.Border.all(1, LESSON_BORDER),
+            border_radius = 8,
+            padding = ft.Padding.symmetric(horizontal = 8, vertical = 6),
+            top = top_px, left = TIME_COL_W + 4, right = 8, height = h_px,
+            on_click = lambda e, l = lesson: open_detail(l),
+            ink = True,
         )
 
     def build_timeline_stack() -> ft.Stack:
@@ -431,7 +431,7 @@ def build_planner_view(
         content = week_label_ctrl,
         bgcolor = ft.Colors.GREY_200,
         border_radius = 8,
-        padding = ft.padding.symmetric(horizontal = 12, vertical = 8),
+        padding = ft.Padding.symmetric(horizontal = 12, vertical = 8),
     )
 
     header = ft.Container(
@@ -439,36 +439,36 @@ def build_planner_view(
             [
                 ft.IconButton(
                     ft.Icons.MENU,
-                    on_click=lambda e: page.show_drawer(),
-                    icon_size=24,
+                    on_click = lambda e: page.show_drawer(),
+                    icon_size = 24,
                 ),
                 ft.Column(
-                    [ft.Text("Календарь", size=20, weight=ft.FontWeight.BOLD), date_text],
-                    spacing=0, expand=True,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    [ft.Text("Календарь", size = 20, weight = ft.FontWeight.BOLD), date_text],
+                    spacing = 0, expand = True,
+                    horizontal_alignment = ft.CrossAxisAlignment.CENTER,
                 ),
                 week_badge,
             ],
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            alignment = ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment = ft.CrossAxisAlignment.CENTER,
         ),
-        padding=ft.padding.symmetric(horizontal=4, vertical=8),
+        padding = ft.Padding.symmetric(horizontal = 4, vertical = 8),
     )
 
     # ── Навигация по дням (стрелки) ──────────────────────────────────────────────
     def prev_day(e):
-        state["date"] -= datetime.timedelta(days=1)
+        state["date"] -= datetime.timedelta(days = 1)
         rebuild_timeline()
 
     def next_day(e):
-        state["date"] += datetime.timedelta(days=1)
+        state["date"] += datetime.timedelta(days = 1)
         rebuild_timeline()
 
     nav_row = ft.Row(
         [
-            ft.IconButton(ft.Icons.CHEVRON_LEFT,  on_click=prev_day,  icon_size=22),
-            ft.Container(expand=True),
-            ft.IconButton(ft.Icons.CHEVRON_RIGHT, on_click=next_day, icon_size=22),
+            ft.IconButton(ft.Icons.CHEVRON_LEFT,  on_click = prev_day,  icon_size = 22),
+            ft.Container(expand = True),
+            ft.IconButton(ft.Icons.CHEVRON_RIGHT, on_click = next_day, icon_size = 22),
         ],
     )
 
@@ -484,70 +484,70 @@ def build_planner_view(
                 content=ft.Row([
                     ft.Text(
                         "Студенческий календарь",
-                        size=15, weight=ft.FontWeight.BOLD, expand=True,
+                        size = 15, weight = ft.FontWeight.BOLD, expand = True,
                     ),
                     ft.IconButton(
                         ft.Icons.CLOSE,
-                        on_click=lambda e: page.close_drawer(),
-                        icon_size=20,
+                        on_click = lambda e: page.close_drawer(),
+                        icon_size = 20,
                     ),
                 ]),
-                padding=ft.padding.only(left=16, top=12, right=8, bottom=8),
+                padding=ft.Padding.only(left = 16, top = 12, right = 8, bottom = 8),
             ),
             ft.Divider(),
             ft.ListTile(
                 leading=ft.Icon(ft.Icons.VIEW_WEEK_OUTLINED),
                 title=ft.Text("Неделя"),
-                on_click=lambda e: page.close_drawer(),   # будет реализовано позже
+                on_click = lambda e: page.close_drawer(), # будет реализовано позже
             ),
             ft.ListTile(
-                leading=ft.Icon(ft.Icons.CALENDAR_MONTH_OUTLINED),
-                title=ft.Text("Месяц"),
-                on_click=lambda e: page.close_drawer(),
+                leading = ft.Icon(ft.Icons.CALENDAR_MONTH_OUTLINED),
+                title = ft.Text("Месяц"),
+                on_click = lambda e: page.close_drawer(),
             ),
             ft.ListTile(
-                leading=ft.Icon(ft.Icons.CALENDAR_TODAY_OUTLINED),
-                title=ft.Text("Год"),
-                on_click=lambda e: page.close_drawer(),
+                leading = ft.Icon(ft.Icons.CALENDAR_TODAY_OUTLINED),
+                title = ft.Text("Год"),
+                on_click = lambda e: page.close_drawer(),
             ),
             ft.Divider(),
             ft.ListTile(
-                leading=ft.Icon(ft.Icons.TODAY),
-                title=ft.Text("Текущий день"),
-                on_click=lambda e: go_to_today(),
+                leading = ft.Icon(ft.Icons.TODAY),
+                title = ft.Text("Текущий день"),
+                on_click = lambda e: go_to_today(),
             ),
         ],
-        on_dismiss=lambda e: None,
+        on_dismiss = lambda e: None,
     )
 
     # ── FAB ──────────────────────────────────────────────────────────────────────
     fab = ft.FloatingActionButton(
-        icon=ft.Icons.ADD,
-        bgcolor=ft.Colors.BLUE_200,
-        on_click=open_add_dialog,
+        icon = ft.Icons.ADD,
+        bgcolor = ft.Colors.BLUE_200,
+        on_click = open_add_dialog,
     )
 
     # ── View ─────────────────────────────────────────────────────────────────────
     view = ft.View(
-        route="/planner",
-        drawer=nav_drawer,
-        floating_action_button=fab,
-        navigation_bar=navigation_bar,
-        padding=0, 
-        controls=[
+        route = "/planner",
+        drawer = nav_drawer,
+        floating_action_button = fab,
+        navigation_bar = navigation_bar,
+        padding = 0, 
+        controls = [
             ft.SafeArea(
-                expand=True, # Принудительно заставляем SafeArea растянуться
-                content=ft.Container(
-                    expand=True, # Заставляем контейнер заполнить всё пространство SafeArea
-                    content=ft.Column(
+                expand = True,
+                content = ft.Container(
+                    expand = True,
+                    content = ft.Column(
                         [
                             header, 
-                            ft.Divider(height=1, thickness=0.5), 
+                            ft.Divider(height = 1, thickness = 0.5), 
                             nav_row, 
-                            timeline_col # Здесь ваш список с прокруткой
+                            timeline_col
                         ],
-                        expand=True,
-                        spacing=0,
+                        expand = True,
+                        spacing = 0,
                     )
                 )
             )

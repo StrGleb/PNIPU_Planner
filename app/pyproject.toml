@@ -1,0 +1,6 @@
+[tool.flet]
+name = "Университетский помощник"
+id = "ru.semyon.pnipu_planner"
+version = "0.1"
+description = "Описание"
+icon = "assets/icon.png"
