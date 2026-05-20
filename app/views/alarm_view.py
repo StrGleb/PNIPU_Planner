@@ -102,23 +102,22 @@ def build_alarm_view(
     def _open_alarm_dialog(existing: Alarm | None = None):
         is_edit = existing is not None
 
-        hour_f   = ft.TextField(
-            label="Час (0–23)",
-            value=str(existing.hour) if is_edit else "",
-            keyboard_type=ft.KeyboardType.NUMBER, width=110
+        hour_f = ft.TextField(
+            label = "Час (0–23)",
+            value = str(existing.hour) if is_edit else "",
+            keyboard_type = ft.KeyboardType.NUMBER, width = 110
         )
 
         minute_f = ft.TextField(
-            label="Минута (0–59)",
-            value=str(existing.minute) if is_edit else "",
-            keyboard_type=ft.KeyboardType.NUMBER, width=110
+            label = "Минута (0–59)",
+            value = str(existing.minute) if is_edit else "",
+            keyboard_type = ft.KeyboardType.NUMBER, width = 110
         )
 
-        error_t  = ft.Text("", color=ft.Colors.RED_400, size=12)
+        error_t = ft.Text("", color = ft.Colors.RED_400, size = 12)
 
         selected_days: list[int] = list(existing.days) if is_edit else []
         selected_week: list[str] = [existing.week_type] if is_edit else [WEEK_ANY]
-
 
         # ── Кнопки дней ──────────────────────────────────────────────────────────
         day_btns: dict[int, ft.Container] = {}
@@ -135,16 +134,20 @@ def build_alarm_view(
 
         def _make_day_btn(d, name):
             btn = ft.Container(
-                content=ft.Text(name, size=11, weight=ft.FontWeight.BOLD,
-                                color=ft.Colors.WHITE),
-                bgcolor=_day_color(d), border_radius=20,
-                width=36, height=36, alignment=ft.alignment.center,
-                on_click=lambda e, day=d: _toggle_day(day), ink=True,
+                    content=ft.Text(
+                        name, 
+                        size = 11, 
+                        weight = ft.FontWeight.BOLD,
+                        color = ft.Colors.WHITE
+                    ),
+                bgcolor = _day_color(d), border_radius = 20,
+                width = 36, height = 36, alignment = ft.alignment.center,
+                on_click = lambda e, day = d: _toggle_day(day), ink = True,
             )
             day_btns[d] = btn
             return btn
 
-        days_row = ft.Row([_make_day_btn(d, n) for d, n in _DAYS], spacing=4)
+        days_row = ft.Row([_make_day_btn(d, n) for d, n in _DAYS], spacing = 4)
 
         # ── Кнопки чётности ───────────────────────────────────────────────────────
         week_btns: dict[str, ft.Container] = {}
@@ -161,18 +164,22 @@ def build_alarm_view(
 
         def _make_week_btn(wt, name):
             btn = ft.Container(
-                content=ft.Text(name, size=11, weight=ft.FontWeight.BOLD,
-                                color=ft.Colors.WHITE),
-                bgcolor=_week_color(wt), border_radius=12,
-                padding=ft.padding.symmetric(horizontal=12, vertical=8),
-                on_click=lambda e, w=wt: _select_week(w), ink=True,
+                content = ft.Text(
+                    name, 
+                    size = 11, 
+                    weight = ft.FontWeight.BOLD,
+                    color = ft.Colors.WHITE
+                ),
+                bgcolor = _week_color(wt), border_radius = 12,
+                padding = ft.padding.symmetric(horizontal = 12, vertical = 8),
+                on_click = lambda e, w = wt: _select_week(w), ink = True,
             )
             week_btns[wt] = btn
             return btn
 
         weeks_row = ft.Row(
             [_make_week_btn(wt, name) for wt, name in _WEEKS],
-            spacing=8,
+            spacing = 8,
         )
 
         # ── Сохранение ────────────────────────────────────────────────────────────
@@ -187,12 +194,12 @@ def build_alarm_view(
                 return
 
             days = sorted(selected_days)
-            wt   = selected_week[0]
+            wt = selected_week[0]
 
             if is_edit:
                 alarm_manager.update(existing.id, h, m, days, wt)
             else:
-                alarm_manager.add(Alarm(hour=h, minute=m, days=days, week_type=wt))
+                alarm_manager.add(Alarm(hour = h, minute = m, days = days, week_type = wt))
 
             alarm_dialog.open = False
             refresh_list()
@@ -202,32 +209,36 @@ def build_alarm_view(
             alarm_dialog.open = False
             page.update()
 
-        alarm_dialog.title   = ft.Text("Изменить будильник" if is_edit else "Новый будильник")
+        alarm_dialog.title = ft.Text("Изменить будильник" if is_edit else "Новый будильник")
         alarm_dialog.content = ft.Column(
             [
-                ft.Row([hour_f, ft.Text(":", size=24, weight=ft.FontWeight.BOLD), minute_f],
-                    vertical_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
-                ft.Container(height=4),
-                ft.Text("Повторять:", size=13, color=ft.Colors.GREY_500),
+                ft.Row([hour_f, ft.Text(":", size = 24, weight = ft.FontWeight.BOLD), minute_f],
+                    vertical_alignment = ft.CrossAxisAlignment.CENTER, spacing = 8),
+                ft.Container(height = 4),
+                ft.Text("Повторять:", size = 13, color = ft.Colors.GREY_500),
                 days_row,
-                ft.Text("Неделя:", size=13, color=ft.Colors.GREY_500),
+                ft.Text("Неделя:", size = 13, color = ft.Colors.GREY_500),
                 weeks_row,
-                ft.Text("Дни не выбраны — каждый день", size=11,
-                        italic=True, color=ft.Colors.GREY_500),
+                ft.Text("Дни не выбраны — каждый день", size = 11,
+                        italic = True, color = ft.Colors.GREY_500),
                 error_t,
             ],
-            tight=True, spacing=10, width=300,
+            tight = True, spacing = 10, width = 300,
         )
         alarm_dialog.actions = [
-            ft.TextButton("Отмена", on_click=_cancel),
-            ft.FilledButton("Сохранить" if is_edit else "Добавить", on_click=_save),
+            ft.TextButton("Отмена", on_click = _cancel),
+            ft.FilledButton("Сохранить" if is_edit else "Добавить", on_click = _save),
         ]
         alarm_dialog.open = True
         page.update()
 
     # ── Snackbar ──────────────────────────────────────────────────────────────
     def show_info(msg: str):
-        snack = ft.SnackBar(content=ft.Text(msg), bgcolor=ft.Colors.GREEN_700, duration=3000)
+        snack = ft.SnackBar(
+            content = ft.Text(msg), 
+            bgcolor = ft.Colors.GREEN_700, 
+            duration = 3000
+        )
         page.overlay.append(snack)
         snack.open = True
         
@@ -243,26 +254,22 @@ def build_alarm_view(
 
     # ── Авто ─────────────────────────────────────────────────────────────────
     def _on_auto(e):
-        """ Данна функция будет автоматически создавать будильники для пользователя подстраиваясь под его распсиание """
         cfg = config_manager.config
-
-        # ── Валидация ─────────────────────────────────────────────────────────────
         schedule_path = pathlib.Path.home() / ".pnipu_planner" / "schedule.json"
 
         if not schedule_path.exists():
-            show_error("Расписание не загружено.\nИмпортируйте файл xlsx в Настройках.")
+            show_error("Расписание не загружено. Импортируйте xlsx в Настройках.")
             return
 
         try:
             with open(schedule_path, encoding = "utf-8") as f:
                 schedule = json.load(f)
-        except Exception as e:
+        except Exception:
             show_error("Не удалось прочитать файл расписания.")
-            logger.error(f"Не удалось прочитать файл расписания: {e}")
             return
 
         if not schedule.get("odd") and not schedule.get("even"):
-            show_error("Файл расписания пуст.\nИмпортируйте расписание через Настройки.")
+            show_error("Файл расписания пуст.")
             return
 
         if cfg.get_together_time <= 0:
@@ -273,63 +280,86 @@ def build_alarm_view(
             show_error("Укажите время до ВУЗа в Настройках.")
             return
 
-        # ── Находим первую пару каждого дня ───────────────────────────────────────
-        day_first: dict[int, int] = {}
+        # Дни с парами по типу недели
+        odd_days: dict[int, int] = {}
+        even_days: dict[int, int] = {}
 
-        for lesson in schedule.get("odd", []) + schedule.get("even", []):
+        for lesson in schedule.get("odd", []):
             day = int(lesson["day"])
             try:
                 h, m = map(int, lesson["time_start"].split(":"))
             except Exception:
                 continue
             t = h * 60 + m
-            if day not in day_first or t < day_first[day]:
-                day_first[day] = t
+            if day not in odd_days or t < odd_days[day]:
+                odd_days[day] = t
 
-        if not day_first:
-            show_error("В расписании не найдено ни одной пары.")
-            return
+        for lesson in schedule.get("even", []):
+            day = int(lesson["day"])
+            try:
+                h, m = map(int, lesson["time_start"].split(":"))
+            except Exception:
+                continue
+            t = h * 60 + m
+            if day not in even_days or t < even_days[day]:
+                even_days[day] = t
 
-        # ── Считаем время будильника через make_alarm ─────────────────────────────
-        alarm_to_days: dict[int, list[int]] = {}
+        all_days = set(odd_days) | set(even_days)
 
-        for day, first_lesson_mins in day_first.items():
-            first_h = first_lesson_mins // 60
-            first_m = first_lesson_mins % 60
-            alarm_mins = lib.make_alarm(first_h, first_m, cfg.get_together_time, cfg.travel_time)
+        # Для каждого дня определяем week_type и время первой пары
+        # alarm_key -> (hour, minute, week_type, days_list)
+        alarm_map: dict[tuple, list[int]] = {}
 
-            # Нормализуем на случай отрицательного результата
+        for day in all_days:
+            in_odd = day in odd_days
+            in_even = day in even_days
+
+            if in_odd and in_even:
+                week_type = WEEK_ANY
+                first_lesson = min(odd_days[day], even_days[day])
+            elif in_odd:
+                week_type = WEEK_ODD
+                first_lesson = odd_days[day]
+            else:
+                week_type = WEEK_EVEN
+                first_lesson = even_days[day]
+
+            fh = first_lesson // 60
+            fm = first_lesson % 60
+            alarm_mins = lib.make_alarm(fh, fm, cfg.get_together_time, cfg.travel_time)
             alarm_mins = ((alarm_mins % 1440) + 1440) % 1440
 
-            if alarm_mins not in alarm_to_days:
-                alarm_to_days[alarm_mins] = []
-            alarm_to_days[alarm_mins].append(day)
+            ah = alarm_mins // 60
+            am = alarm_mins % 60
+            key = (ah, am, week_type)
 
-        # ── Добавляем будильники, пропуская дубликаты ─────────────────────────────
+            if key not in alarm_map:
+                alarm_map[key] = []
+            alarm_map[key].append(day)
+
+        # Добавляем, пропуская дубликаты
         with alarm_manager._lock:
             existing_keys = {
-                (a.hour, a.minute, tuple(sorted(a.days)))
+                (a.hour, a.minute, a.week_type, tuple(sorted(a.days)))
                 for a in alarm_manager.alarms
             }
 
         added = 0
-        for alarm_mins, days in alarm_to_days.items():
-            h = alarm_mins // 60
-            m = alarm_mins % 60
+        for (ah, am, wt), days in alarm_map.items():
             days_sorted = sorted(days)
-            key = (h, m, tuple(days_sorted))
-
+            key = (ah, am, wt, tuple(days_sorted))
             if key not in existing_keys:
-                alarm_manager.add(Alarm(hour = h, minute = m, days = days_sorted))
+                alarm_manager.add(Alarm(hour = ah, minute = am,
+                                        days = days_sorted, week_type = wt))
                 existing_keys.add(key)
                 added += 1
 
-        # ── Результат ─────────────────────────────────────────────────────────────
         refresh_list()
         if added > 0:
-            logger.info(f"Добавлено {added} будильник(ов) по расписанию")
+            show_info(f"Добавлено {added} будильник(ов) по расписанию ✓")
         else:
-            logger.info("Все будильники по расписанию уже существуют")
+            show_info("Все будильники по расписанию уже существуют")
+
 
     # ── Кнопки внизу ─────────────────────────────────────────────────────────
     btn_auto = ft.Container(
@@ -357,7 +387,7 @@ def build_alarm_view(
             [btn_auto, ft.Container(expand=True), btn_add],
             vertical_alignment = ft.CrossAxisAlignment.CENTER,
         ),
-        padding = ft.Padding.symmetric(horizontal=16, vertical=12),
+        padding = ft.Padding.symmetric(horizontal = 16, vertical = 12),
     )
 
     refresh_list()

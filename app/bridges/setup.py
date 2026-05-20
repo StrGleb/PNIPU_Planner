@@ -9,7 +9,7 @@ ext_modules = [
 ]
 
 setup(
-    name="planner_algorithm",
-    ext_modules=ext_modules,
-    cmdclass={"build_ext": build_ext},
+    name = "planner_algorithm",
+    ext_modules = ext_modules,
+    cmdclass = {"build_ext": build_ext},
 )

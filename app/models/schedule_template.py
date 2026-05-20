@@ -49,7 +49,7 @@ class ScheduleTemplate:
     def to_dict(self) -> dict:
         return {
             "version": self.version,
-            "odd":  [l.to_dict() for l in self.odd],
+            "odd": [l.to_dict() for l in self.odd],
             "even": [l.to_dict() for l in self.even],
         }
 

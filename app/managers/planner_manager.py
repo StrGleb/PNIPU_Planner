@@ -1,7 +1,9 @@
 import datetime
 from typing import Optional
 from models.lesson_model import Lesson
+import logging
 
+logger = logging.getLogger(__name__)
 
 class PlannerManager:
     """
@@ -33,7 +35,7 @@ class PlannerManager:
 
     def get_lessons_for_date(self, date: datetime.date) -> list[Lesson]:
         result = [l for l in self._lessons.values() if l.date == date]
-        return sorted(result, key=lambda l: (int(l.time_start.split(":")[0]), int(l.time_start.split(":")[1])))
+        return sorted(result, key = lambda l: (int(l.time_start.split(":")[0]), int(l.time_start.split(":")[1])))
 
     def add_homework(self, lesson_id: str, text: str) -> None:
         lesson = self._lessons.get(lesson_id)
@@ -60,5 +62,5 @@ class PlannerManager:
             try:
                 lesson = Lesson.from_dict_entry(key, subject)
                 self._lessons[lesson.id] = lesson
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error("Не удалось подгрузить файл с шаблоном распсиания: {e}")

@@ -33,7 +33,7 @@ class Task:
     lesson_id: str
     priority: int = 0 # 0–3, по умолчанию 0
     rating: float = 0.0  # вычисляется менеджером уведомлений
-    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    id: str = field(default_factory = lambda: str(uuid.uuid4()))
 
     @property
     def display_line(self) -> str:

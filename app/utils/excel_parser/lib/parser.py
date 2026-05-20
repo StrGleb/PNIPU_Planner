@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import datetime, time
 from typing import List, Tuple, Set
 from io import BytesIO
-
 from openpyxl import load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -32,7 +31,6 @@ REGEX_TEACHER_ROLE = re.compile(
 REGEX_TEACHER_LOCATION = re.compile(r"(.*?(?:[А-Я]\.)+) *(.*)")
 
 
-
 @dataclass
 class LessonInsertParams:
     staging_id: str
@@ -44,12 +42,10 @@ class LessonInsertParams:
     repeat_rule: int
     timetable: str
 
-
 @dataclass
 class SubgroupAssignment:
     staging_id: str
     subgroup: str
-
 
 @dataclass
 class TeacherLocationAssignmentInsert:
@@ -57,12 +53,10 @@ class TeacherLocationAssignmentInsert:
     teacher: str
     location: str
 
-
 @dataclass
 class Lesson:
     raw_name: str
     insert_params: LessonInsertParams
-
 
 @dataclass
 class TeacherLocationAssignment:
@@ -73,28 +67,22 @@ class TeacherLocationAssignment:
         self.teacher = self.teacher.strip()
         self.location = self.location.strip()
 
-
 class PendingData:
     def __init__(self):
         self.subgroups_assignments: List[SubgroupAssignment] = []
         self.teacher_location_assignments: List[TeacherLocationAssignmentInsert] = []
 
-
 def normalize_spaces(s: str) -> str:
     return " ".join(s.split())
-
 
 def remove_all_spaces(s: str) -> str:
     return "".join(ch for ch in s if ch not in " \t\n\r")
 
-
 def parse_time_hhmm(value: str) -> time:
     return datetime.strptime(value.strip(), "%H:%M").time()
 
-
 def time_to_minutes(t: time) -> int:
     return t.hour * 60 + t.minute
-
 
 def get_timetable_title(ws: Worksheet) -> str:
     val = ws[TIMETABLE_CELL_NAME].value
@@ -102,9 +90,8 @@ def get_timetable_title(ws: Worksheet) -> str:
         raise ValueError("Timetable title not found in A1")
     return str(val)
 
-
 def get_subgroup_name(ws: Worksheet, col_index: int) -> str:
-    val = ws.cell(row=SUBGROUP_ROW, column=col_index).value
+    val = ws.cell(row = SUBGROUP_ROW, column = col_index).value
     if val is None:
         raise ValueError(f"Subgroup name not found at col={col_index}")
 
@@ -121,7 +108,7 @@ def get_lesson_start_time(ws: Worksheet, row_index: int) -> time:
     time_row = row_index if row_index % 2 == 0 else row_index - 1
 
     for r in range(time_row, 0, -2):
-        val = ws.cell(row=r, column=TIME_COLUMN_INDEX).value
+        val = ws.cell(row = r, column = TIME_COLUMN_INDEX).value
 
         if val is None or str(val).strip() == "":
             continue
@@ -133,15 +120,12 @@ def get_lesson_start_time(ws: Worksheet, row_index: int) -> time:
 
     raise ValueError(f"Time value not found above row={row_index}")
 
-
-
 def get_cell_merge_height(ws: Worksheet, col_index: int, row_index: int) -> int:
     for merged_range in ws.merged_cells.ranges:
         min_col, min_row, max_col, max_row = merged_range.bounds
         if min_col <= col_index <= max_col and min_row <= row_index <= max_row:
             return max_row - min_row + 1
     return 1
-
 
 def determine_repeat_rule(ws: Worksheet, col_index: int, row_index: int) -> Tuple[int, bool]:
     merge_height = get_cell_merge_height(ws, col_index, row_index)
@@ -153,8 +137,6 @@ def determine_repeat_rule(ws: Worksheet, col_index: int, row_index: int) -> Tupl
 
     return (row_index % 2) + 1, False
 
-
-
 def extract_teacher_and_location(segment: str) -> Tuple[str, str]:
     matches = REGEX_TEACHER_LOCATION.search(segment)
     if not matches:
@@ -164,7 +146,6 @@ def extract_teacher_and_location(segment: str) -> Tuple[str, str]:
     location = matches.group(2).strip() or UNKNOWN_VALUE
 
     return teacher, location
-
 
 def parse_teacher_locations(teachers_location_string: str) -> List[TeacherLocationAssignment]:
     role_matches = list(REGEX_TEACHER_ROLE.finditer(teachers_location_string))
@@ -185,7 +166,7 @@ def parse_teacher_locations(teachers_location_string: str) -> List[TeacherLocati
         teacher, location = extract_teacher_and_location(segment)
         assignments.append(TeacherLocationAssignment(teacher, location))
 
-    assignments.sort(key=lambda x: (x.teacher, x.location))
+    assignments.sort(key = lambda x: (x.teacher, x.location))
     return assignments
 
 

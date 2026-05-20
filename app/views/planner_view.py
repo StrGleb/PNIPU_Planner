@@ -11,7 +11,6 @@ from models.task_model import TASK_TYPE_HOMEWORK, TASK_TYPE_TEST
 from bridges.planner_bridge import is_week_even, time_to_minutes
 
 
-
 # ── Константы таймлайна ────────────────────────────────────────────────────────
 HOUR_HEIGHT = 80 # пикселей на 1 час
 START_HOUR = 8 # таймлайн начинается в 08:00
@@ -39,7 +38,6 @@ def build_planner_view(
     state = {
         "date": datetime.date.today(),
     }
-
 
     # ── Утилиты ──────────────────────────────────────────────────────────────────
     def safe_update(*controls):
@@ -181,7 +179,7 @@ def build_planner_view(
         if current is None:
             return
 
-        def close_sheet(e=None):
+        def close_sheet(e = None):
             detail_sheet.open = False
             page.update()
 
@@ -197,7 +195,7 @@ def build_planner_view(
             open_input_dialog("Лабораторная работа",
                 lambda text, p: _after_add_lb(current.id, text, p))
 
-        def _after_add_hw(lid, text, priority=0):
+        def _after_add_hw(lid, text, priority = 0):
             planner_manager.add_homework(lid, text)
             lesson = planner_manager.get_lesson(lid)
             if lesson:
@@ -272,9 +270,9 @@ def build_planner_view(
         
         # Лабораторные работы
         if current.lab_works:
-            lb_items = [ft.Text(f"• {l}", size=13) for l in current.lab_works]
+            lb_items = [ft.Text(f"• {l}", size = 13) for l in current.lab_works]
         else:
-            lb_items = [ft.Text("отсутствуют", size=13, color=ft.Colors.GREY_500, italic=True)]
+            lb_items = [ft.Text("отсутствуют", size = 13, color = ft.Colors.GREY_500, italic = True)]
 
         detail_sheet.content = ft.Container(
             content=ft.Column(
@@ -308,8 +306,8 @@ def build_planner_view(
                     ft.Divider(),
 
                     ft.Row([
-                        ft.Text("Лабораторные работы:", size=14, weight=ft.FontWeight.W_600, expand=True),
-                        ft.IconButton(ft.Icons.ADD, on_click=add_lb, icon_size=20),
+                        ft.Text("Лабораторные работы:", size = 14, weight = ft.FontWeight.W_600, expand = True),
+                        ft.IconButton(ft.Icons.ADD, on_click = add_lb, icon_size = 20),
                     ]),
                     *lb_items,
                     ft.Divider(),

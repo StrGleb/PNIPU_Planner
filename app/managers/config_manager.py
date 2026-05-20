@@ -9,7 +9,7 @@ def _storage_path() -> pathlib.Path:
     На Android Path.home() → /data/user/0/<pkg>/files/
     """
     d = pathlib.Path.home() / ".pnipu_planner"
-    d.mkdir(parents=True, exist_ok=True)
+    d.mkdir(parents = True, exist_ok = True)
     return d / "config.json"
 
 
@@ -23,14 +23,14 @@ class ConfigManager:
         if not self._path.exists():
             return UserConfig()
         try:
-            with open(self._path, encoding="utf-8") as f:
+            with open(self._path, encoding = "utf-8") as f:
                 return UserConfig.from_dict(json.load(f))
         except Exception:
             return UserConfig()
 
     def save(self) -> None:
-        with open(self._path, "w", encoding="utf-8") as f:
-            json.dump(self.config.to_dict(), f, ensure_ascii=False, indent=2)
+        with open(self._path, "w", encoding = "utf-8") as f:
+            json.dump(self.config.to_dict(), f, ensure_ascii = False, indent = 2)
 
 
     # ── Набор сеттеров ─────────────────────────

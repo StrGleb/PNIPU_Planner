@@ -25,7 +25,6 @@ def parse_date(value):
 
     return f"{s}.2026"
 
-
 def parse_session_line(raw: str):
     raw = str(raw).replace("\n", " ").replace("\r", " ").strip()
 
@@ -44,7 +43,6 @@ def parse_session_line(raw: str):
             "room": room
         }
 
-
     room_match = re.search(r"\d.*$", rest)
     room = room_match.group(0).strip() if room_match else ""
 
@@ -52,7 +50,6 @@ def parse_session_line(raw: str):
         main_part = rest[:room_match.start()].strip()
     else:
         main_part = rest
-
 
     teacher_match = re.search(
         r"(доц\.|асс\.|преп\.|ст\.|проф\.|куратор|научный руководитель).*",
@@ -75,7 +72,6 @@ def parse_session_line(raw: str):
         "room": room
     }
 
-
 class SessionParser:
     def __init__(self):
         self.lessons = []
@@ -85,7 +81,7 @@ class SessionParser:
         self.timetables = set()
 
     def parse_lessons_from_bytes(self, file_bytes: bytes):
-        wb = load_workbook(BytesIO(file_bytes), data_only=True)
+        wb = load_workbook(BytesIO(file_bytes), data_only = True)
         ws = wb.active
 
         for row in range(4, ws.max_row + 1):

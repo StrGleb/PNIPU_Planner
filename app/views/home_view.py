@@ -22,11 +22,11 @@ def build_home_view(
 
     greeting = greeting_choose()
     today = datetime.date.today()
-    tomorrow = today + datetime.timedelta(days=1)
+    tomorrow = today + datetime.timedelta(days = 1)
 
-    tests_today = tasks_manager.get_tests_for_date(today) # к/р сегодня
-    homework_tmrw = tasks_manager.get_homework_for_date(tomorrow) # д/з на завтра
-    labs_tmrw = tasks_manager.get_labs_for_date(tomorrow) # лаб. на завтра
+    tests_today = tasks_manager.get_tests_for_date(today) # контрольные работы в этот день сегодня
+    homework_tmrw = tasks_manager.get_homework_for_date(tomorrow) # домашнее задание на завтрашний день
+    labs_tmrw = tasks_manager.get_labs_for_date(tomorrow) # лабораторные работы на завтра
 
     # ── Строка задачи с цветовым индикатором ──────────────────────────────────
     def _task_row(task) -> ft.Row:
@@ -43,7 +43,7 @@ def build_home_view(
         )
 
     # ── Блок с задачами (уже отсортированных по приоритету из tasks_manager) ──
-    def _task_box(items: list, empty_text: str, box_color=ft.Colors.GREY_200) -> ft.Container:
+    def _task_box(items: list, empty_text: str, box_color = ft.Colors.GREY_200) -> ft.Container:
         if items:
             content_controls = [_task_row(t) for t in items]
         else:

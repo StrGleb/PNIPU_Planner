@@ -1,8 +1,8 @@
-# excel_path = "2025-2026 Raspisanie ehkzamenov EHTF RIS -25-2b (vesennijj  sessiya).xlsx" -
-# название таблицы (его не меняем, оставляем тем, что счачано с сайта )
-
-# результат в файлах .json
-
+"""
+excel_path = "2025-2026 Raspisanie ehkzamenov EHTF RIS -25-2b (vesennijj  sessiya).xlsx" -
+название таблицы (его не меняем, оставляем тем, что счачано с сайта )
+результат в файлах .json
+"""
 
 import json
 from lib.parser import Parser
@@ -10,9 +10,8 @@ from lib.session_parser import SessionParser
 
 
 def save_json(data: dict, filename: str):
-    with open(filename, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
+    with open(filename, "w", encoding = "utf-8") as f:
+        json.dump(data, f, ensure_ascii = False, indent = 2)
 
 def minutes_to_hhmm(minutes: int) -> str:
     h = minutes // 60
@@ -53,20 +52,18 @@ def build_normal_json(parser: Parser) -> dict:
 
     return {
         "version": 1,
-        "odd": sorted(odd_lessons, key=lambda x: (x["day"], x["time_start"])),
-        "even": sorted(even_lessons, key=lambda x: (x["day"], x["time_start"]))
+        "odd": sorted(odd_lessons, key = lambda x: (x["day"], x["time_start"])),
+        "even": sorted(even_lessons, key = lambda x: (x["day"], x["time_start"]))
     }
-
 
 def build_session_json(parser) -> dict:
     return {
         "version": 1,
         "session": sorted(
             parser.lessons,
-            key=lambda x: (x["day"], x["time_start"])
+            key = lambda x: (x["day"], x["time_start"])
         )
     }
-
 
 def main():
     excel_path = "2025-2026 Raspisanie ehkzamenov EHTF RIS -25-2b (vesennijj  sessiya).xlsx"
@@ -92,7 +89,6 @@ def main():
         data = build_normal_json(parser)
         save_json(data, "timetable.json")
         print("JSON file saved: timetable.json")
-
 
 if __name__ == "__main__":
     main()

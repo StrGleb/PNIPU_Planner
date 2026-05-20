@@ -19,7 +19,7 @@ def _storage_path() -> pathlib.Path:
 
 class TasksManager:
     def __init__(self):
-        self._path  = _storage_path()
+        self._path = _storage_path()
         self._tasks: List[Task] = self._load()
 
     # ── Загрузка / сохранение ─────────────────────────────────────────────────
@@ -27,7 +27,7 @@ class TasksManager:
         if not self._path.exists():
             return []
         try:
-            with open(self._path, encoding="utf-8") as f:
+            with open(self._path, encoding = "utf-8") as f:
                 data = json.load(f)
             return [Task.from_dict(d) for d in data.get("tasks", [])]
         except Exception:

@@ -180,14 +180,14 @@ def build_settings_view(
             page.snack_bar.open = True
             page.update()
 
-        threading.Thread(target=finish_import, daemon=True).start()
+        threading.Thread(target = finish_import, daemon = True).start()
 
-    progress = ft.ProgressRing(visible=False, width=20, height=20, stroke_width=2)
+    progress = ft.ProgressRing(visible = False, width = 20, height = 20, stroke_width = 2)
 
     btn_confirm = ft.ElevatedButton(
         "Подтвердить импорт",
-        icon=ft.Icons.CHECK,
-        on_click=confirm_import,
+        icon = ft.Icons.CHECK,
+        on_click = confirm_import,
     )
 
     dialog = ft.AlertDialog(
@@ -195,15 +195,15 @@ def build_settings_view(
         content=ft.Column(
             [
                 dd_semester,
-                ft.Container(height=10),
-                ft.Row([progress, btn_confirm], alignment=ft.MainAxisAlignment.CENTER),
+                ft.Container(height = 10),
+                ft.Row([progress, btn_confirm], alignment = ft.MainAxisAlignment.CENTER),
             ],
-            tight=True,
+            tight = True,
         ),
-        actions=[
-            ft.TextButton("Отмена", on_click=close_import_dialog),
+        actions = [
+            ft.TextButton("Отмена", on_click = close_import_dialog),
         ],
-        actions_alignment=ft.MainAxisAlignment.END,
+        actions_alignment = ft.MainAxisAlignment.END,
     )
 
     def open_import_dialog(e):
@@ -212,8 +212,8 @@ def build_settings_view(
 
     btn_import = ft.ElevatedButton(
         "Импортировать из xlsx...",
-        icon=ft.Icons.UPLOAD_FILE,
-        on_click=open_import_dialog,
+        icon = ft.Icons.UPLOAD_FILE,
+        on_click = open_import_dialog,
     )
 
     return ft.View(

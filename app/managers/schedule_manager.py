@@ -20,7 +20,7 @@ def _get_storage_path() -> pathlib.Path:
     """
     
     storage = pathlib.Path.home() / ".pnipu_planner"
-    storage.mkdir(parents=True, exist_ok=True)
+    storage.mkdir(parents = True, exist_ok = True)
     return storage / "schedule.json"
 
 
@@ -39,14 +39,14 @@ class ScheduleManager:
             else:
                 return ScheduleTemplate() # пустой шаблон
         try:
-            with open(self._path, encoding="utf-8") as f:
+            with open(self._path, encoding = "utf-8") as f:
                 return ScheduleTemplate.from_dict(json.load(f))
         except Exception:
             return ScheduleTemplate()
 
     def save(self) -> None:
-        with open(self._path, "w", encoding="utf-8") as f:
-            json.dump(self.template.to_dict(), f, ensure_ascii=False, indent=2)
+        with open(self._path, "w", encoding = "utf-8") as f:
+            json.dump(self.template.to_dict(), f, ensure_ascii = False, indent = 2)
 
     def reload(self) -> None:
         """Перечитать шаблон с диска (например, после импорта нового Excel)"""
@@ -65,7 +65,7 @@ class ScheduleManager:
         """
         lessons = self.template.get_week(is_even)
         for tl in lessons:
-            target_date = monday + datetime.timedelta(days=tl.day - 1)
+            target_date = monday + datetime.timedelta(days = tl.day - 1)
             date_str = target_date.strftime("%d.%m.%Y")
 
             # Проверяем, нет ли уже такой пары на это место (дату и время)

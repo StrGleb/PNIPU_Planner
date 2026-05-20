@@ -9,7 +9,7 @@ from models.alarm_model import Alarm
 
 def _storage_path() -> pathlib.Path:
     d = pathlib.Path.home() / ".pnipu_planner"
-    d.mkdir(parents=True, exist_ok=True)
+    d.mkdir(parents = True, exist_ok = True)
     return d / "alarms.json"
 
 
@@ -30,15 +30,15 @@ class AlarmManager:
             with open(self._path, encoding="utf-8") as f:
                 data = json.load(f)
             alarms = [Alarm.from_dict(d) for d in data.get("alarms", [])]
-            return sorted(alarms, key=lambda a: (a.hour, a.minute))
+            return sorted(alarms, key = lambda a: (a.hour, a.minute))
         except Exception:
             return []
 
     def _save(self) -> None:
-        with open(self._path, "w", encoding="utf-8") as f:
+        with open(self._path, "w", encoding = "utf-8") as f:
             json.dump(
                 {"version": 1, "alarms": [a.to_dict() for a in self.alarms]},
-                f, ensure_ascii=False, indent=2,
+                f, ensure_ascii = False, indent = 2,
             )
 
     # ── Public API ────────────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ class AlarmManager:
         self._week_even_fn = fn
 
     def start_background_checker(self) -> None:
-        t = threading.Thread(target=self._check_loop, daemon=True)
+        t = threading.Thread(target = self._check_loop, daemon = True)
         t.start()
 
     # ── Internal ──────────────────────────────────────────────────────────────
