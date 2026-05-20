@@ -16,6 +16,7 @@ from managers.schedule_manager import ScheduleManager
 from managers.config_manager import ConfigManager
 from managers.tasks_manager import TasksManager
 from managers.notification_manager import start_daily_checker
+from bridges.planner_bridge import is_week_even
 
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
@@ -58,6 +59,13 @@ def main(page: ft.Page):
     threading.Thread(target = update_time, daemon = True).start()
 
     alarm_manager = AlarmManager()
+    alarm_manager.set_week_even_fn(
+        lambda: is_week_even(
+            datetime.date.today(),
+            config_manager.config.semester_start,
+            config_manager.config.first_week_even,
+        )
+    )
     alarm_manager.start_background_checker()
 
     def global_alarm_callback(alarm):

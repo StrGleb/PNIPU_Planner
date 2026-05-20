@@ -3,7 +3,7 @@ import pathlib
 import threading
 from time import sleep
 from datetime import datetime
-from typing import Callable
+from typing import Callable, Optional
 from models.alarm_model import Alarm
 
 
@@ -18,8 +18,9 @@ class AlarmManager:
         self._path = _storage_path()
         self._lock = threading.Lock()
         self.alarms: list[Alarm] = self._load()
-        self._fired_keys: set[str]              = set()
-        self._on_trigger: Callable[[Alarm], None] | None = None
+        self._fired_keys: set[str] = set()
+        self._on_trigger: Optional[Callable] = None
+        self._week_even_fn: Optional[Callable[[], bool]] = None
 
     # ── Персистентность ───────────────────────────────────────────────────────
     def _load(self) -> list[Alarm]:
@@ -44,7 +45,7 @@ class AlarmManager:
     def add(self, alarm: Alarm) -> None:
         with self._lock:
             self.alarms.append(alarm)
-            self.alarms.sort(key=lambda a: (a.hour, a.minute))
+            self.alarms.sort(key = lambda a: (a.hour, a.minute))
         self._save()
 
     def remove(self, alarm_id: str) -> None:
@@ -60,20 +61,25 @@ class AlarmManager:
                     break
         self._save()
 
-    def update(self, alarm_id: str, hour: int, minute: int, days: list) -> None:
+    def update(self, alarm_id: str, hour: int, minute: int, days: list, week_type: str) -> None:
         """Обновляет время и дни существующего будильника."""
         with self._lock:
             for a in self.alarms:
                 if a.id == alarm_id:
-                    a.hour   = hour
+                    a.hour = hour
                     a.minute = minute
-                    a.days   = days
+                    a.days = days
+                    a.week_type = week_type
                     break
-            self.alarms.sort(key=lambda a: (a.hour, a.minute))
+            self.alarms.sort(key = lambda a: (a.hour, a.minute))
         self._save()
 
-    def set_trigger_callback(self, callback: Callable[[Alarm], None]) -> None:
+    def set_trigger_callback(self, callback: Callable) -> None:
         self._on_trigger = callback
+
+    def set_week_even_fn(self, fn: Callable[[], bool]) -> None:
+        """Функция возвращает True если текущая неделя чётная."""
+        self._week_even_fn = fn
 
     def start_background_checker(self) -> None:
         t = threading.Thread(target=self._check_loop, daemon=True)
@@ -83,12 +89,13 @@ class AlarmManager:
     def _check_loop(self) -> None:
         while True:
             now = datetime.now()
+            is_even = self._week_even_fn() if self._week_even_fn else False
             key = f"{now.hour}:{now.minute}"
             with self._lock:
                 alarms_copy = list(self.alarms)
             for alarm in alarms_copy:
                 fire_key = f"{alarm.id}:{key}"
-                if alarm.matches_now(now) and fire_key not in self._fired_keys:
+                if alarm.matches_now(now, is_even) and fire_key not in self._fired_keys:
                     self._fired_keys.add(fire_key)
                     if self._on_trigger:
                         self._on_trigger(alarm)

@@ -2,7 +2,7 @@ import flet as ft
 import logging
 import json
 import pathlib
-from models.alarm_model import Alarm
+from models.alarm_model import Alarm, WEEK_ANY, WEEK_ODD, WEEK_EVEN, WEEK_NAMES
 from managers.alarm_manager import AlarmManager
 from managers.config_manager import ConfigManager
 from bridges.planner_bridge import lib
@@ -10,6 +10,8 @@ from bridges.planner_bridge import lib
 logger = logging.getLogger(__name__)
 
 _DAYS = [(1, "Пн"), (2, "Вт"), (3, "Ср"), (4, "Чт"), (5, "Пт"), (6, "Сб"), (7, "Вс")]
+_WEEKS = [(WEEK_ANY, "Любая"), (WEEK_ODD, "Нечёт."), (WEEK_EVEN, "Чётная")]
+
 
 def build_alarm_view(
     navigation_bar: ft.NavigationBar,
@@ -100,68 +102,98 @@ def build_alarm_view(
     def _open_alarm_dialog(existing: Alarm | None = None):
         is_edit = existing is not None
 
-        hour_f = ft.TextField(
-            label = "Час (0–23)",
-            value = str(existing.hour) if is_edit else "",
-            keyboard_type = ft.KeyboardType.NUMBER,
-            width = 110,
+        hour_f   = ft.TextField(
+            label="Час (0–23)",
+            value=str(existing.hour) if is_edit else "",
+            keyboard_type=ft.KeyboardType.NUMBER, width=110
         )
+
         minute_f = ft.TextField(
-            label = "Минута (0–59)",
-            value = str(existing.minute) if is_edit else "",
-            keyboard_type = ft.KeyboardType.NUMBER,
-            width = 110,
+            label="Минута (0–59)",
+            value=str(existing.minute) if is_edit else "",
+            keyboard_type=ft.KeyboardType.NUMBER, width=110
         )
-        error_t = ft.Text("", color = ft.Colors.RED_400, size = 12)
+
+        error_t  = ft.Text("", color=ft.Colors.RED_400, size=12)
 
         selected_days: list[int] = list(existing.days) if is_edit else []
-        day_containers: dict[int, ft.Container] = {}
+        selected_week: list[str] = [existing.week_type] if is_edit else [WEEK_ANY]
 
-        def _day_bgcolor(d: int) -> str:
+
+        # ── Кнопки дней ──────────────────────────────────────────────────────────
+        day_btns: dict[int, ft.Container] = {}
+
+        def _day_color(d):
             return ft.Colors.BLUE_400 if d in selected_days else ft.Colors.GREY_700
 
-        def _toggle_day(day_num: int):
-            if day_num in selected_days:
-                selected_days.remove(day_num)
-            else:
-                selected_days.append(day_num)
-            btn = day_containers[day_num]
-            btn.bgcolor = _day_bgcolor(day_num)
-            try:
-                btn.update()
-            except Exception as e:
-                logger.error(f"Ошибка переключения дня: {e}")
+        def _toggle_day(d):
+            if d in selected_days: selected_days.remove(d)
+            else: selected_days.append(d)
+            day_btns[d].bgcolor = _day_color(d)
+            try: day_btns[d].update()
+            except: pass
 
-        def _make_day_btn(day_num: int, name: str) -> ft.Container:
+        def _make_day_btn(d, name):
             btn = ft.Container(
-                content = ft.Text(name, size = 11, weight = ft.FontWeight.BOLD, color = ft.Colors.WHITE),
-                bgcolor = _day_bgcolor(day_num),
-                border_radius = 20,
-                width = 36,
-                height = 36,
-                alignment = ft.Alignment.CENTER,
-                on_click = lambda e, d = day_num: _toggle_day(d),
-                ink = True,
+                content=ft.Text(name, size=11, weight=ft.FontWeight.BOLD,
+                                color=ft.Colors.WHITE),
+                bgcolor=_day_color(d), border_radius=20,
+                width=36, height=36, alignment=ft.alignment.center,
+                on_click=lambda e, day=d: _toggle_day(day), ink=True,
             )
-            day_containers[day_num] = btn
+            day_btns[d] = btn
             return btn
 
-        days_row = ft.Row([_make_day_btn(d, n) for d, n in _DAYS], spacing = 4)
+        days_row = ft.Row([_make_day_btn(d, n) for d, n in _DAYS], spacing=4)
 
+        # ── Кнопки чётности ───────────────────────────────────────────────────────
+        week_btns: dict[str, ft.Container] = {}
+
+        def _week_color(wt):
+            return ft.Colors.BLUE_400 if wt == selected_week[0] else ft.Colors.GREY_700
+
+        def _select_week(wt):
+            selected_week[0] = wt
+            for k, btn in week_btns.items():
+                btn.bgcolor = _week_color(k)
+                try: btn.update()
+                except: pass
+
+        def _make_week_btn(wt, name):
+            btn = ft.Container(
+                content=ft.Text(name, size=11, weight=ft.FontWeight.BOLD,
+                                color=ft.Colors.WHITE),
+                bgcolor=_week_color(wt), border_radius=12,
+                padding=ft.padding.symmetric(horizontal=12, vertical=8),
+                on_click=lambda e, w=wt: _select_week(w), ink=True,
+            )
+            week_btns[wt] = btn
+            return btn
+
+        weeks_row = ft.Row(
+            [_make_week_btn(wt, name) for wt, name in _WEEKS],
+            spacing=8,
+        )
+
+        # ── Сохранение ────────────────────────────────────────────────────────────
         def _save(e):
             try:
                 h = int(hour_f.value)
                 m = int(minute_f.value)
-                assert lib.is_valid_time(h, m)
+                assert 0 <= h <= 23 and 0 <= m <= 59
             except (ValueError, AssertionError):
                 error_t.value = "Введите корректное время (ч: 0–23, мин: 0–59)"
                 page.update()
                 return
+
             days = sorted(selected_days)
+            wt   = selected_week[0]
+
             if is_edit:
-                alarm_manager.update(existing.id, h, m, days)
+                alarm_manager.update(existing.id, h, m, days, wt)
             else:
-                alarm_manager.add(Alarm(hour = h, minute = m, days = days))
+                alarm_manager.add(Alarm(hour=h, minute=m, days=days, week_type=wt))
+
             alarm_dialog.open = False
             refresh_list()
             page.update()
@@ -170,24 +202,24 @@ def build_alarm_view(
             alarm_dialog.open = False
             page.update()
 
-        alarm_dialog.title = ft.Text("Изменить будильник" if is_edit else "Новый будильник")
+        alarm_dialog.title   = ft.Text("Изменить будильник" if is_edit else "Новый будильник")
         alarm_dialog.content = ft.Column(
             [
-                ft.Row(
-                    [hour_f, ft.Text(":", size = 24, weight = ft.FontWeight.BOLD), minute_f],
-                    vertical_alignment = ft.CrossAxisAlignment.CENTER,
-                    spacing = 8,
-                ),
+                ft.Row([hour_f, ft.Text(":", size=24, weight=ft.FontWeight.BOLD), minute_f],
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
                 ft.Container(height=4),
-                ft.Text("Повторять:", size = 13, color = ft.Colors.GREY_500),
+                ft.Text("Повторять:", size=13, color=ft.Colors.GREY_500),
                 days_row,
-                ft.Text("Не выбрано — каждый день", size = 11, italic = True, color = ft.Colors.GREY_500),
+                ft.Text("Неделя:", size=13, color=ft.Colors.GREY_500),
+                weeks_row,
+                ft.Text("Дни не выбраны — каждый день", size=11,
+                        italic=True, color=ft.Colors.GREY_500),
                 error_t,
             ],
-            tight = True, spacing = 10, width = 280,
+            tight=True, spacing=10, width=300,
         )
         alarm_dialog.actions = [
-            ft.TextButton("Отмена", on_click = _cancel),
+            ft.TextButton("Отмена", on_click=_cancel),
             ft.FilledButton("Сохранить" if is_edit else "Добавить", on_click=_save),
         ]
         alarm_dialog.open = True
