@@ -1,13 +1,16 @@
 """
 excel_path = "2025-2026 Raspisanie ehkzamenov EHTF RIS -25-2b (vesennijj  sessiya).xlsx" -
-название таблицы (его не меняем, оставляем тем, что счачано с сайта )
+название таблицы (его не меняем, оставляем тем, что счачано с сайта)
 результат в файлах .json
 """
 
 import json
+import pathlib
+import logging
 from lib.parser import Parser
 from lib.session_parser import SessionParser
 
+logger = logging.getLogger(__name__)
 
 def save_json(data: dict, filename: str):
     with open(filename, "w", encoding = "utf-8") as f:
@@ -66,29 +69,43 @@ def build_session_json(parser) -> dict:
     }
 
 def main():
-    excel_path = "2025-2026 Raspisanie ehkzamenov EHTF RIS -25-2b (vesennijj  sessiya).xlsx"
+    # excel_path = "2025-2026 Raspisanie ehkzamenov EHTF RIS -25-2b (vesennijj  sessiya).xlsx"
+    excel_path = r"app\utils\excel_parser\2025_2026_Raspisanie_zanyatijj_EHTF_RIS_25_2b_vesennijj_posle_smeny.xlsx"
 
-    with open(excel_path, "rb") as f:
-        file_bytes = f.read()
+    try:
+        with open(excel_path, "rb") as f:
+            file_bytes = f.read()
+    except FileNotFoundError:
+        logger.error("Не удалось найти файл с расписанием")
+    except Exception as e:
+        logger.error(f"Произошла ошибка при попытке открытия файла с распсианеим:{e}")
 
-    if "sessiya" in excel_path.lower():
-        parser = SessionParser()
-    else:
-        parser = Parser()
+    try: 
+        if "sessiya" in excel_path.lower():
+            parser = SessionParser()
+        else:
+            parser = Parser()
 
-    parser.parse_lessons_from_bytes(file_bytes)
+        parser.parse_lessons_from_bytes(file_bytes)
+        logger.debug(f"Lessons parsed: {len(parser.lessons)}")
+    except Exception as e:
+        logger.error(f"Ошибка при парсинге полученных данных из файла расписаняи: {e}")
 
-    print("Lessons parsed:", len(parser.lessons))
+    try:
+        if isinstance(parser, SessionParser):
+            data = build_session_json(parser)
+            d = pathlib.Path.home() / ".pnipu_planner"
+            save_json(data, fr"{d}\timetable_session.json")
+            logger.info("JSON file saved: timetable_session.json")
+        else:
+            data = build_normal_json(parser)
+            d = pathlib.Path.home() / ".pnipu_planner"
+            save_json(data, fr"{d}\timetable.json")
+            logger.info("JSON file saved: timetable.json")
+    except Exception as e:
+        logger.error("Не удалось сохранить файл расписания пара/сессии: {e}")
 
-    if isinstance(parser, SessionParser):
-        data = build_session_json(parser)
-        save_json(data, "timetable_session.json")
-        print("JSON file saved: timetable_session.json")
 
-    else:
-        data = build_normal_json(parser)
-        save_json(data, "timetable.json")
-        print("JSON file saved: timetable.json")
-
+# Тестирование функции
 if __name__ == "__main__":
     main()

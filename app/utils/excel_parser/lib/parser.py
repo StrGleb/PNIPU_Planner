@@ -170,7 +170,6 @@ def parse_teacher_locations(teachers_location_string: str) -> List[TeacherLocati
     return assignments
 
 
-
 class Parser:
     def __init__(self):
         self.subgroups: Set[str] = set()

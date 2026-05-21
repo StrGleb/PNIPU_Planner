@@ -78,6 +78,14 @@ class TasksManager:
                 t.rating = rating
         self._save()
 
+    def update_task(self, task_id: str, text: str, priority: int) -> None:
+        for t in self._tasks:
+            if t.id == task_id:
+                t.text = text.strip()
+                t.priority = max(0, min(3, priority))
+                break
+        self._save()
+
     # ── Запросы ───────────────────────────────────────────────────────────────
     def get_all_tasks(self) -> List[Task]:
         return list(self._tasks)
@@ -95,3 +103,6 @@ class TasksManager:
 
     def get_labs_for_date(self, date: datetime.date) -> List[Task]:
         return self._get_by_type_and_date(TASK_TYPE_LAB, date)
+    
+    def get_tasks_for_lesson(self, lesson_id: str) -> List[Task]:
+        return [t for t in self._tasks if t.lesson_id == lesson_id]

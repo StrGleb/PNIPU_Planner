@@ -174,27 +174,120 @@ def build_planner_view(
 
     # ── Детальная панель пары (BottomSheet) ──────────────────────────────────────
     def open_detail(lesson: Lesson):
-        # Берём актуальную версию урока из менеджера
         current = planner_manager.get_lesson(lesson.id)
         if current is None:
             return
 
-        def close_sheet(e = None):
+        # ── Диалог редактирования задачи ─────────────────────────────────────────
+        def _open_edit_task_dialog(task):
+            edit_field = ft.TextField(value = task.text, autofocus = True, width = 280)
+            edit_error = ft.Text("", color = ft.Colors.RED_400, size = 12)
+            priority_dd = ft.Dropdown(
+                value = str(task.priority),
+                options = [
+                    ft.DropdownOption(key = "0", text = "0 — Обычная"),
+                    ft.DropdownOption(key = "1", text = "1 — Важная"),
+                    ft.DropdownOption(key = "2", text = "2 — Срочная"),
+                    ft.DropdownOption(key = "3", text = "3 — Критическая"),
+                ],
+                width = 220,
+            )
+
+            def on_save_edit(e):
+                text = (edit_field.value or "").strip()
+                if not text:
+                    edit_error.value = "Поле не может быть пустым"
+                    page.update()
+                    return
+                tasks_manager.update_task(task.id, text, int(priority_dd.value or "0"))
+                input_dialog.open = False
+                page.update()
+                open_detail(current)   # перерисовываем панель
+
+            def on_cancel_edit(e):
+                input_dialog.open = False
+                page.update()
+
+            input_dialog.title = ft.Text("Редактировать задачу")
+            input_dialog.content = ft.Column(
+                [edit_field, ft.Text("Приоритет:", size = 13), priority_dd, edit_error],
+                tight = True, spacing = 8, width = 280,
+            )
+            input_dialog.actions = [
+                ft.TextButton("Отмена", on_click = on_cancel_edit),
+                ft.FilledButton("Сохранить", on_click = on_save_edit),
+            ]
+            input_dialog.open = True
+            page.update()
+
+        # ── Строка задачи с кнопками ──────────────────────────────────────────────
+        PRIORITY_COLORS = {
+            0: ft.Colors.GREY_400,
+            1: ft.Colors.BLUE_400,
+            2: ft.Colors.ORANGE_400,
+            3: ft.Colors.RED_400,
+        }
+
+        def _task_row(task) -> ft.Row:
+            dot = ft.Container(
+                width = 10, height = 10, border_radius = 5,
+                bgcolor = PRIORITY_COLORS.get(task.priority, ft.Colors.GREY_400),
+            )
+            return ft.Row(
+                [
+                    dot,
+                    ft.Text(task.text, size = 13, expand = True),
+                    ft.IconButton(
+                        ft.Icons.EDIT_OUTLINED,
+                        icon_size = 16,
+                        on_click = lambda e, t = task: _open_edit_task_dialog(t),
+                    ),
+                    ft.IconButton(
+                        ft.Icons.DELETE_OUTLINE,
+                        icon_size = 16,
+                        icon_color = ft.Colors.RED_400,
+                        on_click = lambda e, t = task: _delete_task(t),
+                    ),
+                ],
+                vertical_alignment = ft.CrossAxisAlignment.CENTER,
+                spacing = 4,
+            )
+
+        def _delete_task(task):
+            tasks_manager.remove_task(task.id)
+            # Убираем из in-memory Lesson
+            if task.task_type == TASK_TYPE_HOMEWORK and task.text in current.homeworks:
+                current.homeworks.remove(task.text)
+            elif task.task_type == TASK_TYPE_TEST and task.text in current.test_works:
+                current.test_works.remove(task.text)
+            elif task.task_type == TASK_TYPE_LAB and task.text in current.lab_works:
+                current.lab_works.remove(task.text)
+            open_detail(current)
+
+        # ── Получаем задачи из tasks_manager (персистентные) ─────────────────────
+        all_tasks = tasks_manager.get_tasks_for_lesson(current.id)
+        hw_tasks = [t for t in all_tasks if t.task_type == TASK_TYPE_HOMEWORK]
+        tw_tasks = [t for t in all_tasks if t.task_type == TASK_TYPE_TEST]
+        lb_tasks = [t for t in all_tasks if t.task_type == TASK_TYPE_LAB]
+
+        def _section(label, tasks, on_add):
+            items = [_task_row(t) for t in tasks] if tasks else [
+                ft.Text("отсутствуют", size = 13, color = ft.Colors.GREY_500, italic = True)
+            ]
+            return [
+                ft.Row([
+                    ft.Text(label, size = 14, weight = ft.FontWeight.W_600, expand = True),
+                    ft.IconButton(ft.Icons.ADD, on_click = on_add, icon_size = 20),
+                ]),
+                *items,
+                ft.Divider(),
+            ]
+
+        def close_sheet(e=None):
             detail_sheet.open = False
             page.update()
 
-        def add_hw(e):
-            open_input_dialog("Домашняя работа",
-                lambda text, p: _after_add_hw(current.id, text, p))
-
-        def add_tw(e):
-            open_input_dialog("Контрольная работа",
-                lambda text, p: _after_add_tw(current.id, text, p))
-
-        def add_lb(e):
-            open_input_dialog("Лабораторная работа",
-                lambda text, p: _after_add_lb(current.id, text, p))
-
+        # ── Обновить _after_add_* — принимают priority ────────────────────────────────
         def _after_add_hw(lid, text, priority = 0):
             planner_manager.add_homework(lid, text)
             lesson = planner_manager.get_lesson(lid)
@@ -208,7 +301,7 @@ def build_planner_view(
                     lesson_id = lid,
                     priority = priority,
                 )
-                check_and_notify(tasks_manager) # пересчёт рейтинга при добавлении
+                check_and_notify(tasks_manager)
             lesson_fresh = planner_manager.get_lesson(lid)
             if lesson_fresh:
                 open_detail(lesson_fresh)
@@ -249,6 +342,15 @@ def build_planner_view(
             if lesson_fresh:
                 open_detail(lesson_fresh)
 
+        def add_hw(e):
+            open_input_dialog("Домашняя работа", lambda text, p: _after_add_hw(current.id, text, p))
+
+        def add_tw(e):
+            open_input_dialog("Контрольная работа", lambda text, p: _after_add_tw(current.id, text, p))
+
+        def add_lb(e):
+            open_input_dialog("Лабораторная работа", lambda text, p: _after_add_lb(current.id, text, p))
+
         def delete_lesson(e):
             tasks_manager.remove_tasks_for_lesson(current.id)
             planner_manager.remove_lesson(current.id)
@@ -256,28 +358,9 @@ def build_planner_view(
             page.update()
             rebuild_timeline()
 
-        # Домашние работы
-        if current.homeworks:
-            hw_items = [ft.Text(f"• {h}", size = 13) for h in current.homeworks]
-        else:
-            hw_items = [ft.Text("отсутствуют", size = 13, color = ft.Colors.GREY_500, italic = True)]
-
-        # Контрольные
-        if current.test_works:
-            tw_items = [ft.Text(f"• {t}", size = 13) for t in current.test_works]
-        else:
-            tw_items = [ft.Text("отсутствуют", size = 13, color = ft.Colors.GREY_500, italic = True)]
-        
-        # Лабораторные работы
-        if current.lab_works:
-            lb_items = [ft.Text(f"• {l}", size = 13) for l in current.lab_works]
-        else:
-            lb_items = [ft.Text("отсутствуют", size = 13, color = ft.Colors.GREY_500, italic = True)]
-
         detail_sheet.content = ft.Container(
             content=ft.Column(
                 [
-                    # Заголовок + крестик
                     ft.Row([
                         ft.Container(expand = True),
                         ft.IconButton(ft.Icons.CLOSE, on_click = close_sheet, icon_size = 20),
@@ -288,48 +371,22 @@ def build_planner_view(
                         size = 13, color = ft.Colors.GREY_600,
                     ),
                     ft.Divider(),
-
-                    # Домашние работы
-                    ft.Row([
-                        ft.Text("Домашние работы:", size = 14, weight = ft.FontWeight.W_600, expand = True),
-                        ft.IconButton(ft.Icons.ADD, on_click = add_hw, icon_size = 20),
-                    ]),
-                    *hw_items,
-                    ft.Divider(),
-
-                    # Контрольные
-                    ft.Row([
-                        ft.Text("Контрольные работы:", size = 14, weight = ft.FontWeight.W_600, expand = True),
-                        ft.IconButton(ft.Icons.ADD, on_click = add_tw, icon_size = 20),
-                    ]),
-                    *tw_items,
-                    ft.Divider(),
-
-                    ft.Row([
-                        ft.Text("Лабораторные работы:", size = 14, weight = ft.FontWeight.W_600, expand = True),
-                        ft.IconButton(ft.Icons.ADD, on_click = add_lb, icon_size = 20),
-                    ]),
-                    *lb_items,
-                    ft.Divider(),
-
-                    # Удалить
-                    ft.Row(
-                        [
-                            ft.ElevatedButton(
-                                "Удалить пару",
-                                bgcolor = ft.Colors.RED_400,
-                                color = ft.Colors.WHITE,
-                                on_click = delete_lesson,
-                                expand = True,
-                            )
-                        ],
+                    *_section("Домашние работы:", hw_tasks, add_hw),
+                    *_section("Контрольные работы:", tw_tasks, add_tw),
+                    *_section("Лабораторные работы:", lb_tasks, add_lb),
+                    ft.ElevatedButton(
+                        "Удалить пару",
+                        bgcolor = ft.Colors.RED_400,
+                        color = ft.Colors.WHITE,
+                        on_click = delete_lesson,
+                        expand = True,
                     ),
                 ],
                 scroll = ft.ScrollMode.AUTO,
                 spacing = 6,
             ),
             padding = 16,
-            height = 420,
+            height = 450,
         )
         detail_sheet.open = True
         page.update()
