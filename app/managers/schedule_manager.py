@@ -4,6 +4,7 @@ import pathlib
 import shutil
 import sys
 import os
+import tempfile
 
 from models.schedule_template import ScheduleTemplate, TemplateLesson
 from managers.planner_manager import PlannerManager
@@ -15,24 +16,18 @@ _APP_DIR = pathlib.Path(__file__).resolve().parent.parent # .../app/
 _BUNDLED = _APP_DIR / "data" / "schedule.json" # поставляется с приложением
 
 def _get_storage_path() -> pathlib.Path:
-    """
-    Персистентная директория:
-    - Desktop: ~/.pnipu_planner/
-    - Android (Flet): /data/user/0/<pkg>/files/.pnipu_planner/ 
-    """
-    # Проверяем, запущены ли мы на Android
     if hasattr(sys, "getandroidapilevel"):
-        base_dir = os.environ.get("FILESDIR") or os.environ.get("HOME")
-        if not base_dir or base_dir in ("/data", "/"):
-            base_dir = pathlib.Path(__file__).parent.parent
-            
-        storage = pathlib.Path(base_dir) / ".pnipu_planner"
+        # На Android получаем путь к кэшу (/data/user/0/<pkg>/cache)
+        cache_dir = pathlib.Path(tempfile.gettempdir())
+        # Его родитель — это корень песочницы приложения (/data/user/0/<pkg>)
+        base_dir = cache_dir.parent / "files"
+        d = base_dir / ".pnipu_planner"
     else:
-        # На Windows/macOS/Linux используем стандартную домашнюю папку пользователя
-        storage = pathlib.Path.home() / ".pnipu_planner"
-    
-    storage.mkdir(parents = True, exist_ok = True)
-    return storage / "schedule.json"
+        # На Windows/macOS/Linux используем домашнюю папку пользователя
+        d = pathlib.Path.home() / ".pnipu_planner"
+
+    d.mkdir(parents = True, exist_ok = True)
+    return d / "schedule.json"
 
 
 class ScheduleManager:

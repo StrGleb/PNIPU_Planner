@@ -1,32 +1,23 @@
 import json
 import pathlib
 import sys
+import tempfile
 import os
 from models.user_config import UserConfig
 
 def _storage_path() -> pathlib.Path:
-    """
-    ~/.pnipu_planner/config.json
-    Работает на Windows, Linux, macOS и Android (Flet).
-    """
-    # Проверяем, запущены ли мы на Android
     if hasattr(sys, "getandroidapilevel"):
-        # На Android HOME часто указывает на закрытую систему /data.
-        # Берем FILESDIR (внутреннюю песочницу приложения), где запись разрешена всегда.
-        base_dir = os.environ.get("FILESDIR") or os.environ.get("HOME")
-        
-        # Если переменные не определились или ведут в корень /data
-        if not base_dir or base_dir in ("/data", "/"):
-            # Безопасный резервный вариант — папка самого проекта в песочнице
-            base_dir = pathlib.Path(__file__).parent.parent
-            
-        d = pathlib.Path(base_dir) / ".pnipu_planner"
+        # На Android получаем путь к кэшу (/data/user/0/<pkg>/cache)
+        cache_dir = pathlib.Path(tempfile.gettempdir())
+        # Его родитель — это корень песочницы приложения (/data/user/0/<pkg>)
+        base_dir = cache_dir.parent / "files"
+        d = base_dir / ".pnipu_planner"
     else:
-        # На Windows/macOS/Linux используем стандартную домашнюю папку пользователя
+        # На Windows/macOS/Linux используем домашнюю папку пользователя
         d = pathlib.Path.home() / ".pnipu_planner"
 
     d.mkdir(parents = True, exist_ok = True)
-    return d / "config.json"
+    return d / "config.json" # (или "tasks.json" / "alarms.json" / "schedule.json")
 
 
 class ConfigManager:
@@ -34,6 +25,9 @@ class ConfigManager:
     def __init__(self):
         self._path = _storage_path()
         self.config: UserConfig = self._load()
+
+        if not self._path.exists():
+            self.save()
 
     def _load(self) -> UserConfig:
         if not self._path.exists():

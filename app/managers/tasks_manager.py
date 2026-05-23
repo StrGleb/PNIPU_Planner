@@ -8,6 +8,7 @@ import json
 import datetime
 import pathlib
 import sys
+import tempfile
 import os
 from typing import List
 
@@ -15,16 +16,14 @@ from models.task_model import Task, TASK_TYPE_HOMEWORK, TASK_TYPE_TEST, TASK_TYP
 
 
 def _storage_path() -> pathlib.Path:
-    # Проверяем, запущены ли мы на Android
     if hasattr(sys, "getandroidapilevel"):
-        # Безопасно получаем путь к песочнице приложения
-        base_dir = os.environ.get("FILESDIR") or os.environ.get("HOME")
-        if not base_dir or base_dir in ("/data", "/"):
-            base_dir = pathlib.Path(__file__).parent.parent
-            
-        d = pathlib.Path(base_dir) / ".pnipu_planner"
+        # На Android получаем путь к кэшу (/data/user/0/<pkg>/cache)
+        cache_dir = pathlib.Path(tempfile.gettempdir())
+        # Его родитель — это корень песочницы приложения (/data/user/0/<pkg>)
+        base_dir = cache_dir.parent / "files"
+        d = base_dir / ".pnipu_planner"
     else:
-        # На Windows/macOS/Linux используем стандартную домашнюю папку пользователя
+        # На Windows/macOS/Linux используем домашнюю папку пользователя
         d = pathlib.Path.home() / ".pnipu_planner"
 
     d.mkdir(parents = True, exist_ok = True)

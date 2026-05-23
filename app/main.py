@@ -57,11 +57,16 @@ def main(page: ft.Page):
         def update_time():
             while True:
                 sleep(1)
-                clock_text.value = now()
-                try:
-                    clock_text.update()
-                except Exception as e:
-                    logger.error(f"Возникла ошибка при попытке обновления времени в приложении: {e}")
+                # Обновляем время ТОЛЬКО когда пользователь находится на экране будильника
+                if current_route["value"] == "/alarm":
+                    clock_text.value = now()
+                    try:
+                        clock_text.update()
+                    except Exception as e:
+                        # Если виджет не успел примонтироваться при переходе между экранами,
+                        # просто игнорируем эту временную ошибку без спама в логи.
+                        if "must be added" not in str(e):
+                            logger.error(f"Возникла ошибка при попытке обновления времени в приложении: {e}")
 
         threading.Thread(target = update_time, daemon = True).start()
 
@@ -73,7 +78,7 @@ def main(page: ft.Page):
                 config_manager.config.first_week_even,
             )
         )
-        alarm_manager.start_background_checker()
+        # alarm_manager.start_background_checker()
 
         def global_alarm_callback(alarm):
             # Временная заглушка
@@ -94,12 +99,12 @@ def main(page: ft.Page):
         schedule_manager = ScheduleManager()
 
         # При первом запуске заполнить семестр (раскомментировать один раз):
-        schedule_manager.apply_semester(
-            planner_manager,
-            start_date = datetime.date(2026, 3, 30),
-            end_date = datetime.date(2026, 6, 30),
-            first_week_even = False, # 1 неделя = нечётная
-        )
+        # schedule_manager.apply_semester(
+        #     planner_manager,
+        #     start_date = datetime.date(2026, 3, 30),
+        #     end_date = datetime.date(2026, 6, 30),
+        #     first_week_even = False, # 1 неделя = нечётная
+        # )
 
         # Хранит cleanup-функцию активного planner view
         _planner_cleanup = [None]
@@ -193,7 +198,6 @@ def main(page: ft.Page):
         page.on_route_change = route_change
         page.on_view_pop = view_pop
         route_change(page.route)
-        page.update()
     except Exception as e:
         import traceback
         error_text = traceback.format_exc()

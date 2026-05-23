@@ -1,5 +1,7 @@
 import flet as ft
 import sys
+import pathlib
+import os
 from managers.config_manager import ConfigManager
 
 if sys.platform == 'win32':
@@ -142,7 +144,7 @@ def build_settings_view(
         on_blur = on_travel_blur,
     )
 
-    # ── View ─────────────────────────────────────────────────────────────────────
+    # ── Вспомогательная функция разметки ─────────────────────────────────────────
     def row(label: str, control, hint: str = "") -> ft.Column:
         items = [
             ft.Text(label, size = 13, color = ft.Colors.GREY_600),
@@ -151,18 +153,57 @@ def build_settings_view(
         if hint:
             items.append(ft.Text(hint, size = 11, color = ft.Colors.GREY_500, italic = True))
         return ft.Column(items, spacing = 4)
-    
-    
+
+    # ── Переменная для сохранения пути к выбранному файлу ──────────────────────────
+    selected_file_path = [None]
+
+    # # Очищаем старые инстансы FilePicker из оверлея при перезагрузке view
+    # for ctrl in list(page.overlay):
+    #     if isinstance(ctrl, ft.FilePicker):
+    #         try:
+    #             page.overlay.remove(ctrl)
+    #         except:
+    #             pass
+
+    # Инициализируем абсолютно пустой FilePicker (без on_result)
+    file_picker = ft.FilePicker()
+    # page.overlay.append(file_picker)
+
+    async def open_file_picker(e: ft.Event[ft.ElevatedButton]):
+        # Метод pick_files() сам синхронно вернет список выбранных файлов
+        # files = file_picker.pick_files(
+        #     allowed_extensions = ["xlsx"],
+        #     file_type = ft.FilePickerFileType.CUSTOM
+        # )
+        files = await ft.FilePicker().pick_files(allowed_extensions = ["xlsx"])
+        
+        # Если пользователь выбрал файл
+        if files:
+            # Сохраняем локальный путь к файлу на телефоне
+            selected_file_path[0] = files[0].path
+            
+            # Меняем заголовок диалога на имя выбранного файла
+            dialog.title = ft.Text(f"Выбран файл: {files[0].name}")
+            
+            # Сбрасываем визуальное состояние элементов диалога
+            btn_confirm.disabled = False
+            btn_confirm.text = "Подтвердить импорт"
+            progress.visible = False
+            
+            # Открываем диалоговое окно подтверждения выбора
+            page.show_dialog(dialog)
+            page.update()
+
     # ── Диалог импорта ────────────────────────────────────────────────────────────
     dd_semester = ft.Dropdown(
-        label="Выберите период",
-        options=[
-            ft.DropdownOption(text="1 семестр - первая половина"),
-            ft.DropdownOption(text="1 семестр - вторая половина"),
-            ft.DropdownOption(text="2 семестр - первая половина"),
-            ft.DropdownOption(text="2 семестр - вторая половина"),
+        label = "Выберите период",
+        options = [
+            ft.DropdownOption(text = "1 семестр - первая половина"),
+            ft.DropdownOption(text = "1 семестр - вторая половина"),
+            ft.DropdownOption(text = "2 семестр - первая половина"),
+            ft.DropdownOption(text = "2 семестр - вторая половина"),
         ],
-        width=300,
+        width = 300,
     )
 
     def close_import_dialog(e):
@@ -170,7 +211,7 @@ def build_settings_view(
         page.update()
 
     def confirm_import(e):
-        # Имитация загрузки
+        # Имитация визуальной загрузки
         btn_confirm.disabled = True
         btn_confirm.text = "Загрузка..."
         progress.visible = True
@@ -180,9 +221,14 @@ def build_settings_view(
         import time
 
         def finish_import():
-            time.sleep(0.8)  # недолгая задержка
+            time.sleep(1.0) # Имитация обработки парсером
+            
+            # В дебаге вы увидите этот принт в логах (Logcat), подтверждающий путь к файлу
+            print(f"[EXCEL IMPORT] Путь к файлу на Android: {selected_file_path[0]}")
+            
             dialog.open = False
-            page.snack_bar = ft.SnackBar(ft.Text("Импорт завершён!"))
+            file_name = pathlib.Path(selected_file_path[0]).name
+            page.snack_bar = ft.SnackBar(ft.Text(f"Импорт завершён! Файл: {file_name}"))
             page.snack_bar.open = True
             page.update()
 
@@ -197,8 +243,8 @@ def build_settings_view(
     )
 
     dialog = ft.AlertDialog(
-        title=ft.Text("Файл schedule.xlsx загружен"),
-        content=ft.Column(
+        title = ft.Text(""),
+        content = ft.Column(
             [
                 dd_semester,
                 ft.Container(height = 10),
@@ -212,14 +258,10 @@ def build_settings_view(
         actions_alignment = ft.MainAxisAlignment.END,
     )
 
-    def open_import_dialog(e):
-        page.show_dialog(dialog)
-        page.update()
-
     btn_import = ft.ElevatedButton(
         "Импортировать из xlsx...",
         icon = ft.Icons.UPLOAD_FILE,
-        on_click = open_import_dialog,
+        on_click = open_file_picker, # Теперь открывает FilePicker вместо прямого диалога
     )
 
     return ft.View(
@@ -251,17 +293,6 @@ def build_settings_view(
                             row("Время до ВУЗа (мин)", tf_travel, ""),
                             cb_car,
                             ft.Container(height = 12),
-
-                            # # Расписание
-                            # ft.Text("Расписание", size=16, weight=ft.FontWeight.W_600),
-                            # ft.Divider(height=1),
-                            # row(
-                            #     "Дата начала семестра",
-                            #     tf_semester,
-                            #     "Используется для расчёта чётности недели",
-                            # ),
-                            # cb_first_even,
-                            # ft.Container(height=12),
 
                             # Экспорт
                             ft.Text("Экспорт расписания", size = 16, weight = ft.FontWeight.W_600),
