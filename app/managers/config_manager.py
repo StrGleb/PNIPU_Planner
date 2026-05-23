@@ -1,14 +1,30 @@
 import json
 import pathlib
+import sys
+import os
 from models.user_config import UserConfig
 
 def _storage_path() -> pathlib.Path:
     """
     ~/.pnipu_planner/config.json
     Работает на Windows, Linux, macOS и Android (Flet).
-    На Android Path.home() → /data/user/0/<pkg>/files/
     """
-    d = pathlib.Path.home() / ".pnipu_planner"
+    # Проверяем, запущены ли мы на Android
+    if hasattr(sys, "getandroidapilevel"):
+        # На Android HOME часто указывает на закрытую систему /data.
+        # Берем FILESDIR (внутреннюю песочницу приложения), где запись разрешена всегда.
+        base_dir = os.environ.get("FILESDIR") or os.environ.get("HOME")
+        
+        # Если переменные не определились или ведут в корень /data
+        if not base_dir or base_dir in ("/data", "/"):
+            # Безопасный резервный вариант — папка самого проекта в песочнице
+            base_dir = pathlib.Path(__file__).parent.parent
+            
+        d = pathlib.Path(base_dir) / ".pnipu_planner"
+    else:
+        # На Windows/macOS/Linux используем стандартную домашнюю папку пользователя
+        d = pathlib.Path.home() / ".pnipu_planner"
+
     d.mkdir(parents = True, exist_ok = True)
     return d / "config.json"
 

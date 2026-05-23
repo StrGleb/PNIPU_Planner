@@ -2,10 +2,16 @@ import flet as ft
 import logging
 import json
 import pathlib
+import sys
 from models.alarm_model import Alarm, WEEK_ANY, WEEK_ODD, WEEK_EVEN, WEEK_NAMES
 from managers.alarm_manager import AlarmManager
 from managers.config_manager import ConfigManager
-from bridges.planner_bridge import lib
+
+if sys.platform == 'win32':
+    from bridges.planner_bridge import lib
+    make_alarm = lib.make_alarm
+else:
+    from bridges.planner_bridge import make_alarm
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +147,7 @@ def build_alarm_view(
                         color = ft.Colors.WHITE
                     ),
                 bgcolor = _day_color(d), border_radius = 20,
-                width = 36, height = 36, alignment = ft.alignment.center,
+                width = 36, height = 36, alignment = ft.Alignment.CENTER,
                 on_click = lambda e, day = d: _toggle_day(day), ink = True,
             )
             day_btns[d] = btn
@@ -171,7 +177,7 @@ def build_alarm_view(
                     color = ft.Colors.WHITE
                 ),
                 bgcolor = _week_color(wt), border_radius = 12,
-                padding = ft.padding.symmetric(horizontal = 12, vertical = 8),
+                padding = ft.Padding.symmetric(horizontal = 12, vertical = 8),
                 on_click = lambda e, w = wt: _select_week(w), ink = True,
             )
             week_btns[wt] = btn
@@ -326,7 +332,7 @@ def build_alarm_view(
 
             fh = first_lesson // 60
             fm = first_lesson % 60
-            alarm_mins = lib.make_alarm(fh, fm, cfg.get_together_time, cfg.travel_time)
+            alarm_mins = make_alarm(fh, fm, cfg.get_together_time, cfg.travel_time)
             alarm_mins = ((alarm_mins % 1440) + 1440) % 1440
 
             ah = alarm_mins // 60

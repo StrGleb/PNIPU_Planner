@@ -2,6 +2,8 @@ import json
 import datetime
 import pathlib
 import shutil
+import sys
+import os
 
 from models.schedule_template import ScheduleTemplate, TemplateLesson
 from managers.planner_manager import PlannerManager
@@ -18,8 +20,17 @@ def _get_storage_path() -> pathlib.Path:
     - Desktop: ~/.pnipu_planner/
     - Android (Flet): /data/user/0/<pkg>/files/.pnipu_planner/ 
     """
+    # Проверяем, запущены ли мы на Android
+    if hasattr(sys, "getandroidapilevel"):
+        base_dir = os.environ.get("FILESDIR") or os.environ.get("HOME")
+        if not base_dir or base_dir in ("/data", "/"):
+            base_dir = pathlib.Path(__file__).parent.parent
+            
+        storage = pathlib.Path(base_dir) / ".pnipu_planner"
+    else:
+        # На Windows/macOS/Linux используем стандартную домашнюю папку пользователя
+        storage = pathlib.Path.home() / ".pnipu_planner"
     
-    storage = pathlib.Path.home() / ".pnipu_planner"
     storage.mkdir(parents = True, exist_ok = True)
     return storage / "schedule.json"
 

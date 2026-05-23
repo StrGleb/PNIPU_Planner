@@ -1,3 +1,7 @@
+[build-system]
+requires = ["flet"]
+build-backend = "flet.build"
+
 [tool.flet]
 name = "Университетский помощник"
 id = "ru.semyon.pnipu_planner"

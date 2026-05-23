@@ -7,13 +7,26 @@
 import json
 import datetime
 import pathlib
+import sys
+import os
 from typing import List
 
 from models.task_model import Task, TASK_TYPE_HOMEWORK, TASK_TYPE_TEST, TASK_TYPE_LAB
 
 
 def _storage_path() -> pathlib.Path:
-    d = pathlib.Path.home() / ".pnipu_planner"
+    # Проверяем, запущены ли мы на Android
+    if hasattr(sys, "getandroidapilevel"):
+        # Безопасно получаем путь к песочнице приложения
+        base_dir = os.environ.get("FILESDIR") or os.environ.get("HOME")
+        if not base_dir or base_dir in ("/data", "/"):
+            base_dir = pathlib.Path(__file__).parent.parent
+            
+        d = pathlib.Path(base_dir) / ".pnipu_planner"
+    else:
+        # На Windows/macOS/Linux используем стандартную домашнюю папку пользователя
+        d = pathlib.Path.home() / ".pnipu_planner"
+
     d.mkdir(parents = True, exist_ok = True)
     return d / "tasks.json"
 

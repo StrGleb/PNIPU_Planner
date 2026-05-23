@@ -7,11 +7,26 @@ import logging
 from time import sleep
 from typing import TYPE_CHECKING
 from plyer import notification
-from planner_algorithm import compute_rating_value
-
 
 if TYPE_CHECKING:
     from managers.tasks_manager import TasksManager
+
+def compute_rating(priority, days_until):
+    try:
+        import planner_algorithm
+        return planner_algorithm.compute_rating_value(priority, days_until)
+    except ImportError:
+        pass
+    # Python fallback
+    priority_score = priority * 30.0
+    if days_until < 0:      urgency = 150.0
+    elif days_until == 0:   urgency = 120.0
+    elif days_until <= 14:  urgency = (1.0 - days_until / 14.0) * 100.0
+    else:                   urgency = 0.0
+    return priority_score + urgency
+
+
+
 
 # Порог рейтинга, при превышении которого отправляется уведомление
 NOTIFICATION_THRESHOLD = 80.0
@@ -33,7 +48,7 @@ def calculate_task_rating(task, today: datetime.date) -> float:
     days_until = (task_date - today).days
     
     # Вызов будущего C++ модуля
-    return compute_rating_value(task.priority, days_until)
+    return compute_rating(task.priority, days_until)
 
 # ── Отправка уведомления ──────────────────────────────────────────────────────
 def send_notification(title: str, message: str) -> None:
