@@ -4,6 +4,7 @@ from utils.time_utils import greeting_choose
 from managers.tasks_manager import TasksManager
 from models.task_model import PRIORITY_COLORS
 from utils.geocoder_utils import get_coordinates_by_address
+from utils.weather_utils import get_weather_by_coords, get_weather_recommendation
 
 PRIORITY_DOT_COLORS = {
     0: ft.Colors.GREY_400,
@@ -27,6 +28,74 @@ def build_home_view(
     tests_today = tasks_manager.get_tests_for_date(today) # контрольные работы в этот день сегодня
     homework_tmrw = tasks_manager.get_homework_for_date(tomorrow) # домашнее задание на завтрашний день
     labs_tmrw = tasks_manager.get_labs_for_date(tomorrow) # лабораторные работы на завтра
+
+    # ── Получение погоды ────────────────────────────────────────
+    weather_data = None
+    weather_widget = None
+
+    if config_manager and config_manager.config.user_address.strip():
+        address = "Пермь, " + config_manager.config.user_address
+        print(address)
+        coords = get_coordinates_by_address(address)
+        print(coords)
+        if coords:
+            longitude, latitude = coords
+            weather_data = get_weather_by_coords(latitude, longitude)
+
+    if weather_data:
+        temp = weather_data["temp"]
+        feels_like = weather_data["feels_like"]
+        icon = weather_data["icon"]
+        description = weather_data["description"]
+        recommendation = get_weather_recommendation(temp)
+
+        weather_widget = ft.Container(
+            content=ft.Column(
+                [
+                    ft.Row(
+                        [
+                            ft.Text(f"{icon}", size = 40),
+                            ft.Column(
+                                [
+                                    ft.Text(f"{temp}°C", size = 28, weight = ft.FontWeight.BOLD),
+                                    ft.Text(f"Ощущается как {feels_like}°C", size = 14, color = ft.Colors.GREY_600),
+                                ],
+                                spacing = 0,
+                            ),
+                        ],
+                        alignment = ft.MainAxisAlignment.START,
+                        vertical_alignment = ft.CrossAxisAlignment.CENTER,
+                    ),
+                    ft.Text(description.capitalize(), size = 16, color = ft.Colors.GREY_700),
+                    ft.Container(height = 8),
+                    ft.Text(
+                        f"👔 {recommendation}",
+                        size = 14,
+                        color = ft.Colors.BLUE_800,
+                        italic = True,
+                    ),
+                ],
+                spacing = 8,
+            ),
+            bgcolor = ft.Colors.BLUE_50,
+            border_radius = 16,
+            padding = ft.Padding.symmetric(horizontal = 16, vertical = 14),
+            width = float("inf"),
+        )
+    else:
+        weather_widget = ft.Container(
+            content=ft.Column(
+                [
+                    ft.Text("⚠️ Не удалось загрузить данные о погоде", size = 14, color = ft.Colors.GREY_500),
+                    ft.Text("Проверьте наличие API ключа Яндекс и адрес в настройках", size = 12, color = ft.Colors.GREY_400),
+                ],
+                spacing = 4,
+            ),
+            bgcolor = ft.Colors.GREY_100,
+            border_radius = 16,
+            padding = ft.Padding.symmetric(horizontal = 16, vertical = 14),
+            width = float("inf"),
+        )
 
     # ── Строка задачи с цветовым индикатором ──────────────────────────────────
     def _task_row(task) -> ft.Row:
@@ -113,6 +182,10 @@ def build_home_view(
                                 size = 30, weight = ft.FontWeight.BOLD,
                             ),
                             ft.Container(height = 20),
+
+                            # Блок с погодой (выше всех остальных блоков)
+                            weather_widget,
+                            ft.Container(height = 16),
 
                             _section(
                                 "Ваши к/р сегодня:",

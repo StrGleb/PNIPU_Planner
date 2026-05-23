@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 
 # Важные начальные объявления
-load_dotenv("config.env") 
+load_dotenv(r"app\utils\config.env") 
 logger = logging.getLogger(__name__)
 YANDEX_GEOCODER_API_URL = "https://geocode-maps.yandex.ru/1.x"
 

@@ -30,6 +30,7 @@ if sys.platform == "win32":
     )
     logger = logging.getLogger(__name__)
 else: 
+    # Нужно, чтобы в при работе на Android dсе логи писались в терминал, а не в отдельный файлик
     logging.basicConfig(
         level = logging.INFO,
         format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
