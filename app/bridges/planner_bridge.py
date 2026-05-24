@@ -139,6 +139,102 @@ if _lib is not None:
         ]
         _lib.collect_task_indices_for_lesson.restype = ctypes.c_int
 
+    if hasattr(_lib, "collect_task_indices_for_type_and_date_sorted"):
+        _lib.collect_task_indices_for_type_and_date_sorted.argtypes = [
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_char_p,
+            ctypes.POINTER(ctypes.c_int),
+        ]
+        _lib.collect_task_indices_for_type_and_date_sorted.restype = ctypes.c_int
+
+    if hasattr(_lib, "collect_task_indices_for_lesson_sorted"):
+        _lib.collect_task_indices_for_lesson_sorted.argtypes = [
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.POINTER(ctypes.c_int),
+        ]
+        _lib.collect_task_indices_for_lesson_sorted.restype = ctypes.c_int
+
+    if hasattr(_lib, "compute_task_ratings"):
+        _lib.compute_task_ratings.argtypes = [
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_double),
+        ]
+        _lib.compute_task_ratings.restype = None
+
+    if hasattr(_lib, "collect_urgent_task_indices_sorted"):
+        _lib.collect_urgent_task_indices_sorted.argtypes = [
+            ctypes.POINTER(ctypes.c_double),
+            ctypes.c_int,
+            ctypes.c_double,
+            ctypes.POINTER(ctypes.c_int),
+        ]
+        _lib.collect_urgent_task_indices_sorted.restype = ctypes.c_int
+
+    if hasattr(_lib, "collect_schedule_lesson_indices_for_day"):
+        _lib.collect_schedule_lesson_indices_for_day.argtypes = [
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int),
+        ]
+        _lib.collect_schedule_lesson_indices_for_day.restype = ctypes.c_int
+
+    if hasattr(_lib, "select_active_template_index"):
+        _lib.select_active_template_index.argtypes = [
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+        ]
+        _lib.select_active_template_index.restype = ctypes.c_int
+
+    if hasattr(_lib, "derive_schedule_period_end_yyyymmdd"):
+        _lib.derive_schedule_period_end_yyyymmdd.argtypes = [
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+        ]
+        _lib.derive_schedule_period_end_yyyymmdd.restype = ctypes.c_int
+
+    if hasattr(_lib, "select_next_lesson_index"):
+        _lib.select_next_lesson_index.argtypes = [
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+        ]
+        _lib.select_next_lesson_index.restype = ctypes.c_int
+
+    if hasattr(_lib, "compute_buffered_alarm_minutes"):
+        _lib.compute_buffered_alarm_minutes.argtypes = [
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+        ]
+        _lib.compute_buffered_alarm_minutes.restype = ctypes.c_int
+
     if hasattr(_lib, "parse_schedule_xlsx"):
         _lib.parse_schedule_xlsx.argtypes = [
             ctypes.c_char_p,
@@ -390,6 +486,295 @@ def collect_task_indices_for_lesson(
         for index, lesson_id in enumerate(lesson_ids)
         if lesson_id == expected_lesson_id
     ]
+
+
+def collect_task_indices_for_type_and_date_sorted(
+    task_types: list[str],
+    date_strings: list[str],
+    priorities: list[int],
+    expected_type: str,
+    expected_date: str,
+) -> list[int]:
+    if (
+        not task_types
+        or not date_strings
+        or not priorities
+        or len(task_types) != len(date_strings)
+        or len(task_types) != len(priorities)
+    ):
+        return []
+
+    if _lib is not None and hasattr(_lib, "collect_task_indices_for_type_and_date_sorted"):
+        count = len(task_types)
+        task_type_values = (ctypes.c_char_p * count)(*[value.encode("utf-8") for value in task_types])
+        date_values = (ctypes.c_char_p * count)(*[value.encode("utf-8") for value in date_strings])
+        priority_values = (ctypes.c_int * count)(*priorities)
+        output_indices = (ctypes.c_int * count)()
+        matched_count = _lib.collect_task_indices_for_type_and_date_sorted(
+            task_type_values,
+            date_values,
+            priority_values,
+            count,
+            expected_type.encode("utf-8"),
+            expected_date.encode("utf-8"),
+            output_indices,
+        )
+        return list(output_indices[:matched_count])
+
+    indices = collect_task_indices_for_type_and_date(
+        task_types,
+        date_strings,
+        expected_type,
+        expected_date,
+    )
+    return sorted(indices, key = lambda index: priorities[index], reverse = True)
+
+
+def collect_task_indices_for_lesson_sorted(
+    lesson_ids: list[str],
+    priorities: list[int],
+    expected_lesson_id: str,
+) -> list[int]:
+    if not lesson_ids or not priorities or len(lesson_ids) != len(priorities):
+        return []
+
+    if _lib is not None and hasattr(_lib, "collect_task_indices_for_lesson_sorted"):
+        count = len(lesson_ids)
+        lesson_id_values = (ctypes.c_char_p * count)(*[value.encode("utf-8") for value in lesson_ids])
+        priority_values = (ctypes.c_int * count)(*priorities)
+        output_indices = (ctypes.c_int * count)()
+        matched_count = _lib.collect_task_indices_for_lesson_sorted(
+            lesson_id_values,
+            priority_values,
+            count,
+            expected_lesson_id.encode("utf-8"),
+            output_indices,
+        )
+        return list(output_indices[:matched_count])
+
+    indices = collect_task_indices_for_lesson(lesson_ids, expected_lesson_id)
+    return sorted(indices, key = lambda index: priorities[index], reverse = True)
+
+
+def compute_task_ratings_for_dates(
+    priorities: list[int],
+    date_strings: list[str],
+    today: datetime.date,
+) -> list[float]:
+    if not priorities or not date_strings or len(priorities) != len(date_strings):
+        return []
+
+    if _lib is not None and hasattr(_lib, "compute_task_ratings"):
+        count = len(priorities)
+        priority_values = (ctypes.c_int * count)(*priorities)
+        date_values = (ctypes.c_char_p * count)(*[value.encode("utf-8") for value in date_strings])
+        output_ratings = (ctypes.c_double * count)()
+        _lib.compute_task_ratings(
+            priority_values,
+            date_values,
+            count,
+            today.day,
+            today.month,
+            today.year,
+            output_ratings,
+        )
+        return list(output_ratings)
+
+    result: list[float] = []
+    for priority, date_string in zip(priorities, date_strings):
+        try:
+            task_date = datetime.datetime.strptime(date_string, "%d.%m.%Y").date()
+        except ValueError:
+            result.append(0.0)
+            continue
+
+        days_until = (task_date - today).days
+        result.append(compute_rating_value(priority, days_until))
+    return result
+
+
+def collect_urgent_task_indices_sorted(
+    ratings: list[float],
+    threshold: float,
+) -> list[int]:
+    if not ratings:
+        return []
+
+    if _lib is not None and hasattr(_lib, "collect_urgent_task_indices_sorted"):
+        count = len(ratings)
+        rating_values = (ctypes.c_double * count)(*ratings)
+        output_indices = (ctypes.c_int * count)()
+        matched_count = _lib.collect_urgent_task_indices_sorted(
+            rating_values,
+            count,
+            float(threshold),
+            output_indices,
+        )
+        return list(output_indices[:matched_count])
+
+    return sorted(
+        [index for index, rating in enumerate(ratings) if rating >= threshold],
+        key = ratings.__getitem__,
+        reverse = True,
+    )
+
+
+def collect_schedule_lesson_indices_for_day(
+    lesson_days: list[int],
+    lesson_start_minutes: list[int],
+    expected_day: int,
+) -> list[int]:
+    if not lesson_days or not lesson_start_minutes or len(lesson_days) != len(lesson_start_minutes):
+        return []
+
+    if _lib is not None and hasattr(_lib, "collect_schedule_lesson_indices_for_day"):
+        count = len(lesson_days)
+        day_values = (ctypes.c_int * count)(*lesson_days)
+        start_minute_values = (ctypes.c_int * count)(*lesson_start_minutes)
+        output_indices = (ctypes.c_int * count)()
+        matched_count = _lib.collect_schedule_lesson_indices_for_day(
+            day_values,
+            start_minute_values,
+            count,
+            expected_day,
+            output_indices,
+        )
+        return list(output_indices[:matched_count])
+
+    indices = [index for index, day in enumerate(lesson_days) if day == expected_day]
+    return sorted(indices, key = lesson_start_minutes.__getitem__)
+
+
+def select_active_template_index(
+    template_starts: list[str],
+    target_date: datetime.date,
+) -> int:
+    if not template_starts:
+        return -1
+
+    if _lib is not None and hasattr(_lib, "select_active_template_index"):
+        count = len(template_starts)
+        start_values = (ctypes.c_char_p * count)(*[value.encode("utf-8") for value in template_starts])
+        return int(
+            _lib.select_active_template_index(
+                start_values,
+                count,
+                target_date.day,
+                target_date.month,
+                target_date.year,
+            )
+        )
+
+    parsed: list[tuple[int, datetime.date]] = []
+    for index, value in enumerate(template_starts):
+        try:
+            parsed.append((index, datetime.datetime.strptime(value, "%d.%m.%Y").date()))
+        except ValueError:
+            continue
+
+    if not parsed:
+        return -1
+
+    candidates = [item for item in parsed if item[1] <= target_date]
+    if candidates:
+        return max(candidates, key = lambda item: item[1])[0]
+    return min(parsed, key = lambda item: item[1])[0]
+
+
+def derive_schedule_period_end_date(
+    start_date: datetime.date,
+    next_start: datetime.date | None,
+) -> datetime.date:
+    if _lib is not None and hasattr(_lib, "derive_schedule_period_end_yyyymmdd"):
+        encoded = int(
+            _lib.derive_schedule_period_end_yyyymmdd(
+                start_date.day,
+                start_date.month,
+                start_date.year,
+                int(next_start is not None),
+                next_start.day if next_start else 0,
+                next_start.month if next_start else 0,
+                next_start.year if next_start else 0,
+            )
+        )
+        year = encoded // 10000
+        month = (encoded // 100) % 100
+        day = encoded % 100
+        return datetime.date(year, month, day)
+
+    if start_date.month >= 8:
+        result = datetime.date(start_date.year + 1, 1, 31)
+    else:
+        result = datetime.date(start_date.year, 6, 30)
+    if next_start is not None:
+        result = min(result, next_start - datetime.timedelta(days = 1))
+    return result
+
+
+def select_next_lesson_index(
+    date_strings: list[str],
+    start_minutes: list[int],
+    now: datetime.datetime,
+) -> int:
+    if not date_strings or not start_minutes or len(date_strings) != len(start_minutes):
+        return -1
+
+    now_minutes = now.hour * 60 + now.minute
+    if _lib is not None and hasattr(_lib, "select_next_lesson_index"):
+        count = len(date_strings)
+        date_values = (ctypes.c_char_p * count)(*[value.encode("utf-8") for value in date_strings])
+        minute_values = (ctypes.c_int * count)(*start_minutes)
+        return int(
+            _lib.select_next_lesson_index(
+                date_values,
+                minute_values,
+                count,
+                now.day,
+                now.month,
+                now.year,
+                now_minutes,
+            )
+        )
+
+    best_index = -1
+    best_date: datetime.date | None = None
+    best_start = 0
+    for index, (date_string, start_minute) in enumerate(zip(date_strings, start_minutes)):
+        try:
+            lesson_date = datetime.datetime.strptime(date_string, "%d.%m.%Y").date()
+        except ValueError:
+            continue
+        if lesson_date < now.date():
+            continue
+        if lesson_date == now.date() and start_minute <= now_minutes:
+            continue
+        if best_index < 0 or lesson_date < best_date or (lesson_date == best_date and start_minute < best_start):
+            best_index = index
+            best_date = lesson_date
+            best_start = start_minute
+    return best_index
+
+
+def compute_buffered_alarm_minutes(
+    lesson_start_minutes: int,
+    prep_minutes: int,
+    travel_minutes: int,
+    buffer_minutes: int,
+) -> int:
+    if _lib is not None and hasattr(_lib, "compute_buffered_alarm_minutes"):
+        return int(
+            _lib.compute_buffered_alarm_minutes(
+                lesson_start_minutes,
+                prep_minutes,
+                travel_minutes,
+                buffer_minutes,
+            )
+        )
+
+    alarm_minutes = lesson_start_minutes - prep_minutes - travel_minutes - buffer_minutes
+    while alarm_minutes < 0:
+        alarm_minutes += 24 * 60
+    return alarm_minutes % (24 * 60)
 
 
 def parse_schedule_xlsx_file(xlsx_path: str | Path, output_json_path: str | Path) -> None:

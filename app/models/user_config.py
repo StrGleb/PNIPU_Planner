@@ -12,6 +12,9 @@ class UserConfig:
     # Начало семестра и чётность первой недели
     semester_start: str = "30.03.2026" # DD.MM.YYYY
     first_week_even: bool = False # False = первая неделя нечётная
+    auto_alarm_enabled: bool = False
+    auto_alarm_refresh_hour: int = 21
+    auto_alarm_recheck_lead_minutes: int = 60
 
     def to_dict(self) -> dict:
         return {
@@ -24,6 +27,9 @@ class UserConfig:
             "semester_start": self.semester_start,
             "first_week_even": self.first_week_even,
             "travel_time": self.travel_time,
+            "auto_alarm_enabled": self.auto_alarm_enabled,
+            "auto_alarm_refresh_hour": self.auto_alarm_refresh_hour,
+            "auto_alarm_recheck_lead_minutes": self.auto_alarm_recheck_lead_minutes,
         }
 
     @classmethod
@@ -38,4 +44,7 @@ class UserConfig:
             semester_start = d.get("semester_start", "30.03.2026"),
             first_week_even = bool(d.get("first_week_even", False)),
             travel_time = int(d.get("travel_time", 0)),
+            auto_alarm_enabled = bool(d.get("auto_alarm_enabled", False)),
+            auto_alarm_refresh_hour = int(d.get("auto_alarm_refresh_hour", 21)),
+            auto_alarm_recheck_lead_minutes = int(d.get("auto_alarm_recheck_lead_minutes", 60)),
         )

@@ -67,6 +67,84 @@ extern "C"
         int* out_indices
     );
 
+    PLANNER_CORE_API int collect_task_indices_for_type_and_date_sorted(
+        const char* const* task_types,
+        const char* const* date_strings,
+        const int* priorities,
+        int count,
+        const char* expected_type,
+        const char* expected_date,
+        int* out_indices
+    );
+
+    PLANNER_CORE_API int collect_task_indices_for_lesson_sorted(
+        const char* const* lesson_ids,
+        const int* priorities,
+        int count,
+        const char* expected_lesson_id,
+        int* out_indices
+    );
+
+    PLANNER_CORE_API void compute_task_ratings(
+        const int* priorities,
+        const char* const* date_strings,
+        int count,
+        int today_day,
+        int today_month,
+        int today_year,
+        double* out_ratings
+    );
+
+    PLANNER_CORE_API int collect_urgent_task_indices_sorted(
+        const double* ratings,
+        int count,
+        double threshold,
+        int* out_indices
+    );
+
+    PLANNER_CORE_API int collect_schedule_lesson_indices_for_day(
+        const int* lesson_days,
+        const int* lesson_start_minutes,
+        int count,
+        int expected_day,
+        int* out_indices
+    );
+
+    PLANNER_CORE_API int select_active_template_index(
+        const char* const* template_starts,
+        int count,
+        int target_day,
+        int target_month,
+        int target_year
+    );
+
+    PLANNER_CORE_API int derive_schedule_period_end_yyyymmdd(
+        int start_day,
+        int start_month,
+        int start_year,
+        int has_next_start,
+        int next_start_day,
+        int next_start_month,
+        int next_start_year
+    );
+
+    PLANNER_CORE_API int select_next_lesson_index(
+        const char* const* date_strings,
+        const int* start_minutes,
+        int count,
+        int now_day,
+        int now_month,
+        int now_year,
+        int now_minutes
+    );
+
+    PLANNER_CORE_API int compute_buffered_alarm_minutes(
+        int lesson_start_minutes,
+        int time_to_get_ready,
+        int travel_minutes,
+        int buffer_minutes
+    );
+
     PLANNER_CORE_API int parse_schedule_xlsx(
         const char* xlsx_path,
         const char* output_json_path

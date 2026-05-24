@@ -49,6 +49,9 @@ class ConfigManager:
         if not is_valid_date_text(semester_start):
             semester_start = default_semester_start
 
+        refresh_hour = max(0, min(23, int(getattr(config, "auto_alarm_refresh_hour", 21))))
+        recheck_lead = normalize_duration_minutes(getattr(config, "auto_alarm_recheck_lead_minutes", 60))
+
         return UserConfig(
             theme = normalize_theme(config.theme),
             user_name = str(config.user_name).strip(),
@@ -59,6 +62,9 @@ class ConfigManager:
             has_car = bool(config.has_car),
             semester_start = semester_start,
             first_week_even = bool(config.first_week_even),
+            auto_alarm_enabled = bool(getattr(config, "auto_alarm_enabled", False)),
+            auto_alarm_refresh_hour = refresh_hour,
+            auto_alarm_recheck_lead_minutes = recheck_lead,
         )
 
     def save(self) -> None:
@@ -104,4 +110,16 @@ class ConfigManager:
 
     def set_travel_time(self, value: int) -> None:
         self.config.travel_time = normalize_duration_minutes(value)
+        self.save()
+
+    def set_auto_alarm_enabled(self, value: bool) -> None:
+        self.config.auto_alarm_enabled = bool(value)
+        self.save()
+
+    def set_auto_alarm_refresh_hour(self, value: int) -> None:
+        self.config.auto_alarm_refresh_hour = max(0, min(23, int(value)))
+        self.save()
+
+    def set_auto_alarm_recheck_lead_minutes(self, value: int) -> None:
+        self.config.auto_alarm_recheck_lead_minutes = normalize_duration_minutes(value)
         self.save()

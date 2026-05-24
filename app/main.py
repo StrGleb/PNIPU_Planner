@@ -9,6 +9,7 @@ import flet as ft
 
 from bridges.planner_bridge import is_week_even
 from managers.alarm_manager import AlarmManager
+from managers.auto_alarm_service import AutoAlarmService
 from managers.config_manager import ConfigManager
 from managers.notification_manager import start_daily_checker
 from managers.planner_manager import PlannerManager
@@ -94,6 +95,8 @@ def main(page: ft.Page):
             page.overlay.append(snack)
             snack.open = True
             page.update()
+            if alarm.is_auto_schedule:
+                auto_alarm_service.handle_alarm_triggered(alarm)
 
         alarm_manager.set_trigger_callback(global_alarm_callback)
 
@@ -103,6 +106,13 @@ def main(page: ft.Page):
             config_manager.set_semester_start(schedule_manager.template.semester_start)
         config_manager.set_first_week_even(schedule_manager.template.first_week_even)
         schedule_manager.apply_template_to_planner(planner_manager)
+        auto_alarm_service = AutoAlarmService(
+            alarm_manager = alarm_manager,
+            config_manager = config_manager,
+            planner_manager = planner_manager,
+        )
+        alarm_manager.start_background_checker()
+        auto_alarm_service.start()
 
         planner_cleanup = [None]
 
@@ -171,6 +181,7 @@ def main(page: ft.Page):
                         clock_text=clock_text,
                         alarm_manager=alarm_manager,
                         config_manager=config_manager,
+                        auto_alarm_service=auto_alarm_service,
                         page=page,
                     )
                 )
@@ -180,6 +191,7 @@ def main(page: ft.Page):
                     planner_manager=planner_manager,
                     config_manager=config_manager,
                     tasks_manager=tasks_manager,
+                    auto_alarm_service=auto_alarm_service,
                     page=page,
                 )
                 page.views.append(view)

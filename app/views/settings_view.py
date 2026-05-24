@@ -11,30 +11,7 @@ from bridges.planner_bridge import (
 from managers.config_manager import ConfigManager
 from managers.planner_manager import PlannerManager
 from managers.schedule_manager import ScheduleManager, get_schedule_storage_path
-
-FACULTIES = [
-    "ЭТФ - Электротехнический факультет",
-    "ХТФ - Факультет химических технологий, промышленной экологии и биотехнологий",
-    "АКФ - Аэрокосмический факультет",
-    "Гуманитарный факультет",
-    "МТФ - Механико-технологический факультет",
-    "Строительный факультет",
-    "Факультет прикладной математики и механики",
-    "ГНФ - Горно-нефтяной факультет",
-    "Автодорожный факультет",
-]
-
-FACULTIES_COORDS = {
-    "ЭТФ - Электротехнический факультет": [58.054531, 56.222769],
-    "ХТФ - Факультет химических технологий, промышленной экологии и биотехнологий": [58.054541, 56.223820],
-    "АКФ - Аэрокосмический факультет": [58.054355, 56.231653],
-    "Гуманитарный факультет": [58.002134, 56.247455],
-    "МТФ - Механико-технологический факультет": [58.008495, 56.239190],
-    "Строительный факультет": [57.984680, 56.247428],
-    "Факультет прикладной математики и механики": [58.054531, 56.224898],
-    "ГНФ - Горно-нефтяной факультет": [58.008295, 56.240250],
-    "Автодорожный факультет": [58.056593, 56.235830],
-}
+from utils.campus_locations import FACULTIES
 
 THEME_OPTIONS = [
     ft.DropdownOption(key="system", text="Системная"),
@@ -200,8 +177,9 @@ def build_settings_view(
         page.update()
 
         try:
-            parse_schedule_xlsx_file(selected_file_path[0], get_schedule_storage_path())
-            schedule_manager.reload()
+            import_path = get_schedule_storage_path().with_name("schedule_import.json")
+            parse_schedule_xlsx_file(selected_file_path[0], import_path)
+            schedule_manager.import_schedule_json(import_path)
 
             if schedule_manager.template.semester_start:
                 config_manager.set_semester_start(schedule_manager.template.semester_start)
@@ -224,6 +202,11 @@ def build_settings_view(
         except Exception as exc:
             _show_message(f"Ошибка импорта: {exc}")
         finally:
+            if 'import_path' in locals() and import_path.exists():
+                try:
+                    import_path.unlink()
+                except OSError:
+                    pass
             btn_confirm.disabled = False
             btn_confirm.text = "Подтвердить импорт"
             progress.visible = False

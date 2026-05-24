@@ -74,3 +74,32 @@ class ScheduleTemplate:
             odd = [TemplateLesson.from_dict(item) for item in data.get("odd", [])],
             even = [TemplateLesson.from_dict(item) for item in data.get("even", [])],
         )
+
+
+@dataclass
+class ScheduleArchive:
+    version: int = 2
+    templates: List[ScheduleTemplate] = field(default_factory = list)
+
+    def to_dict(self) -> dict:
+        return {
+            "version": self.version,
+            "templates": [template.to_dict() for template in self.templates],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ScheduleArchive":
+        if isinstance(data, dict) and "templates" in data:
+            return cls(
+                version = data.get("version", 2),
+                templates = [
+                    ScheduleTemplate.from_dict(item)
+                    for item in data.get("templates", [])
+                    if isinstance(item, dict)
+                ],
+            )
+
+        if isinstance(data, dict):
+            return cls(templates = [ScheduleTemplate.from_dict(data)])
+
+        return cls()

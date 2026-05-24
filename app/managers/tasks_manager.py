@@ -13,10 +13,11 @@ import os
 from typing import List
 
 from bridges.planner_bridge import (
-    collect_task_indices_for_lesson,
-    collect_task_indices_for_type_and_date,
+    collect_task_indices_for_lesson_sorted,
+    collect_task_indices_for_type_and_date_sorted,
+    collect_urgent_task_indices_sorted,
+    compute_task_ratings_for_dates,
     normalize_priority,
-    sort_indices_by_int_desc,
 )
 from models.task_model import Task, TASK_TYPE_HOMEWORK, TASK_TYPE_TEST, TASK_TYPE_LAB
 
@@ -108,21 +109,16 @@ class TasksManager:
     def get_all_tasks(self) -> List[Task]:
         return list(self._tasks)
 
-    def _sort_tasks_by_priority_desc(self, tasks: List[Task]) -> List[Task]:
-        priorities = [task.priority for task in tasks]
-        order = sort_indices_by_int_desc(priorities)
-        return [tasks[index] for index in order]
-
     def _get_by_type_and_date(self, task_type: str, date: datetime.date) -> List[Task]:
         ds = date.strftime("%d.%m.%Y")
-        indices = collect_task_indices_for_type_and_date(
+        indices = collect_task_indices_for_type_and_date_sorted(
             [task.task_type for task in self._tasks],
             [task.date_str for task in self._tasks],
+            [task.priority for task in self._tasks],
             task_type,
             ds,
         )
-        result = [self._tasks[index] for index in indices]
-        return self._sort_tasks_by_priority_desc(result)
+        return [self._tasks[index] for index in indices]
 
     def get_tests_for_date(self, date: datetime.date) -> List[Task]:
         return self._get_by_type_and_date(TASK_TYPE_TEST, date)
@@ -134,9 +130,33 @@ class TasksManager:
         return self._get_by_type_and_date(TASK_TYPE_LAB, date)
     
     def get_tasks_for_lesson(self, lesson_id: str) -> List[Task]:
-        indices = collect_task_indices_for_lesson(
+        indices = collect_task_indices_for_lesson_sorted(
             [task.lesson_id for task in self._tasks],
+            [task.priority for task in self._tasks],
             lesson_id,
         )
-        result = [self._tasks[index] for index in indices]
-        return self._sort_tasks_by_priority_desc(result)
+        return [self._tasks[index] for index in indices]
+
+    def refresh_all_ratings(self, today: datetime.date | None = None) -> None:
+        if not self._tasks:
+            return
+
+        current_date = today or datetime.date.today()
+        ratings = compute_task_ratings_for_dates(
+            [task.priority for task in self._tasks],
+            [task.date_str for task in self._tasks],
+            current_date,
+        )
+        for task, rating in zip(self._tasks, ratings):
+            task.rating = rating
+        self._save()
+
+    def get_urgent_tasks(self, threshold: float) -> List[Task]:
+        if not self._tasks:
+            return []
+
+        indices = collect_urgent_task_indices_sorted(
+            [task.rating for task in self._tasks],
+            threshold,
+        )
+        return [self._tasks[index] for index in indices]

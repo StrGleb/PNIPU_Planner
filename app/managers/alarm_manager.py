@@ -1,28 +1,25 @@
 import json
 import pathlib
 import sys
-import os
-import threading
 import tempfile
+import threading
+from datetime import datetime, timedelta
 from time import sleep
-from datetime import datetime
 from typing import Callable, Optional
+
 from models.alarm_model import Alarm
 
 
 def _storage_path() -> pathlib.Path:
     if hasattr(sys, "getandroidapilevel"):
-        # На Android получаем путь к кэшу (/data/user/0/<pkg>/cache)
         cache_dir = pathlib.Path(tempfile.gettempdir())
-        # Его родитель — это корень песочницы приложения (/data/user/0/<pkg>)
         base_dir = cache_dir.parent / "files"
-        d = base_dir / ".pnipu_planner"
+        storage_dir = base_dir / ".pnipu_planner"
     else:
-        # На Windows/macOS/Linux используем домашнюю папку пользователя
-        d = pathlib.Path.home() / ".pnipu_planner"
+        storage_dir = pathlib.Path.home() / ".pnipu_planner"
 
-    d.mkdir(parents = True, exist_ok = True)
-    return d / "alarms.json"
+    storage_dir.mkdir(parents = True, exist_ok = True)
+    return storage_dir / "alarms.json"
 
 
 class AlarmManager:
@@ -34,82 +31,169 @@ class AlarmManager:
         self._on_trigger: Optional[Callable] = None
         self._week_even_fn: Optional[Callable[[], bool]] = None
 
-    # ── Персистентность ───────────────────────────────────────────────────────
     def _load(self) -> list[Alarm]:
         if not self._path.exists():
             return []
         try:
-            with open(self._path, encoding="utf-8") as f:
-                data = json.load(f)
-            alarms = [Alarm.from_dict(d) for d in data.get("alarms", [])]
-            return sorted(alarms, key = lambda a: (a.hour, a.minute))
+            with open(self._path, encoding = "utf-8") as file:
+                data = json.load(file)
+            alarms = [Alarm.from_dict(item) for item in data.get("alarms", [])]
+            return sorted(alarms, key = lambda alarm: (alarm.hour, alarm.minute))
         except Exception:
             return []
 
     def _save(self) -> None:
-        with open(self._path, "w", encoding = "utf-8") as f:
+        with open(self._path, "w", encoding = "utf-8") as file:
             json.dump(
-                {"version": 1, "alarms": [a.to_dict() for a in self.alarms]},
-                f, ensure_ascii = False, indent = 2,
+                {"version": 1, "alarms": [alarm.to_dict() for alarm in self.alarms]},
+                file,
+                ensure_ascii = False,
+                indent = 2,
             )
 
-    # ── Public API ────────────────────────────────────────────────────────────
+    def build_next_one_time_target_date(
+        self,
+        hour: int,
+        minute: int,
+        now: datetime | None = None,
+    ) -> str:
+        current = now or datetime.now()
+        candidate = current.replace(hour = hour, minute = minute, second = 0, microsecond = 0)
+        if candidate <= current:
+            candidate += timedelta(days = 1)
+        return candidate.strftime("%d.%m.%Y")
+
     def add(self, alarm: Alarm) -> None:
         with self._lock:
             self.alarms.append(alarm)
-            self.alarms.sort(key = lambda a: (a.hour, a.minute))
+            self.alarms.sort(key = lambda item: (item.hour, item.minute))
         self._save()
 
     def remove(self, alarm_id: str) -> None:
         with self._lock:
-            self.alarms = [a for a in self.alarms if a.id != alarm_id]
+            self.alarms = [alarm for alarm in self.alarms if alarm.id != alarm_id]
         self._save()
 
     def toggle(self, alarm_id: str) -> None:
         with self._lock:
-            for a in self.alarms:
-                if a.id == alarm_id:
-                    a.enabled = not a.enabled
-                    break
+            for alarm in self.alarms:
+                if alarm.id != alarm_id:
+                    continue
+                alarm.enabled = not alarm.enabled
+                if alarm.enabled and alarm.is_one_time_manual:
+                    alarm.target_date = self.build_next_one_time_target_date(alarm.hour, alarm.minute)
+                break
         self._save()
 
-    def update(self, alarm_id: str, hour: int, minute: int, days: list, week_type: str) -> None:
-        """Обновляет время и дни существующего будильника."""
+    def update(
+        self,
+        alarm_id: str,
+        hour: int,
+        minute: int,
+        days: list[int],
+        week_type: str,
+        target_date: str = "",
+    ) -> None:
         with self._lock:
-            for a in self.alarms:
-                if a.id == alarm_id:
-                    a.hour = hour
-                    a.minute = minute
-                    a.days = days
-                    a.week_type = week_type
+            for alarm in self.alarms:
+                if alarm.id != alarm_id:
+                    continue
+                alarm.hour = hour
+                alarm.minute = minute
+                alarm.days = days
+                alarm.week_type = week_type
+                alarm.target_date = target_date
+                break
+            self.alarms.sort(key = lambda item: (item.hour, item.minute))
+        self._save()
+
+    def replace_auto_schedule_alarms(self, alarms: list[Alarm]) -> None:
+        with self._lock:
+            manual_alarms = [alarm for alarm in self.alarms if not alarm.is_auto_schedule]
+            self.alarms = manual_alarms + list(alarms)
+            self.alarms.sort(key = lambda item: (item.hour, item.minute))
+        self._save()
+
+    def clear_auto_schedule_alarms(self) -> None:
+        self.replace_auto_schedule_alarms([])
+
+    def get_auto_schedule_alarms(self) -> list[Alarm]:
+        with self._lock:
+            return [alarm for alarm in self.alarms if alarm.is_auto_schedule]
+
+    def update_alarm_instance(self, updated_alarm: Alarm) -> None:
+        with self._lock:
+            for index, alarm in enumerate(self.alarms):
+                if alarm.id == updated_alarm.id:
+                    self.alarms[index] = updated_alarm
                     break
-            self.alarms.sort(key = lambda a: (a.hour, a.minute))
+            self.alarms.sort(key = lambda item: (item.hour, item.minute))
         self._save()
 
     def set_trigger_callback(self, callback: Callable) -> None:
         self._on_trigger = callback
 
     def set_week_even_fn(self, fn: Callable[[], bool]) -> None:
-        """Функция возвращает True если текущая неделя чётная."""
         self._week_even_fn = fn
 
     def start_background_checker(self) -> None:
-        t = threading.Thread(target = self._check_loop, daemon = True)
-        t.start()
+        thread = threading.Thread(target = self._check_loop, daemon = True)
+        thread.start()
 
-    # ── Internal ──────────────────────────────────────────────────────────────
+    def _disable_expired_one_time_alarms(self, now: datetime) -> bool:
+        changed = False
+        today = now.date()
+        for alarm in self.alarms:
+            if not alarm.enabled or not alarm.is_one_time_manual:
+                continue
+            try:
+                target_date = datetime.strptime(alarm.target_date, "%d.%m.%Y").date()
+            except ValueError:
+                alarm.enabled = False
+                changed = True
+                continue
+            if target_date < today:
+                alarm.enabled = False
+                changed = True
+        return changed
+
+    def _disable_triggered_one_time_alarms(self, alarm_ids: list[str]) -> bool:
+        if not alarm_ids:
+            return False
+
+        changed = False
+        alarm_id_set = set(alarm_ids)
+        for alarm in self.alarms:
+            if alarm.id in alarm_id_set and alarm.is_one_time_manual and alarm.enabled:
+                alarm.enabled = False
+                changed = True
+        return changed
+
     def _check_loop(self) -> None:
         while True:
             now = datetime.now()
             is_even = self._week_even_fn() if self._week_even_fn else False
             key = f"{now.hour}:{now.minute}"
+            changed = False
+
             with self._lock:
+                changed = self._disable_expired_one_time_alarms(now) or changed
                 alarms_copy = list(self.alarms)
+
+            triggered_one_time_ids: list[str] = []
             for alarm in alarms_copy:
                 fire_key = f"{alarm.id}:{key}"
                 if alarm.matches_now(now, is_even) and fire_key not in self._fired_keys:
                     self._fired_keys.add(fire_key)
                     if self._on_trigger:
                         self._on_trigger(alarm)
-            self._fired_keys = {k for k in self._fired_keys if k.endswith(key)}
+                    if alarm.is_one_time_manual:
+                        triggered_one_time_ids.append(alarm.id)
+
+            with self._lock:
+                changed = self._disable_triggered_one_time_alarms(triggered_one_time_ids) or changed
+
+            self._fired_keys = {item for item in self._fired_keys if item.endswith(key)}
+            if changed:
+                self._save()
             sleep(1)

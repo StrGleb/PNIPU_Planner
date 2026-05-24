@@ -32,8 +32,15 @@ def get_route(start, end, transport):
             "output": "summary"
         }
     
-    resp = requests.post(url, json=payload)
-    data = resp.json()
+    if not API_KEY:
+        return None
+
+    try:
+        resp = requests.post(url, json = payload, timeout = 10)
+        resp.raise_for_status()
+        data = resp.json()
+    except requests.RequestException:
+        return None
 
     if type(data) == list:
         return [data[0]['total_distance'], data[0]['total_duration']]
