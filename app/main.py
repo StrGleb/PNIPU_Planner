@@ -100,12 +100,12 @@ def main(page: ft.Page):
         schedule_manager = ScheduleManager()
 
         # При первом запуске заполнить семестр (раскомментировать один раз):
-        # schedule_manager.apply_semester(
-        #     planner_manager,
-        #     start_date = datetime.date(2026, 3, 30),
-        #     end_date = datetime.date(2026, 6, 30),
-        #     first_week_even = False, # 1 неделя = нечётная
-        # )
+        schedule_manager.apply_semester(
+            planner_manager,
+            start_date = datetime.date(2026, 3, 30),
+            end_date = datetime.date(2026, 6, 30),
+            first_week_even = False, # 1 неделя = нечётная
+        )
 
         # Хранит cleanup-функцию активного planner view
         _planner_cleanup = [None]

@@ -1,8 +1,11 @@
 import flet as ft
 import sys
 import pathlib
-import os
+import logging
 from managers.config_manager import ConfigManager
+from utils.excel_parser.parsaer_start_point import finally_excel_parser_algorithm
+
+logger = logging.getLogger(__name__)
 
 if sys.platform == 'win32':
     from bridges.planner_bridge import lib
@@ -14,6 +17,12 @@ FACULTIES = [
     "ЭТФ - Электротехнический факультет", "ХТФ - Факультет химических технологий, промышленной экологии и биотехнологий", "АКФ - Аэрокосмический факультет", "Гуманитарный факультет", "МТФ - Механико-технологический факультет",
     "Строительный факультет", "Прикладной математики и механики факультет",
     "ГНФ - Горно-нефтяной факультет", "Автодорожный факультет",
+]
+
+TRANSPORT_TYPE = [
+    "Автомобиль",
+    "Общественный транспорт",
+    "Пеший ход",
 ]
 
 FACULTIES_COORDS = {
@@ -98,12 +107,13 @@ def build_settings_view(
     )
     dd_faculty.on_change = lambda e: config_manager.set_user_faculty(e.control.value)
 
-    # ── Машина ───────────────────────────────────────────────────────────────────
-    cb_car = ft.Checkbox(
-        label = "Есть своя машина для поездок в\n университет",
-        value = cfg.has_car,
-        on_change = lambda e: config_manager.set_has_car(e.control.value),
+    # ── Способ передвижения ───────────────────────────────────────────────────────────────────
+    dd_transport = ft.Dropdown(
+        value = cfg.user_faculty if cfg.user_faculty in TRANSPORT_TYPE else TRANSPORT_TYPE[0],
+        options = [ft.DropdownOption(f) for f in TRANSPORT_TYPE],
+        width = 280,
     )
+    # dd_transport.on_change = lambda e: config_manager.set_user_faculty(e.control.value)
 
     # ── Начало семестра ───────────────────────────────────────────────────────────
     def on_semester_start_blur(e):
@@ -157,34 +167,16 @@ def build_settings_view(
     # ── Переменная для сохранения пути к выбранному файлу ──────────────────────────
     selected_file_path = [None]
 
-    # # Очищаем старые инстансы FilePicker из оверлея при перезагрузке view
-    # for ctrl in list(page.overlay):
-    #     if isinstance(ctrl, ft.FilePicker):
-    #         try:
-    #             page.overlay.remove(ctrl)
-    #         except:
-    #             pass
-
     # Инициализируем абсолютно пустой FilePicker (без on_result)
     file_picker = ft.FilePicker()
-    # page.overlay.append(file_picker)
 
     async def open_file_picker(e: ft.Event[ft.ElevatedButton]):
-        # Метод pick_files() сам синхронно вернет список выбранных файлов
-        # files = file_picker.pick_files(
-        #     allowed_extensions = ["xlsx"],
-        #     file_type = ft.FilePickerFileType.CUSTOM
-        # )
         files = await ft.FilePicker().pick_files(allowed_extensions = ["xlsx"])
         
         # Если пользователь выбрал файл
         if files:
-            # Сохраняем локальный путь к файлу на телефоне
-            selected_file_path[0] = files[0].path
-            
-            # Меняем заголовок диалога на имя выбранного файла
-            dialog.title = ft.Text(f"Выбран файл: {files[0].name}")
-            
+            selected_file_path[0] = files[0].path # Сохраняем локальный путь к файлу на телефоне
+            dialog.title = ft.Text(f"Выбран файл: {files[0].name}") # Меняем заголовок диалога на имя выбранного файла
             # Сбрасываем визуальное состояние элементов диалога
             btn_confirm.disabled = False
             btn_confirm.text = "Подтвердить импорт"
@@ -221,11 +213,10 @@ def build_settings_view(
         import time
 
         def finish_import():
-            time.sleep(1.0) # Имитация обработки парсером
-            
-            # В дебаге вы увидите этот принт в логах (Logcat), подтверждающий путь к файлу
-            print(f"[EXCEL IMPORT] Путь к файлу на Android: {selected_file_path[0]}")
-            
+            # Обработка парсером
+            finally_excel_parser_algorithm(selected_file_path[0])
+
+            logger.debug(f"[EXCEL IMPORT] Путь к файлу на Android: {selected_file_path[0]}")
             dialog.open = False
             file_name = pathlib.Path(selected_file_path[0]).name
             page.snack_bar = ft.SnackBar(ft.Text(f"Импорт завершён! Файл: {file_name}"))
@@ -290,8 +281,9 @@ def build_settings_view(
                             row("Время на сборы (мин)", tf_time),
                             row("Адрес проживания", tf_address),
                             row("Факультет", dd_faculty),
-                            row("Время до ВУЗа (мин)", tf_travel, ""),
-                            cb_car,
+                            row("Время до ВУЗа (мин)", tf_travel, "временное решение"),
+                            row("Способ передвижения", dd_transport),
+                            # dd_transport,
                             ft.Container(height = 12),
 
                             # Экспорт

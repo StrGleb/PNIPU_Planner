@@ -17,10 +17,29 @@ START_HOUR = 8 # таймлайн начинается в 08:00
 END_HOUR = 21 # таймлайн заканчивается в 20:00 (21 — не включается)
 TIME_COL_W = 52 # ширина колонки с временем
 
+# ── Окраска блоков пар в планере ────────────────────────────────────────────────────────
 LESSON_BG = ft.Colors.GREEN_200
 LESSON_BORDER = ft.Colors.GREEN_400
 LESSON_TEXT = ft.Colors.GREEN_900
 LESSON_TIME = ft.Colors.GREEN_800
+
+_SUBJECT_PALETTE = [
+    (ft.Colors.GREEN_100,  ft.Colors.GREEN_400,  ft.Colors.GREEN_900,  ft.Colors.GREEN_700),
+    (ft.Colors.BLUE_100,   ft.Colors.BLUE_400,   ft.Colors.BLUE_900,   ft.Colors.BLUE_700),
+    (ft.Colors.PURPLE_100, ft.Colors.PURPLE_400, ft.Colors.PURPLE_900, ft.Colors.PURPLE_700),
+    (ft.Colors.ORANGE_100, ft.Colors.ORANGE_400, ft.Colors.ORANGE_900, ft.Colors.ORANGE_700),
+    (ft.Colors.PINK_100,   ft.Colors.PINK_400,   ft.Colors.PINK_900,   ft.Colors.PINK_700),
+    (ft.Colors.TEAL_100,   ft.Colors.TEAL_400,   ft.Colors.TEAL_900,   ft.Colors.TEAL_700),
+    (ft.Colors.RED_100,    ft.Colors.RED_400,     ft.Colors.RED_900,    ft.Colors.RED_700),
+    (ft.Colors.CYAN_100,   ft.Colors.CYAN_400,    ft.Colors.CYAN_900,   ft.Colors.CYAN_700),
+]
+
+def _subject_colors(subject: str) -> tuple:
+    """Возвращает (bg, border, text, time) по названию предмета"""
+    # Берём только базовое название без типа и аудитории
+    base = subject.split("(")[0].split("|")[0].strip()
+    idx = hash(base) % len(_SUBJECT_PALETTE)
+    return _SUBJECT_PALETTE[idx]
 
 
 def build_planner_view(
@@ -433,23 +452,25 @@ def build_planner_view(
         except Exception:
             return ft.Container()
 
+        bg, border, text, time_color = _subject_colors(lesson.subject)
+
         return ft.Container(
             content = ft.Column(
                 [
                     ft.Text(
                         f"{lesson.time_start} – {lesson.time_end}",
-                        size = 11, weight = ft.FontWeight.BOLD, color = LESSON_TIME,
+                        size = 11, weight = ft.FontWeight.BOLD, color = time_color,
                     ),
                     ft.Text(
                         lesson.subject,
-                        size = 13, weight = ft.FontWeight.BOLD, color = LESSON_TEXT,
+                        size = 13, weight = ft.FontWeight.BOLD, color = text,
                         overflow = ft.TextOverflow.ELLIPSIS,
                     ),
                 ],
                 spacing = 2, tight = True,
             ),
-            bgcolor = LESSON_BG,
-            border = ft.Border.all(1, LESSON_BORDER),
+            bgcolor = bg,
+            border = ft.Border.all(1, border),
             border_radius = 8,
             padding = ft.Padding.symmetric(horizontal = 8, vertical = 6),
             top = top_px, left = TIME_COL_W + 4, right = 8, height = h_px,

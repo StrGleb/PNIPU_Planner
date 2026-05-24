@@ -35,9 +35,7 @@ def build_home_view(
 
     if config_manager and config_manager.config.user_address.strip():
         address = "Пермь, " + config_manager.config.user_address
-        print(address)
         coords = get_coordinates_by_address(address)
-        print(coords)
         if coords:
             longitude, latitude = coords
             weather_data = get_weather_by_coords(latitude, longitude)
