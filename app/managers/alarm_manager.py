@@ -3,10 +3,15 @@ import pathlib
 import sys
 import tempfile
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime
 from time import sleep
 from typing import Callable, Optional
 
+from bridges.planner_bridge import (
+    build_next_one_time_target_date as native_build_next_one_time_target_date,
+    collect_expired_one_time_alarm_indices,
+    collect_triggered_alarm_indices,
+)
 from models.alarm_model import Alarm
 
 
@@ -58,10 +63,7 @@ class AlarmManager:
         now: datetime | None = None,
     ) -> str:
         current = now or datetime.now()
-        candidate = current.replace(hour = hour, minute = minute, second = 0, microsecond = 0)
-        if candidate <= current:
-            candidate += timedelta(days = 1)
-        return candidate.strftime("%d.%m.%Y")
+        return native_build_next_one_time_target_date(hour, minute, current)
 
     def add(self, alarm: Alarm) -> None:
         with self._lock:
@@ -141,19 +143,19 @@ class AlarmManager:
         thread.start()
 
     def _disable_expired_one_time_alarms(self, now: datetime) -> bool:
+        expired_indices = collect_expired_one_time_alarm_indices(
+            [alarm.target_date for alarm in self.alarms],
+            [int(alarm.enabled) for alarm in self.alarms],
+            [int(alarm.is_one_time_manual) for alarm in self.alarms],
+            now.date(),
+        )
+        if not expired_indices:
+            return False
+
         changed = False
-        today = now.date()
-        for alarm in self.alarms:
-            if not alarm.enabled or not alarm.is_one_time_manual:
-                continue
-            try:
-                target_date = datetime.strptime(alarm.target_date, "%d.%m.%Y").date()
-            except ValueError:
-                alarm.enabled = False
-                changed = True
-                continue
-            if target_date < today:
-                alarm.enabled = False
+        for index in expired_indices:
+            if 0 <= index < len(self.alarms) and self.alarms[index].enabled:
+                self.alarms[index].enabled = False
                 changed = True
         return changed
 
@@ -180,15 +182,51 @@ class AlarmManager:
                 changed = self._disable_expired_one_time_alarms(now) or changed
                 alarms_copy = list(self.alarms)
 
-            triggered_one_time_ids: list[str] = []
+            week_type_codes = []
+            day_masks = []
             for alarm in alarms_copy:
+                if alarm.week_type == "odd":
+                    week_type_codes.append(1)
+                elif alarm.week_type == "even":
+                    week_type_codes.append(2)
+                else:
+                    week_type_codes.append(0)
+
+                mask = 0
+                for day in alarm.days:
+                    try:
+                        day_number = int(day)
+                    except (TypeError, ValueError):
+                        continue
+                    if 1 <= day_number <= 7:
+                        mask |= 1 << (day_number - 1)
+                day_masks.append(mask)
+
+            triggered_indices = collect_triggered_alarm_indices(
+                [int(alarm.enabled) for alarm in alarms_copy],
+                [alarm.hour for alarm in alarms_copy],
+                [alarm.minute for alarm in alarms_copy],
+                [int(bool(alarm.target_date)) for alarm in alarms_copy],
+                [alarm.target_date for alarm in alarms_copy],
+                week_type_codes,
+                day_masks,
+                now,
+                is_even,
+            )
+
+            triggered_one_time_ids: list[str] = []
+            for index in triggered_indices:
+                if index < 0 or index >= len(alarms_copy):
+                    continue
+                alarm = alarms_copy[index]
                 fire_key = f"{alarm.id}:{key}"
-                if alarm.matches_now(now, is_even) and fire_key not in self._fired_keys:
-                    self._fired_keys.add(fire_key)
-                    if self._on_trigger:
-                        self._on_trigger(alarm)
-                    if alarm.is_one_time_manual:
-                        triggered_one_time_ids.append(alarm.id)
+                if fire_key in self._fired_keys:
+                    continue
+                self._fired_keys.add(fire_key)
+                if self._on_trigger:
+                    self._on_trigger(alarm)
+                if alarm.is_one_time_manual:
+                    triggered_one_time_ids.append(alarm.id)
 
             with self._lock:
                 changed = self._disable_triggered_one_time_alarms(triggered_one_time_ids) or changed

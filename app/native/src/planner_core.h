@@ -21,6 +21,8 @@ extern "C"
 
     PLANNER_CORE_API int normalize_duration_minutes(int minutes);
 
+    PLANNER_CORE_API int normalize_hour_24(int hour);
+
     PLANNER_CORE_API int is_week_even(
         int day,
         int month,
@@ -143,6 +145,97 @@ extern "C"
         int time_to_get_ready,
         int travel_minutes,
         int buffer_minutes
+    );
+
+    PLANNER_CORE_API int collect_lesson_indices_for_date_sorted(
+        const char* const* date_strings,
+        const int* start_minutes,
+        int count,
+        const char* expected_date,
+        int* out_indices
+    );
+
+    PLANNER_CORE_API int find_lesson_index_for_date_time_subject(
+        const char* const* date_strings,
+        const int* start_minutes,
+        const char* const* subjects,
+        int count,
+        const char* expected_date,
+        int expected_start_minutes,
+        const char* expected_subject
+    );
+
+    PLANNER_CORE_API int collect_alarm_indices_for_target_date_sorted(
+        const char* const* target_dates,
+        const int* enabled_flags,
+        const int* alarm_minutes,
+        int count,
+        const char* expected_date,
+        int* out_indices
+    );
+
+    PLANNER_CORE_API int collect_alarm_indices_on_or_after_date(
+        const char* const* target_dates,
+        int count,
+        int today_day,
+        int today_month,
+        int today_year,
+        int* out_indices
+    );
+
+    PLANNER_CORE_API int build_next_one_time_target_date_yyyymmdd(
+        int hour,
+        int minute,
+        int now_day,
+        int now_month,
+        int now_year,
+        int now_minutes
+    );
+
+    PLANNER_CORE_API int collect_expired_one_time_alarm_indices(
+        const char* const* target_dates,
+        const int* enabled_flags,
+        const int* one_time_flags,
+        int count,
+        int today_day,
+        int today_month,
+        int today_year,
+        int* out_indices
+    );
+
+    PLANNER_CORE_API int collect_triggered_alarm_indices(
+        const int* enabled_flags,
+        const int* alarm_hours,
+        const int* alarm_minutes,
+        const int* has_target_dates,
+        const char* const* target_dates,
+        const int* week_type_codes,
+        const int* day_masks,
+        int count,
+        int now_day,
+        int now_month,
+        int now_year,
+        int now_hour,
+        int now_minute,
+        int is_even_week,
+        int* out_indices
+    );
+
+    PLANNER_CORE_API int collect_matching_dates_for_weekday_parity(
+        int start_day,
+        int start_month,
+        int start_year,
+        int end_day,
+        int end_month,
+        int end_year,
+        int semester_start_day,
+        int semester_start_month,
+        int semester_start_year,
+        int first_week_even,
+        int expected_weekday,
+        int expected_even_flag,
+        int* out_dates_yyyymmdd,
+        int capacity
     );
 
     PLANNER_CORE_API int parse_schedule_xlsx(

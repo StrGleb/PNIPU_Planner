@@ -6,7 +6,7 @@ import sys
 import tempfile
 from typing import Optional
 
-from bridges.planner_bridge import time_to_minutes
+from bridges.planner_bridge import collect_lesson_indices_for_date_sorted, time_to_minutes
 from models.lesson_model import ENTRY_TYPE_EVENT, Lesson
 
 logger = logging.getLogger(__name__)
@@ -131,8 +131,13 @@ class PlannerManager:
         return list(self._lessons.values())
 
     def get_lessons_for_date(self, date: datetime.date) -> list[Lesson]:
-        result = [lesson for lesson in self._lessons.values() if lesson.date == date]
-        return sorted(result, key = lambda lesson: time_to_minutes(lesson.time_start))
+        lessons = list(self._lessons.values())
+        indices = collect_lesson_indices_for_date_sorted(
+            [lesson.date_str for lesson in lessons],
+            [time_to_minutes(lesson.time_start) for lesson in lessons],
+            date.strftime("%d.%m.%Y"),
+        )
+        return [lessons[index] for index in indices]
 
     def add_homework(self, lesson_id: str, text: str) -> None:
         lesson = self._lessons.get(lesson_id)

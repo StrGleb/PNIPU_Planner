@@ -4,6 +4,9 @@ import threading
 from time import sleep
 
 from bridges.planner_bridge import (
+    collect_alarm_indices_for_target_date_sorted,
+    collect_alarm_indices_on_or_after_date,
+    find_lesson_index_for_date_time_subject,
     compute_buffered_alarm_minutes,
     normalize_duration_minutes,
     select_next_lesson_index,
@@ -108,15 +111,17 @@ class AutoAlarmService:
 
         now = now or datetime.datetime.now()
         today_text = now.strftime("%d.%m.%Y")
-        alarms = [
-            alarm
-            for alarm in self._alarm_manager.get_auto_schedule_alarms()
-            if alarm.enabled and alarm.target_date == today_text
-        ]
-        if not alarms:
+        alarms = self._alarm_manager.get_auto_schedule_alarms()
+        indices = collect_alarm_indices_for_target_date_sorted(
+            [alarm.target_date for alarm in alarms],
+            [1 if alarm.enabled else 0 for alarm in alarms],
+            [alarm.hour * 60 + alarm.minute for alarm in alarms],
+            today_text,
+        )
+        if not indices:
             return "no_alarm_today"
 
-        alarm = min(alarms, key = lambda item: (item.hour, item.minute))
+        alarm = alarms[indices[0]]
         alarm_minutes = alarm.hour * 60 + alarm.minute
         now_minutes = now.hour * 60 + now.minute
         minutes_until_alarm = alarm_minutes - now_minutes
@@ -230,43 +235,34 @@ class AutoAlarmService:
         if not alarm.target_date:
             return None
 
-        try:
-            alarm_date = datetime.datetime.strptime(alarm.target_date, "%d.%m.%Y").date()
-        except ValueError:
+        lessons = self._planner_manager.get_all_lessons()
+        lesson_start_minutes = time_to_minutes(alarm.lesson_time)
+        if lesson_start_minutes < 0:
             return None
 
-        for lesson in self._planner_manager.get_lessons_for_date(alarm_date):
-            if lesson.time_start != alarm.lesson_time:
-                continue
-            if alarm.subject and lesson.subject != alarm.subject:
-                continue
-            return lesson
-        return None
+        selected_index = find_lesson_index_for_date_time_subject(
+            [lesson.date_str for lesson in lessons],
+            [time_to_minutes(lesson.time_start) for lesson in lessons],
+            [lesson.subject for lesson in lessons],
+            alarm.target_date,
+            lesson_start_minutes,
+            alarm.subject,
+        )
+        if selected_index < 0:
+            return None
+        return lessons[selected_index]
 
     def _cleanup_expired_auto_alarms(self, today: datetime.date) -> None:
         auto_alarms = self._alarm_manager.get_auto_schedule_alarms()
         if not auto_alarms:
             return
 
-        valid_alarms: list[Alarm] = []
-        changed = False
-        for alarm in auto_alarms:
-            if not alarm.target_date:
-                changed = True
-                continue
-
-            try:
-                alarm_date = datetime.datetime.strptime(alarm.target_date, "%d.%m.%Y").date()
-            except ValueError:
-                changed = True
-                continue
-
-            if alarm_date < today:
-                changed = True
-                continue
-            valid_alarms.append(alarm)
-
-        if changed:
+        indices = collect_alarm_indices_on_or_after_date(
+            [alarm.target_date for alarm in auto_alarms],
+            today,
+        )
+        if len(indices) != len(auto_alarms):
+            valid_alarms = [auto_alarms[index] for index in indices]
             self._alarm_manager.replace_auto_schedule_alarms(valid_alarms)
 
     def _can_recheck_again(self, alarm: Alarm, now: datetime.datetime) -> bool:

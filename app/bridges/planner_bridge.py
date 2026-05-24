@@ -72,6 +72,10 @@ if _lib is not None:
         _lib.normalize_duration_minutes.argtypes = [ctypes.c_int]
         _lib.normalize_duration_minutes.restype = ctypes.c_int
 
+    if hasattr(_lib, "normalize_hour_24"):
+        _lib.normalize_hour_24.argtypes = [ctypes.c_int]
+        _lib.normalize_hour_24.restype = ctypes.c_int
+
     if hasattr(_lib, "is_week_even"):
         _lib.is_week_even.argtypes = [
             ctypes.c_int,
@@ -235,6 +239,113 @@ if _lib is not None:
         ]
         _lib.compute_buffered_alarm_minutes.restype = ctypes.c_int
 
+    if hasattr(_lib, "collect_lesson_indices_for_date_sorted"):
+        _lib.collect_lesson_indices_for_date_sorted.argtypes = [
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.POINTER(ctypes.c_int),
+        ]
+        _lib.collect_lesson_indices_for_date_sorted.restype = ctypes.c_int
+
+    if hasattr(_lib, "find_lesson_index_for_date_time_subject"):
+        _lib.find_lesson_index_for_date_time_subject.argtypes = [
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.c_char_p,
+        ]
+        _lib.find_lesson_index_for_date_time_subject.restype = ctypes.c_int
+
+    if hasattr(_lib, "collect_alarm_indices_for_target_date_sorted"):
+        _lib.collect_alarm_indices_for_target_date_sorted.argtypes = [
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.POINTER(ctypes.c_int),
+        ]
+        _lib.collect_alarm_indices_for_target_date_sorted.restype = ctypes.c_int
+
+    if hasattr(_lib, "collect_alarm_indices_on_or_after_date"):
+        _lib.collect_alarm_indices_on_or_after_date.argtypes = [
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int),
+        ]
+        _lib.collect_alarm_indices_on_or_after_date.restype = ctypes.c_int
+
+    if hasattr(_lib, "build_next_one_time_target_date_yyyymmdd"):
+        _lib.build_next_one_time_target_date_yyyymmdd.argtypes = [
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+        ]
+        _lib.build_next_one_time_target_date_yyyymmdd.restype = ctypes.c_int
+
+    if hasattr(_lib, "collect_expired_one_time_alarm_indices"):
+        _lib.collect_expired_one_time_alarm_indices.argtypes = [
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int),
+        ]
+        _lib.collect_expired_one_time_alarm_indices.restype = ctypes.c_int
+
+    if hasattr(_lib, "collect_triggered_alarm_indices"):
+        _lib.collect_triggered_alarm_indices.argtypes = [
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int),
+        ]
+        _lib.collect_triggered_alarm_indices.restype = ctypes.c_int
+
+    if hasattr(_lib, "collect_matching_dates_for_weekday_parity"):
+        _lib.collect_matching_dates_for_weekday_parity.argtypes = [
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.c_int,
+        ]
+        _lib.collect_matching_dates_for_weekday_parity.restype = ctypes.c_int
+
     if hasattr(_lib, "parse_schedule_xlsx"):
         _lib.parse_schedule_xlsx.argtypes = [
             ctypes.c_char_p,
@@ -264,6 +375,38 @@ def _parse_time_text(time_text: str):
         return int(hour_text), int(minute_text)
     except (AttributeError, ValueError):
         return None
+
+
+def _encode_text_values(values: list[str]):
+    return (ctypes.c_char_p * len(values))(*[str(value).encode("utf-8") for value in values])
+
+
+def _decode_yyyymmdd(encoded: int) -> str:
+    year = encoded // 10000
+    month = (encoded // 100) % 100
+    day = encoded % 100
+    return f"{day:02d}.{month:02d}.{year:04d}"
+
+
+def _week_type_to_code(week_type: str) -> int:
+    normalized = str(week_type).strip().lower()
+    if normalized == "odd":
+        return 1
+    if normalized == "even":
+        return 2
+    return 0
+
+
+def _days_to_mask(days: list[int]) -> int:
+    mask = 0
+    for day in days:
+        try:
+            day_number = int(day)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= day_number <= 7:
+            mask |= 1 << (day_number - 1)
+    return mask
 
 
 def _get_native_error_message() -> str:
@@ -312,6 +455,12 @@ def normalize_duration_minutes(minutes: int) -> int:
     if _lib is not None and hasattr(_lib, "normalize_duration_minutes"):
         return _lib.normalize_duration_minutes(minutes)
     return max(0, int(minutes))
+
+
+def normalize_hour_24(hour: int) -> int:
+    if _lib is not None and hasattr(_lib, "normalize_hour_24"):
+        return int(_lib.normalize_hour_24(int(hour)))
+    return max(0, min(23, int(hour)))
 
 
 def is_week_even(
@@ -775,6 +924,353 @@ def compute_buffered_alarm_minutes(
     while alarm_minutes < 0:
         alarm_minutes += 24 * 60
     return alarm_minutes % (24 * 60)
+
+
+def collect_lesson_indices_for_date_sorted(
+    date_strings: list[str],
+    start_minutes: list[int],
+    expected_date: str,
+) -> list[int]:
+    if not date_strings or not start_minutes or len(date_strings) != len(start_minutes):
+        return []
+
+    if _lib is not None and hasattr(_lib, "collect_lesson_indices_for_date_sorted"):
+        count = len(date_strings)
+        date_values = (ctypes.c_char_p * count)(*[value.encode("utf-8") for value in date_strings])
+        minute_values = (ctypes.c_int * count)(*start_minutes)
+        output_indices = (ctypes.c_int * count)()
+        matched_count = _lib.collect_lesson_indices_for_date_sorted(
+            date_values,
+            minute_values,
+            count,
+            expected_date.encode("utf-8"),
+            output_indices,
+        )
+        return list(output_indices[:matched_count])
+
+    indices = [index for index, date_string in enumerate(date_strings) if date_string == expected_date]
+    return sorted(indices, key = start_minutes.__getitem__)
+
+
+def find_lesson_index_for_date_time_subject(
+    date_strings: list[str],
+    start_minutes: list[int],
+    subjects: list[str],
+    expected_date: str,
+    expected_start_minutes: int,
+    expected_subject: str,
+) -> int:
+    if (
+        not date_strings
+        or not start_minutes
+        or not subjects
+        or len(date_strings) != len(start_minutes)
+        or len(date_strings) != len(subjects)
+    ):
+        return -1
+
+    if _lib is not None and hasattr(_lib, "find_lesson_index_for_date_time_subject"):
+        count = len(date_strings)
+        date_values = (ctypes.c_char_p * count)(*[value.encode("utf-8") for value in date_strings])
+        minute_values = (ctypes.c_int * count)(*start_minutes)
+        subject_values = (ctypes.c_char_p * count)(*[value.encode("utf-8") for value in subjects])
+        return int(
+            _lib.find_lesson_index_for_date_time_subject(
+                date_values,
+                minute_values,
+                subject_values,
+                count,
+                expected_date.encode("utf-8"),
+                expected_start_minutes,
+                expected_subject.encode("utf-8"),
+            )
+        )
+
+    for index, (date_string, start_minute, subject) in enumerate(zip(date_strings, start_minutes, subjects)):
+        if date_string != expected_date:
+            continue
+        if start_minute != expected_start_minutes:
+            continue
+        if expected_subject and subject != expected_subject:
+            continue
+        return index
+    return -1
+
+
+def collect_alarm_indices_for_target_date_sorted(
+    target_dates: list[str],
+    enabled_flags: list[int],
+    alarm_minutes: list[int],
+    expected_date: str,
+) -> list[int]:
+    if (
+        not target_dates
+        or not enabled_flags
+        or not alarm_minutes
+        or len(target_dates) != len(enabled_flags)
+        or len(target_dates) != len(alarm_minutes)
+    ):
+        return []
+
+    if _lib is not None and hasattr(_lib, "collect_alarm_indices_for_target_date_sorted"):
+        count = len(target_dates)
+        date_values = (ctypes.c_char_p * count)(*[value.encode("utf-8") for value in target_dates])
+        enabled_values = (ctypes.c_int * count)(*enabled_flags)
+        minute_values = (ctypes.c_int * count)(*alarm_minutes)
+        output_indices = (ctypes.c_int * count)()
+        matched_count = _lib.collect_alarm_indices_for_target_date_sorted(
+            date_values,
+            enabled_values,
+            minute_values,
+            count,
+            expected_date.encode("utf-8"),
+            output_indices,
+        )
+        return list(output_indices[:matched_count])
+
+    indices = [
+        index
+        for index, (target_date, enabled) in enumerate(zip(target_dates, enabled_flags))
+        if enabled and target_date == expected_date
+    ]
+    return sorted(indices, key = alarm_minutes.__getitem__)
+
+
+def collect_alarm_indices_on_or_after_date(
+    target_dates: list[str],
+    today: datetime.date,
+) -> list[int]:
+    if not target_dates:
+        return []
+
+    if _lib is not None and hasattr(_lib, "collect_alarm_indices_on_or_after_date"):
+        count = len(target_dates)
+        date_values = (ctypes.c_char_p * count)(*[value.encode("utf-8") for value in target_dates])
+        output_indices = (ctypes.c_int * count)()
+        matched_count = _lib.collect_alarm_indices_on_or_after_date(
+            date_values,
+            count,
+            today.day,
+            today.month,
+            today.year,
+            output_indices,
+        )
+        return list(output_indices[:matched_count])
+
+    result: list[int] = []
+    for index, target_date in enumerate(target_dates):
+        try:
+            parsed_date = datetime.datetime.strptime(target_date, "%d.%m.%Y").date()
+        except ValueError:
+            continue
+        if parsed_date >= today:
+            result.append(index)
+    return result
+
+
+def build_next_one_time_target_date(
+    hour: int,
+    minute: int,
+    now: datetime.datetime,
+) -> str:
+    if _lib is not None and hasattr(_lib, "build_next_one_time_target_date_yyyymmdd"):
+        encoded = int(
+            _lib.build_next_one_time_target_date_yyyymmdd(
+                int(hour),
+                int(minute),
+                now.day,
+                now.month,
+                now.year,
+                now.hour * 60 + now.minute,
+            )
+        )
+        return _decode_yyyymmdd(encoded)
+
+    candidate = now.replace(hour = hour, minute = minute, second = 0, microsecond = 0)
+    if candidate <= now:
+        candidate += datetime.timedelta(days = 1)
+    return candidate.strftime("%d.%m.%Y")
+
+
+def collect_expired_one_time_alarm_indices(
+    target_dates: list[str],
+    enabled_flags: list[int],
+    one_time_flags: list[int],
+    today: datetime.date,
+) -> list[int]:
+    if (
+        not target_dates
+        or not enabled_flags
+        or not one_time_flags
+        or len(target_dates) != len(enabled_flags)
+        or len(target_dates) != len(one_time_flags)
+    ):
+        return []
+
+    if _lib is not None and hasattr(_lib, "collect_expired_one_time_alarm_indices"):
+        count = len(target_dates)
+        target_date_values = _encode_text_values(target_dates)
+        enabled_values = (ctypes.c_int * count)(*enabled_flags)
+        one_time_values = (ctypes.c_int * count)(*one_time_flags)
+        output_indices = (ctypes.c_int * count)()
+        matched_count = _lib.collect_expired_one_time_alarm_indices(
+            target_date_values,
+            enabled_values,
+            one_time_values,
+            count,
+            today.day,
+            today.month,
+            today.year,
+            output_indices,
+        )
+        return list(output_indices[:matched_count])
+
+    result: list[int] = []
+    for index, (target_date, enabled, is_one_time) in enumerate(
+        zip(target_dates, enabled_flags, one_time_flags)
+    ):
+        if not enabled or not is_one_time:
+            continue
+        try:
+            parsed_date = datetime.datetime.strptime(target_date, "%d.%m.%Y").date()
+        except ValueError:
+            result.append(index)
+            continue
+        if parsed_date < today:
+            result.append(index)
+    return result
+
+
+def collect_triggered_alarm_indices(
+    enabled_flags: list[int],
+    alarm_hours: list[int],
+    alarm_minutes: list[int],
+    has_target_dates: list[int],
+    target_dates: list[str],
+    week_type_codes: list[int],
+    day_masks: list[int],
+    now: datetime.datetime,
+    is_even_week: bool,
+) -> list[int]:
+    if (
+        not enabled_flags
+        or not alarm_hours
+        or not alarm_minutes
+        or not has_target_dates
+        or not target_dates
+        or not week_type_codes
+        or not day_masks
+    ):
+        return []
+
+    count = len(enabled_flags)
+    if any(len(values) != count for values in [
+        alarm_hours,
+        alarm_minutes,
+        has_target_dates,
+        target_dates,
+        week_type_codes,
+        day_masks,
+    ]):
+        return []
+
+    if _lib is not None and hasattr(_lib, "collect_triggered_alarm_indices"):
+        enabled_values = (ctypes.c_int * count)(*enabled_flags)
+        hour_values = (ctypes.c_int * count)(*alarm_hours)
+        minute_values = (ctypes.c_int * count)(*alarm_minutes)
+        has_target_date_values = (ctypes.c_int * count)(*has_target_dates)
+        target_date_values = _encode_text_values(target_dates)
+        week_type_value_array = (ctypes.c_int * count)(*week_type_codes)
+        day_mask_values = (ctypes.c_int * count)(*day_masks)
+        output_indices = (ctypes.c_int * count)()
+        matched_count = _lib.collect_triggered_alarm_indices(
+            enabled_values,
+            hour_values,
+            minute_values,
+            has_target_date_values,
+            target_date_values,
+            week_type_value_array,
+            day_mask_values,
+            count,
+            now.day,
+            now.month,
+            now.year,
+            now.hour,
+            now.minute,
+            int(is_even_week),
+            output_indices,
+        )
+        return list(output_indices[:matched_count])
+
+    result: list[int] = []
+    weekday = now.isoweekday()
+    weekday_mask = 1 << (weekday - 1)
+    today_text = now.strftime("%d.%m.%Y")
+    for index in range(count):
+        if not enabled_flags[index]:
+            continue
+        if alarm_hours[index] != now.hour or alarm_minutes[index] != now.minute:
+            continue
+        if has_target_dates[index]:
+            if target_dates[index] == today_text:
+                result.append(index)
+            continue
+        if week_type_codes[index] == 1 and is_even_week:
+            continue
+        if week_type_codes[index] == 2 and not is_even_week:
+            continue
+        if day_masks[index] and not (day_masks[index] & weekday_mask):
+            continue
+        result.append(index)
+    return result
+
+
+def collect_matching_dates_for_weekday_parity(
+    start_date: datetime.date,
+    end_date: datetime.date,
+    semester_start: datetime.date,
+    first_week_even: bool,
+    expected_weekday: int,
+    expected_is_even: bool,
+) -> list[datetime.date]:
+    if end_date < start_date:
+        return []
+
+    if _lib is not None and hasattr(_lib, "collect_matching_dates_for_weekday_parity"):
+        max_days = (end_date - start_date).days + 1
+        output_dates = (ctypes.c_int * max_days)()
+        matched_count = _lib.collect_matching_dates_for_weekday_parity(
+            start_date.day,
+            start_date.month,
+            start_date.year,
+            end_date.day,
+            end_date.month,
+            end_date.year,
+            semester_start.day,
+            semester_start.month,
+            semester_start.year,
+            int(first_week_even),
+            expected_weekday,
+            int(expected_is_even),
+            output_dates,
+            max_days,
+        )
+        result: list[datetime.date] = []
+        for encoded in output_dates[:matched_count]:
+            year = encoded // 10000
+            month = (encoded // 100) % 100
+            day = encoded % 100
+            result.append(datetime.date(year, month, day))
+        return result
+
+    result: list[datetime.date] = []
+    current_date = start_date
+    while current_date <= end_date:
+        if current_date.isoweekday() == expected_weekday:
+            if is_week_even(current_date, semester_start.strftime("%d.%m.%Y"), first_week_even) == expected_is_even:
+                result.append(current_date)
+        current_date += datetime.timedelta(days = 1)
+    return result
 
 
 def parse_schedule_xlsx_file(xlsx_path: str | Path, output_json_path: str | Path) -> None:

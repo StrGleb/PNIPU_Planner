@@ -6,6 +6,7 @@ import os
 from bridges.planner_bridge import (
     is_valid_date_text,
     normalize_duration_minutes,
+    normalize_hour_24,
     normalize_theme,
 )
 from models.user_config import UserConfig
@@ -49,7 +50,7 @@ class ConfigManager:
         if not is_valid_date_text(semester_start):
             semester_start = default_semester_start
 
-        refresh_hour = max(0, min(23, int(getattr(config, "auto_alarm_refresh_hour", 21))))
+        refresh_hour = normalize_hour_24(getattr(config, "auto_alarm_refresh_hour", 21))
         recheck_lead = normalize_duration_minutes(getattr(config, "auto_alarm_recheck_lead_minutes", 60))
 
         return UserConfig(
@@ -117,7 +118,7 @@ class ConfigManager:
         self.save()
 
     def set_auto_alarm_refresh_hour(self, value: int) -> None:
-        self.config.auto_alarm_refresh_hour = max(0, min(23, int(value)))
+        self.config.auto_alarm_refresh_hour = normalize_hour_24(value)
         self.save()
 
     def set_auto_alarm_recheck_lead_minutes(self, value: int) -> None:

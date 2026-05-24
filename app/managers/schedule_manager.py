@@ -6,6 +6,7 @@ import tempfile
 
 from bridges.planner_bridge import (
     collect_schedule_lesson_indices_for_day,
+    collect_matching_dates_for_weekday_parity,
     derive_schedule_period_end_date,
     is_week_even,
     select_active_template_index,
@@ -200,40 +201,44 @@ class ScheduleManager:
             return 0
 
         applied = 0
-        current_date = start_date
-        while current_date <= end_date:
-            weekday = current_date.isoweekday()
-            is_even = is_week_even(
-                current_date,
-                template.semester_start,
-                template.first_week_even,
-            )
+        semester_start = self._parse_start_text(template.semester_start)
+        if semester_start is None:
+            return 0
 
-            for lesson in self._get_weekday_lessons(template, is_even, weekday):
+        for is_even, lessons in ((False, template.odd), (True, template.even)):
+            for lesson in lessons:
+                lesson_dates = collect_matching_dates_for_weekday_parity(
+                    start_date = start_date,
+                    end_date = end_date,
+                    semester_start = semester_start,
+                    first_week_even = template.first_week_even,
+                    expected_weekday = int(lesson.day),
+                    expected_is_even = is_even,
+                )
+
                 subject = self._format_subject(lesson)
-                key = (
-                    current_date.strftime("%d.%m.%Y"),
-                    lesson.time_start,
-                    lesson.time_end,
-                    subject,
-                )
-                if key in existing_keys:
-                    continue
+                for lesson_date in lesson_dates:
+                    key = (
+                        lesson_date.strftime("%d.%m.%Y"),
+                        lesson.time_start,
+                        lesson.time_end,
+                        subject,
+                    )
+                    if key in existing_keys:
+                        continue
 
-                planner.add_lesson(
-                    current_date,
-                    lesson.time_start,
-                    lesson.time_end,
-                    subject,
-                    teacher = lesson.teacher,
-                    room = lesson.room,
-                    auditorium = lesson.auditorium,
-                    building = lesson.building,
-                )
-                existing_keys.add(key)
-                applied += 1
-
-            current_date += datetime.timedelta(days=1)
+                    planner.add_lesson(
+                        lesson_date,
+                        lesson.time_start,
+                        lesson.time_end,
+                        subject,
+                        teacher = lesson.teacher,
+                        room = lesson.room,
+                        auditorium = lesson.auditorium,
+                        building = lesson.building,
+                    )
+                    existing_keys.add(key)
+                    applied += 1
 
         return applied
 
