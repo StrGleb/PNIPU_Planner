@@ -7,23 +7,10 @@ import logging
 from time import sleep
 from typing import TYPE_CHECKING
 from plyer import notification
+from bridges.planner_bridge import compute_rating_value, sort_indices_by_double_desc
 
 if TYPE_CHECKING:
     from managers.tasks_manager import TasksManager
-
-def compute_rating(priority, days_until):
-    try:
-        import planner_algorithm
-        return planner_algorithm.compute_rating_value(priority, days_until)
-    except ImportError:
-        pass
-    # Python fallback
-    priority_score = priority * 30.0
-    if days_until < 0:      urgency = 150.0
-    elif days_until == 0:   urgency = 120.0
-    elif days_until <= 14:  urgency = (1.0 - days_until / 14.0) * 100.0
-    else:                   urgency = 0.0
-    return priority_score + urgency
 
 
 
@@ -48,7 +35,7 @@ def calculate_task_rating(task, today: datetime.date) -> float:
     days_until = (task_date - today).days
     
     # Вызов будущего C++ модуля
-    return compute_rating(task.priority, days_until)
+    return compute_rating_value(task.priority, days_until)
 
 # ── Отправка уведомления ──────────────────────────────────────────────────────
 def send_notification(title: str, message: str) -> None:
@@ -91,7 +78,8 @@ def check_and_notify(tasks_manager: "TasksManager") -> None:
     if not urgent:
         return
 
-    urgent.sort(key = lambda t: t.rating, reverse = True)
+    urgent_order = sort_indices_by_double_desc([task.rating for task in urgent])
+    urgent = [urgent[index] for index in urgent_order]
 
     lines = [
         f"[{t.type_label}] {t.subject}: {t.text}"

@@ -1,97 +1,138 @@
-import json
 import datetime
+import json
 import pathlib
 import shutil
 import sys
-import os
 import tempfile
 
-from models.schedule_template import ScheduleTemplate, TemplateLesson
+from bridges.planner_bridge import is_valid_date_text
 from managers.planner_manager import PlannerManager
+from models.schedule_template import ScheduleTemplate
 
 
-# ── Путь к файлу шаблона ────────────────────────────────────────────────────────
-# Должно работать на Windows / Linux / macOS / Android
-_APP_DIR = pathlib.Path(__file__).resolve().parent.parent # .../app/
-_BUNDLED = _APP_DIR / "data" / "schedule.json" # поставляется с приложением
+_APP_DIR = pathlib.Path(__file__).resolve().parent.parent
+_BUNDLED = _APP_DIR / "data" / "schedule.json"
 
-def _get_storage_path() -> pathlib.Path:
+
+def get_schedule_storage_path() -> pathlib.Path:
     if hasattr(sys, "getandroidapilevel"):
-        # На Android получаем путь к кэшу (/data/user/0/<pkg>/cache)
         cache_dir = pathlib.Path(tempfile.gettempdir())
-        # Его родитель — это корень песочницы приложения (/data/user/0/<pkg>)
         base_dir = cache_dir.parent / "files"
-        d = base_dir / ".pnipu_planner"
+        storage_dir = base_dir / ".pnipu_planner"
     else:
-        # На Windows/macOS/Linux используем домашнюю папку пользователя
-        d = pathlib.Path.home() / ".pnipu_planner"
+        storage_dir = pathlib.Path.home() / ".pnipu_planner"
 
-    d.mkdir(parents = True, exist_ok = True)
-    return d / "schedule.json"
+    storage_dir.mkdir(parents = True, exist_ok = True)
+    return storage_dir / "schedule.json"
 
 
 class ScheduleManager:
-    """Загружает, сохраняет и применяет шаблон расписания."""
+    """Loads, stores and applies the parsed schedule template."""
+
     def __init__(self):
-        self._path = _get_storage_path()
+        self._path = get_schedule_storage_path()
         self.template: ScheduleTemplate = self._load()
 
-    # ── Загрузка / сохранение ────────────────────────────────────────────────────
     def _load(self) -> ScheduleTemplate:
-        # Если персистентного файла ещё нет — копируем встроенный шаблон
         if not self._path.exists():
             if _BUNDLED.exists():
                 shutil.copy(_BUNDLED, self._path)
             else:
-                return ScheduleTemplate() # пустой шаблон
+                return ScheduleTemplate()
+
         try:
-            with open(self._path, encoding = "utf-8") as f:
-                return ScheduleTemplate.from_dict(json.load(f))
+            with open(self._path, encoding = "utf-8") as file:
+                return ScheduleTemplate.from_dict(json.load(file))
         except Exception:
             return ScheduleTemplate()
 
     def save(self) -> None:
-        with open(self._path, "w", encoding = "utf-8") as f:
-            json.dump(self.template.to_dict(), f, ensure_ascii = False, indent = 2)
+        with open(self._path, "w", encoding = "utf-8") as file:
+            json.dump(self.template.to_dict(), file, ensure_ascii = False, indent = 2)
 
     def reload(self) -> None:
-        """Перечитать шаблон с диска (например, после импорта нового Excel)"""
         self.template = self._load()
 
-    # ── Применение шаблона к планировщику ────────────────────────────────────────
+    def _parse_semester_start(self) -> datetime.date | None:
+        value = (self.template.semester_start or "").strip()
+        if not value or not is_valid_date_text(value):
+            return None
+        return datetime.datetime.strptime(value, "%d.%m.%Y").date()
+
+    def _derive_semester_end(self, start_date: datetime.date) -> datetime.date:
+        if start_date.month >= 8:
+            return datetime.date(start_date.year + 1, 1, 31)
+        return datetime.date(start_date.year, 6, 30)
+
+    def _format_subject(
+        self,
+        subject: str,
+        lesson_type: str,
+        teacher: str,
+        room: str,
+    ) -> str:
+        parts: list[str] = []
+        head = subject.strip()
+        if lesson_type.strip():
+            head = f"{head} ({lesson_type.strip()})"
+        if head:
+            parts.append(head)
+        if teacher.strip():
+            parts.append(teacher.strip())
+        if room.strip():
+            parts.append(room.strip())
+        return " | ".join(parts)
+
+    def apply_template_to_planner(
+        self,
+        planner: PlannerManager,
+        clear_existing: bool = True,
+    ) -> bool:
+        semester_start = self._parse_semester_start()
+        if semester_start is None:
+            return False
+
+        if clear_existing:
+            planner.clear()
+
+        self.apply_semester(
+            planner = planner,
+            start_date = semester_start,
+            end_date = self._derive_semester_end(semester_start),
+            first_week_even = self.template.first_week_even,
+        )
+        return True
+
     def apply_week(
         self,
         planner: PlannerManager,
         monday: datetime.date,
         is_even: bool,
     ) -> None:
-        """
-        Добавляет пары на указанную неделю
-        Пропускает дни, которые уже есть в планере.
-        """
         lessons = self.template.get_week(is_even)
-        for tl in lessons:
-            target_date = monday + datetime.timedelta(days = tl.day - 1)
-            date_str = target_date.strftime("%d.%m.%Y")
-
-            # Проверяем, нет ли уже такой пары на это место (дату и время)
-            existing = planner.get_lessons_for_date(target_date)
-            already = any(
-                l.time_start == tl.time_start and l.subject == tl.subject
-                for l in existing
+        for lesson in lessons:
+            target_date = monday + datetime.timedelta(days = lesson.day - 1)
+            subject_full = self._format_subject(
+                lesson.subject,
+                lesson.lesson_type,
+                lesson.teacher,
+                lesson.room,
             )
-            if not already:
-                subject_full = tl.subject
-                if tl.lesson_type:
-                    subject_full += f" ({tl.lesson_type})"
-                if tl.room:
-                    subject_full += f" | {tl.room}"
-                planner.add_lesson(
-                    target_date,
-                    tl.time_start,
-                    tl.time_end,
-                    subject_full,
-                )
+
+            existing = planner.get_lessons_for_date(target_date)
+            already_exists = any(
+                item.time_start == lesson.time_start and item.subject == subject_full
+                for item in existing
+            )
+            if already_exists:
+                continue
+
+            planner.add_lesson(
+                target_date,
+                lesson.time_start,
+                lesson.time_end,
+                subject_full,
+            )
 
     def apply_semester(
         self,
@@ -100,10 +141,6 @@ class ScheduleManager:
         end_date: datetime.date,
         first_week_even: bool,
     ) -> None:
-        """
-        Применяет шаблон на весь семестр
-        first_week_even — True если первая неделя чётная
-        """
         monday = start_date - datetime.timedelta(days = start_date.weekday())
         is_even = first_week_even
         while monday <= end_date:

@@ -12,6 +12,12 @@ import tempfile
 import os
 from typing import List
 
+from bridges.planner_bridge import (
+    collect_task_indices_for_lesson,
+    collect_task_indices_for_type_and_date,
+    normalize_priority,
+    sort_indices_by_int_desc,
+)
 from models.task_model import Task, TASK_TYPE_HOMEWORK, TASK_TYPE_TEST, TASK_TYPE_LAB
 
 
@@ -70,7 +76,7 @@ class TasksManager:
             subject = subject,
             text = text,
             lesson_id = lesson_id,
-            priority = max(0, min(3, priority)),
+            priority = normalize_priority(priority),
         )
         self._tasks.append(task)
         self._save()
@@ -94,7 +100,7 @@ class TasksManager:
         for t in self._tasks:
             if t.id == task_id:
                 t.text = text.strip()
-                t.priority = max(0, min(3, priority))
+                t.priority = normalize_priority(priority)
                 break
         self._save()
 
@@ -102,10 +108,21 @@ class TasksManager:
     def get_all_tasks(self) -> List[Task]:
         return list(self._tasks)
 
+    def _sort_tasks_by_priority_desc(self, tasks: List[Task]) -> List[Task]:
+        priorities = [task.priority for task in tasks]
+        order = sort_indices_by_int_desc(priorities)
+        return [tasks[index] for index in order]
+
     def _get_by_type_and_date(self, task_type: str, date: datetime.date) -> List[Task]:
         ds = date.strftime("%d.%m.%Y")
-        result = [t for t in self._tasks if t.task_type == task_type and t.date_str == ds]
-        return sorted(result, key = lambda t: t.priority, reverse = True)
+        indices = collect_task_indices_for_type_and_date(
+            [task.task_type for task in self._tasks],
+            [task.date_str for task in self._tasks],
+            task_type,
+            ds,
+        )
+        result = [self._tasks[index] for index in indices]
+        return self._sort_tasks_by_priority_desc(result)
 
     def get_tests_for_date(self, date: datetime.date) -> List[Task]:
         return self._get_by_type_and_date(TASK_TYPE_TEST, date)
@@ -117,4 +134,9 @@ class TasksManager:
         return self._get_by_type_and_date(TASK_TYPE_LAB, date)
     
     def get_tasks_for_lesson(self, lesson_id: str) -> List[Task]:
-        return [t for t in self._tasks if t.lesson_id == lesson_id]
+        indices = collect_task_indices_for_lesson(
+            [task.lesson_id for task in self._tasks],
+            lesson_id,
+        )
+        result = [self._tasks[index] for index in indices]
+        return self._sort_tasks_by_priority_desc(result)

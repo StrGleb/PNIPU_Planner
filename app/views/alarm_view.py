@@ -1,17 +1,12 @@
-import flet as ft
-import logging
 import json
-import pathlib
-import sys
+import logging
+
+import flet as ft
 from models.alarm_model import Alarm, WEEK_ANY, WEEK_ODD, WEEK_EVEN, WEEK_NAMES
 from managers.alarm_manager import AlarmManager
 from managers.config_manager import ConfigManager
-
-if sys.platform == 'win32':
-    from bridges.planner_bridge import lib
-    make_alarm = lib.make_alarm
-else:
-    from bridges.planner_bridge import make_alarm
+from managers.schedule_manager import get_schedule_storage_path
+from bridges.planner_bridge import is_valid_time, make_alarm, time_to_minutes
 
 logger = logging.getLogger(__name__)
 
@@ -193,8 +188,9 @@ def build_alarm_view(
             try:
                 h = int(hour_f.value)
                 m = int(minute_f.value)
-                assert 0 <= h <= 23 and 0 <= m <= 59
-            except (ValueError, AssertionError):
+                if not is_valid_time(h, m):
+                    raise ValueError
+            except ValueError:
                 error_t.value = "Введите корректное время (ч: 0–23, мин: 0–59)"
                 page.update()
                 return
@@ -261,7 +257,7 @@ def build_alarm_view(
     # ── Авто ─────────────────────────────────────────────────────────────────
     def _on_auto(e):
         cfg = config_manager.config
-        schedule_path = pathlib.Path.home() / ".pnipu_planner" / "schedule.json"
+        schedule_path = get_schedule_storage_path()
 
         if not schedule_path.exists():
             show_error("Расписание не загружено. Импортируйте xlsx в Настройках.")
@@ -291,22 +287,26 @@ def build_alarm_view(
         even_days: dict[int, int] = {}
 
         for lesson in schedule.get("odd", []):
-            day = int(lesson["day"])
             try:
-                h, m = map(int, lesson["time_start"].split(":"))
-            except Exception:
+                day = int(lesson["day"])
+            except (KeyError, TypeError, ValueError):
                 continue
-            t = h * 60 + m
+
+            t = time_to_minutes(lesson.get("time_start", ""))
+            if t < 0:
+                continue
             if day not in odd_days or t < odd_days[day]:
                 odd_days[day] = t
 
         for lesson in schedule.get("even", []):
-            day = int(lesson["day"])
             try:
-                h, m = map(int, lesson["time_start"].split(":"))
-            except Exception:
+                day = int(lesson["day"])
+            except (KeyError, TypeError, ValueError):
                 continue
-            t = h * 60 + m
+
+            t = time_to_minutes(lesson.get("time_start", ""))
+            if t < 0:
+                continue
             if day not in even_days or t < even_days[day]:
                 even_days[day] = t
 

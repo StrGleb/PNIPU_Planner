@@ -30,6 +30,9 @@ class PlannerManager:
     def remove_lesson(self, lesson_id: str) -> None:
         self._lessons.pop(lesson_id, None)
 
+    def clear(self) -> None:
+        self._lessons.clear()
+
     def get_lesson(self, lesson_id: str) -> Optional[Lesson]:
         return self._lessons.get(lesson_id)
 

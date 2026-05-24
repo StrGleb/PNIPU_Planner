@@ -3,6 +3,11 @@ import pathlib
 import sys
 import tempfile
 import os
+from bridges.planner_bridge import (
+    is_valid_date_text,
+    normalize_duration_minutes,
+    normalize_theme,
+)
 from models.user_config import UserConfig
 
 def _storage_path() -> pathlib.Path:
@@ -31,51 +36,72 @@ class ConfigManager:
 
     def _load(self) -> UserConfig:
         if not self._path.exists():
-            return UserConfig()
+            return self._sanitize(UserConfig())
         try:
             with open(self._path, encoding = "utf-8") as f:
-                return UserConfig.from_dict(json.load(f))
+                return self._sanitize(UserConfig.from_dict(json.load(f)))
         except Exception:
-            return UserConfig()
+            return self._sanitize(UserConfig())
+
+    def _sanitize(self, config: UserConfig) -> UserConfig:
+        default_semester_start = UserConfig().semester_start
+        semester_start = str(config.semester_start).strip()
+        if not is_valid_date_text(semester_start):
+            semester_start = default_semester_start
+
+        return UserConfig(
+            theme = normalize_theme(config.theme),
+            user_name = str(config.user_name).strip(),
+            get_together_time = normalize_duration_minutes(config.get_together_time),
+            travel_time = normalize_duration_minutes(config.travel_time),
+            user_address = str(config.user_address).strip(),
+            user_faculty = str(config.user_faculty).strip(),
+            has_car = bool(config.has_car),
+            semester_start = semester_start,
+            first_week_even = bool(config.first_week_even),
+        )
 
     def save(self) -> None:
+        self.config = self._sanitize(self.config)
         with open(self._path, "w", encoding = "utf-8") as f:
             json.dump(self.config.to_dict(), f, ensure_ascii = False, indent = 2)
 
 
     # ── Набор сеттеров ─────────────────────────
     def set_theme(self, value: str) -> None:
-        self.config.theme = value
+        self.config.theme = normalize_theme(value)
         self.save()
 
     def set_user_name(self, value: str) -> None:
-        self.config.user_name = value
+        self.config.user_name = str(value).strip()
         self.save()
 
     def set_get_together_time(self, value: int) -> None:
-        self.config.get_together_time = value
+        self.config.get_together_time = normalize_duration_minutes(value)
         self.save()
 
     def set_user_address(self, value: str) -> None:
-        self.config.user_address = value
+        self.config.user_address = str(value).strip()
         self.save()
 
     def set_user_faculty(self, value: str) -> None:
-        self.config.user_faculty = value
+        self.config.user_faculty = str(value).strip()
         self.save()
 
     def set_has_car(self, value: bool) -> None:
-        self.config.has_car = value
+        self.config.has_car = bool(value)
         self.save()
 
     def set_semester_start(self, value: str) -> None:
-        self.config.semester_start = value
+        normalized_value = str(value).strip()
+        if is_valid_date_text(normalized_value):
+            self.config.semester_start = normalized_value
         self.save()
 
     def set_first_week_even(self, value: bool) -> None:
-        self.config.first_week_even = value
+        self.config.first_week_even = bool(value)
         self.save()
 
     def set_travel_time(self, value: int) -> None:
-        self.config.travel_time = value
+        self.config.travel_time = normalize_duration_minutes(value)
         self.save()
