@@ -6,10 +6,11 @@ import tempfile
 
 from bridges.planner_bridge import (
     collect_schedule_lesson_indices_for_day,
-    collect_matching_dates_for_weekday_parity,
+    collect_template_occurrence_pairs,
     derive_schedule_period_end_date,
     is_week_even,
     select_active_template_index,
+    sort_date_text_indices_asc,
     time_to_minutes,
 )
 from managers.planner_manager import PlannerManager
@@ -63,9 +64,12 @@ class ScheduleManager:
         return bool(self.archive.templates)
 
     def _sort_archive(self) -> None:
-        self.archive.templates.sort(
-            key=lambda template: self._parse_template_start(template) or datetime.date.max
-        )
+        if len(self.archive.templates) < 2:
+            return
+
+        start_texts = [str(template.semester_start).strip() for template in self.archive.templates]
+        indices = sort_date_text_indices_asc(start_texts)
+        self.archive.templates = [self.archive.templates[index] for index in indices]
 
     def _parse_template_start(
         self,
@@ -205,40 +209,52 @@ class ScheduleManager:
         if semester_start is None:
             return 0
 
-        for is_even, lessons in ((False, template.odd), (True, template.even)):
-            for lesson in lessons:
-                lesson_dates = collect_matching_dates_for_weekday_parity(
-                    start_date = start_date,
-                    end_date = end_date,
-                    semester_start = semester_start,
-                    first_week_even = template.first_week_even,
-                    expected_weekday = int(lesson.day),
-                    expected_is_even = is_even,
-                )
+        lessons: list[TemplateLesson] = []
+        lesson_even_flags: list[int] = []
+        for is_even, week_lessons in ((False, template.odd), (True, template.even)):
+            for lesson in week_lessons:
+                lessons.append(lesson)
+                lesson_even_flags.append(1 if is_even else 0)
 
-                subject = self._format_subject(lesson)
-                for lesson_date in lesson_dates:
-                    key = (
-                        lesson_date.strftime("%d.%m.%Y"),
-                        lesson.time_start,
-                        lesson.time_end,
-                        subject,
-                    )
-                    if key in existing_keys:
-                        continue
+        if not lessons:
+            return 0
 
-                    planner.add_lesson(
-                        lesson_date,
-                        lesson.time_start,
-                        lesson.time_end,
-                        subject,
-                        teacher = lesson.teacher,
-                        room = lesson.room,
-                        auditorium = lesson.auditorium,
-                        building = lesson.building,
-                    )
-                    existing_keys.add(key)
-                    applied += 1
+        lesson_start_minutes = [time_to_minutes(lesson.time_start) for lesson in lessons]
+        formatted_subjects = [self._format_subject(lesson) for lesson in lessons]
+        occurrences = collect_template_occurrence_pairs(
+            [int(lesson.day) for lesson in lessons],
+            lesson_start_minutes,
+            lesson_even_flags,
+            start_date,
+            end_date,
+            semester_start,
+            template.first_week_even,
+        )
+
+        for lesson_index, lesson_date in occurrences:
+            lesson = lessons[lesson_index]
+            subject = formatted_subjects[lesson_index]
+            key = (
+                lesson_date.strftime("%d.%m.%Y"),
+                lesson.time_start,
+                lesson.time_end,
+                subject,
+            )
+            if key in existing_keys:
+                continue
+
+            planner.add_lesson(
+                lesson_date,
+                lesson.time_start,
+                lesson.time_end,
+                subject,
+                teacher = lesson.teacher,
+                room = lesson.room,
+                auditorium = lesson.auditorium,
+                building = lesson.building,
+            )
+            existing_keys.add(key)
+            applied += 1
 
         return applied
 

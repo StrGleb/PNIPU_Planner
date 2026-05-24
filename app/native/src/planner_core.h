@@ -53,6 +53,12 @@ extern "C"
         int* out_indices
     );
 
+    PLANNER_CORE_API int sort_date_text_indices_asc(
+        const char* const* date_strings,
+        int count,
+        int* out_indices
+    );
+
     PLANNER_CORE_API int collect_task_indices_for_type_and_date(
         const char* const* task_types,
         const char* const* date_strings,
@@ -138,6 +144,17 @@ extern "C"
         int now_month,
         int now_year,
         int now_minutes
+    );
+
+    PLANNER_CORE_API int select_next_lesson_index_with_horizon(
+        const char* const* date_strings,
+        const int* start_minutes,
+        int count,
+        int now_day,
+        int now_month,
+        int now_year,
+        int now_minutes,
+        int max_days_ahead
     );
 
     PLANNER_CORE_API int compute_buffered_alarm_minutes(
@@ -234,6 +251,26 @@ extern "C"
         int first_week_even,
         int expected_weekday,
         int expected_even_flag,
+        int* out_dates_yyyymmdd,
+        int capacity
+    );
+
+    PLANNER_CORE_API int collect_template_occurrence_pairs(
+        const int* lesson_days,
+        const int* lesson_start_minutes,
+        const int* lesson_even_flags,
+        int lesson_count,
+        int start_day,
+        int start_month,
+        int start_year,
+        int end_day,
+        int end_month,
+        int end_year,
+        int semester_start_day,
+        int semester_start_month,
+        int semester_start_year,
+        int first_week_even,
+        int* out_lesson_indices,
         int* out_dates_yyyymmdd,
         int capacity
     );

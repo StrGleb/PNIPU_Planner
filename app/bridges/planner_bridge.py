@@ -123,6 +123,14 @@ if _lib is not None:
         ]
         _lib.sort_indices_by_double_desc.restype = None
 
+    if hasattr(_lib, "sort_date_text_indices_asc"):
+        _lib.sort_date_text_indices_asc.argtypes = [
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int),
+        ]
+        _lib.sort_date_text_indices_asc.restype = ctypes.c_int
+
     if hasattr(_lib, "collect_task_indices_for_type_and_date"):
         _lib.collect_task_indices_for_type_and_date.argtypes = [
             ctypes.POINTER(ctypes.c_char_p),
@@ -229,6 +237,19 @@ if _lib is not None:
             ctypes.c_int,
         ]
         _lib.select_next_lesson_index.restype = ctypes.c_int
+
+    if hasattr(_lib, "select_next_lesson_index_with_horizon"):
+        _lib.select_next_lesson_index_with_horizon.argtypes = [
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+        ]
+        _lib.select_next_lesson_index_with_horizon.restype = ctypes.c_int
 
     if hasattr(_lib, "compute_buffered_alarm_minutes"):
         _lib.compute_buffered_alarm_minutes.argtypes = [
@@ -345,6 +366,28 @@ if _lib is not None:
             ctypes.c_int,
         ]
         _lib.collect_matching_dates_for_weekday_parity.restype = ctypes.c_int
+
+    if hasattr(_lib, "collect_template_occurrence_pairs"):
+        _lib.collect_template_occurrence_pairs.argtypes = [
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.c_int,
+        ]
+        _lib.collect_template_occurrence_pairs.restype = ctypes.c_int
 
     if hasattr(_lib, "parse_schedule_xlsx"):
         _lib.parse_schedule_xlsx.argtypes = [
@@ -572,6 +615,33 @@ def sort_indices_by_double_desc(values: list[float]) -> list[int]:
         return list(output_indices)
 
     return sorted(range(len(values)), key = values.__getitem__, reverse = True)
+
+
+def sort_date_text_indices_asc(date_strings: list[str]) -> list[int]:
+    if not date_strings:
+        return []
+
+    if _lib is not None and hasattr(_lib, "sort_date_text_indices_asc"):
+        count = len(date_strings)
+        date_values = (ctypes.c_char_p * count)(*[value.encode("utf-8") for value in date_strings])
+        output_indices = (ctypes.c_int * count)()
+        matched_count = _lib.sort_date_text_indices_asc(
+            date_values,
+            count,
+            output_indices,
+        )
+        return list(output_indices[:matched_count])
+
+    valid_items: list[tuple[int, datetime.date]] = []
+    invalid_indices: list[int] = []
+    for index, value in enumerate(date_strings):
+        try:
+            valid_items.append((index, datetime.datetime.strptime(value, "%d.%m.%Y").date()))
+        except ValueError:
+            invalid_indices.append(index)
+
+    valid_items.sort(key = lambda item: (item[1], item[0]))
+    return [index for index, _ in valid_items] + invalid_indices
 
 
 def collect_task_indices_for_type_and_date(
@@ -864,11 +934,29 @@ def select_next_lesson_index(
     date_strings: list[str],
     start_minutes: list[int],
     now: datetime.datetime,
+    max_days_ahead: int = -1,
 ) -> int:
     if not date_strings or not start_minutes or len(date_strings) != len(start_minutes):
         return -1
 
     now_minutes = now.hour * 60 + now.minute
+    if _lib is not None and hasattr(_lib, "select_next_lesson_index_with_horizon"):
+        count = len(date_strings)
+        date_values = (ctypes.c_char_p * count)(*[value.encode("utf-8") for value in date_strings])
+        minute_values = (ctypes.c_int * count)(*start_minutes)
+        return int(
+            _lib.select_next_lesson_index_with_horizon(
+                date_values,
+                minute_values,
+                count,
+                now.day,
+                now.month,
+                now.year,
+                now_minutes,
+                int(max_days_ahead),
+            )
+        )
+
     if _lib is not None and hasattr(_lib, "select_next_lesson_index"):
         count = len(date_strings)
         date_values = (ctypes.c_char_p * count)(*[value.encode("utf-8") for value in date_strings])
@@ -893,9 +981,14 @@ def select_next_lesson_index(
             lesson_date = datetime.datetime.strptime(date_string, "%d.%m.%Y").date()
         except ValueError:
             continue
-        if lesson_date < now.date():
+        day_delta = (lesson_date - now.date()).days
+        if day_delta < 0:
             continue
-        if lesson_date == now.date() and start_minute <= now_minutes:
+        if max_days_ahead >= 0 and day_delta > max_days_ahead:
+            continue
+        if start_minute < 0:
+            continue
+        if day_delta == 0 and start_minute <= now_minutes:
             continue
         if best_index < 0 or lesson_date < best_date or (lesson_date == best_date and start_minute < best_start):
             best_index = index
@@ -1270,6 +1363,82 @@ def collect_matching_dates_for_weekday_parity(
             if is_week_even(current_date, semester_start.strftime("%d.%m.%Y"), first_week_even) == expected_is_even:
                 result.append(current_date)
         current_date += datetime.timedelta(days = 1)
+    return result
+
+
+def collect_template_occurrence_pairs(
+    lesson_days: list[int],
+    lesson_start_minutes: list[int],
+    lesson_even_flags: list[int],
+    start_date: datetime.date,
+    end_date: datetime.date,
+    semester_start: datetime.date,
+    first_week_even: bool,
+) -> list[tuple[int, datetime.date]]:
+    if (
+        not lesson_days
+        or not lesson_start_minutes
+        or not lesson_even_flags
+        or len(lesson_days) != len(lesson_start_minutes)
+        or len(lesson_days) != len(lesson_even_flags)
+        or end_date < start_date
+    ):
+        return []
+
+    if _lib is not None and hasattr(_lib, "collect_template_occurrence_pairs"):
+        count = len(lesson_days)
+        max_weeks = ((end_date - start_date).days // 7) + 2
+        capacity = max(1, count * max_weeks)
+        lesson_day_values = (ctypes.c_int * count)(*lesson_days)
+        start_minute_values = (ctypes.c_int * count)(*lesson_start_minutes)
+        even_flag_values = (ctypes.c_int * count)(*lesson_even_flags)
+        output_lesson_indices = (ctypes.c_int * capacity)()
+        output_dates = (ctypes.c_int * capacity)()
+        matched_count = _lib.collect_template_occurrence_pairs(
+            lesson_day_values,
+            start_minute_values,
+            even_flag_values,
+            count,
+            start_date.day,
+            start_date.month,
+            start_date.year,
+            end_date.day,
+            end_date.month,
+            end_date.year,
+            semester_start.day,
+            semester_start.month,
+            semester_start.year,
+            int(first_week_even),
+            output_lesson_indices,
+            output_dates,
+            capacity,
+        )
+
+        result: list[tuple[int, datetime.date]] = []
+        for index in range(matched_count):
+            encoded = int(output_dates[index])
+            year = encoded // 10000
+            month = (encoded // 100) % 100
+            day = encoded % 100
+            result.append((int(output_lesson_indices[index]), datetime.date(year, month, day)))
+        return result
+
+    result: list[tuple[int, datetime.date]] = []
+    for lesson_index, (expected_day, expected_start_minutes, expected_even_flag) in enumerate(
+        zip(lesson_days, lesson_start_minutes, lesson_even_flags)
+    ):
+        lesson_dates = collect_matching_dates_for_weekday_parity(
+            start_date = start_date,
+            end_date = end_date,
+            semester_start = semester_start,
+            first_week_even = first_week_even,
+            expected_weekday = int(expected_day),
+            expected_is_even = bool(expected_even_flag),
+        )
+        for lesson_date in lesson_dates:
+            result.append((lesson_index, lesson_date))
+
+    result.sort(key = lambda item: (item[1], lesson_start_minutes[item[0]], item[0]))
     return result
 
 

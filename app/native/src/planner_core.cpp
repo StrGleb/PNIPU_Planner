@@ -10,6 +10,14 @@
 
 namespace
 {
+    struct LessonOccurrence
+    {
+        int lesson_index;
+        int day_count;
+        int date_yyyymmdd;
+        int start_minutes;
+    };
+
     int days_from_civil(int year, int month, int day)
     {
         year -= month <= 2;
@@ -320,6 +328,68 @@ int collect_task_indices_for_type_and_date(
     return out_count;
 }
 
+int sort_date_text_indices_asc(
+    const char* const* date_strings,
+    int count,
+    int* out_indices
+)
+{
+    if (count <= 0 || date_strings == nullptr || out_indices == nullptr) {
+        return 0;
+    }
+
+    std::vector<int> valid_indices;
+    std::vector<int> invalid_indices;
+    valid_indices.reserve(static_cast<std::size_t>(count));
+    invalid_indices.reserve(static_cast<std::size_t>(count));
+
+    for (int i = 0; i < count; ++i) {
+        int day = 0;
+        int month = 0;
+        int year = 0;
+        if (parse_date_text(date_strings[i], day, month, year)) {
+            valid_indices.push_back(i);
+        }
+        else {
+            invalid_indices.push_back(i);
+        }
+    }
+
+    std::stable_sort(valid_indices.begin(), valid_indices.end(), [date_strings](int lhs, int rhs) {
+        int lhs_day = 0;
+        int lhs_month = 0;
+        int lhs_year = 0;
+        int rhs_day = 0;
+        int rhs_month = 0;
+        int rhs_year = 0;
+        if (!parse_date_text(date_strings[lhs], lhs_day, lhs_month, lhs_year)) {
+            return false;
+        }
+        if (!parse_date_text(date_strings[rhs], rhs_day, rhs_month, rhs_year)) {
+            return true;
+        }
+
+        const int lhs_days = days_from_civil(lhs_year, lhs_month, lhs_day);
+        const int rhs_days = days_from_civil(rhs_year, rhs_month, rhs_day);
+        if (lhs_days != rhs_days) {
+            return lhs_days < rhs_days;
+        }
+        return lhs < rhs;
+    });
+
+    int out_count = 0;
+    for (int index : valid_indices) {
+        out_indices[out_count] = index;
+        ++out_count;
+    }
+    for (int index : invalid_indices) {
+        out_indices[out_count] = index;
+        ++out_count;
+    }
+
+    return out_count;
+}
+
 int collect_task_indices_for_lesson(
     const char* const* lesson_ids,
     int count,
@@ -624,6 +694,65 @@ int select_next_lesson_index(
             continue;
         }
         if (lesson_days == now_days && lesson_start <= now_minutes) {
+            continue;
+        }
+
+        if (
+            best_index < 0
+            || lesson_days < best_days
+            || (lesson_days == best_days && lesson_start < best_start_minutes)
+        ) {
+            best_index = i;
+            best_days = lesson_days;
+            best_start_minutes = lesson_start;
+        }
+    }
+
+    return best_index;
+}
+
+int select_next_lesson_index_with_horizon(
+    const char* const* date_strings,
+    const int* start_minutes,
+    int count,
+    int now_day,
+    int now_month,
+    int now_year,
+    int now_minutes,
+    int max_days_ahead
+)
+{
+    if (count <= 0 || date_strings == nullptr || start_minutes == nullptr) {
+        return -1;
+    }
+
+    const int now_days = days_from_civil(now_year, now_month, now_day);
+    int best_index = -1;
+    int best_days = 0;
+    int best_start_minutes = 0;
+
+    for (int i = 0; i < count; ++i) {
+        const int lesson_start = start_minutes[i];
+        if (lesson_start < 0) {
+            continue;
+        }
+
+        int day = 0;
+        int month = 0;
+        int year = 0;
+        if (!parse_date_text(date_strings[i], day, month, year)) {
+            continue;
+        }
+
+        const int lesson_days = days_from_civil(year, month, day);
+        const int day_delta = lesson_days - now_days;
+        if (day_delta < 0) {
+            continue;
+        }
+        if (max_days_ahead >= 0 && day_delta > max_days_ahead) {
+            continue;
+        }
+        if (day_delta == 0 && lesson_start <= now_minutes) {
             continue;
         }
 
@@ -993,6 +1122,112 @@ int collect_matching_dates_for_weekday_parity(
         }
 
         ++start_days;
+    }
+
+    return out_count;
+}
+
+int collect_template_occurrence_pairs(
+    const int* lesson_days,
+    const int* lesson_start_minutes,
+    const int* lesson_even_flags,
+    int lesson_count,
+    int start_day,
+    int start_month,
+    int start_year,
+    int end_day,
+    int end_month,
+    int end_year,
+    int semester_start_day,
+    int semester_start_month,
+    int semester_start_year,
+    int first_week_even,
+    int* out_lesson_indices,
+    int* out_dates_yyyymmdd,
+    int capacity
+)
+{
+    if (
+        lesson_count <= 0
+        || lesson_days == nullptr
+        || lesson_start_minutes == nullptr
+        || lesson_even_flags == nullptr
+        || out_lesson_indices == nullptr
+        || out_dates_yyyymmdd == nullptr
+        || capacity <= 0
+    ) {
+        return 0;
+    }
+
+    const int start_days = days_from_civil(start_year, start_month, start_day);
+    const int end_days = days_from_civil(end_year, end_month, end_day);
+    const int semester_start_days = days_from_civil(
+        semester_start_year,
+        semester_start_month,
+        semester_start_day
+    );
+    if (end_days < start_days) {
+        return 0;
+    }
+
+    const int week_span = floor_div(end_days - start_days, 7) + 2;
+    std::vector<LessonOccurrence> occurrences;
+    occurrences.reserve(static_cast<std::size_t>(lesson_count * std::max(week_span, 1)));
+
+    for (int lesson_index = 0; lesson_index < lesson_count; ++lesson_index) {
+        const int expected_weekday = lesson_days[lesson_index];
+        if (expected_weekday < 1 || expected_weekday > 7) {
+            continue;
+        }
+
+        int current_days = start_days;
+        const int weekday_base = (current_days + 3) % 7;
+        const int current_weekday = weekday_base >= 0 ? weekday_base + 1 : weekday_base + 8;
+        int weekday_shift = expected_weekday - current_weekday;
+        if (weekday_shift < 0) {
+            weekday_shift += 7;
+        }
+        current_days += weekday_shift;
+
+        while (current_days <= end_days) {
+            const int weeks_elapsed = floor_div(current_days - semester_start_days, 7);
+            const int same_parity_as_first = weeks_elapsed % 2 == 0;
+            const int is_even = same_parity_as_first == (first_week_even != 0);
+            if (is_even == (lesson_even_flags[lesson_index] != 0)) {
+                int current_year = 0;
+                int current_month = 0;
+                int current_day = 0;
+                civil_from_days(current_days, current_year, current_month, current_day);
+                occurrences.push_back({
+                    lesson_index,
+                    current_days,
+                    current_year * 10000 + current_month * 100 + current_day,
+                    lesson_start_minutes[lesson_index],
+                });
+            }
+
+            current_days += 7;
+        }
+    }
+
+    std::stable_sort(
+        occurrences.begin(),
+        occurrences.end(),
+        [](const LessonOccurrence& lhs, const LessonOccurrence& rhs) {
+            if (lhs.day_count != rhs.day_count) {
+                return lhs.day_count < rhs.day_count;
+            }
+            if (lhs.start_minutes != rhs.start_minutes) {
+                return lhs.start_minutes < rhs.start_minutes;
+            }
+            return lhs.lesson_index < rhs.lesson_index;
+        }
+    );
+
+    const int out_count = std::min(static_cast<int>(occurrences.size()), capacity);
+    for (int i = 0; i < out_count; ++i) {
+        out_lesson_indices[i] = occurrences[static_cast<std::size_t>(i)].lesson_index;
+        out_dates_yyyymmdd[i] = occurrences[static_cast<std::size_t>(i)].date_yyyymmdd;
     }
 
     return out_count;

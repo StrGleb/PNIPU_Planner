@@ -170,31 +170,20 @@ class AutoAlarmService:
         self,
         now: datetime.datetime,
     ) -> tuple[datetime.date, Lesson] | None:
-        candidates: list[Lesson] = []
-        date_strings: list[str] = []
-        start_minutes: list[int] = []
-
-        for lesson in self._planner_manager.get_all_lessons():
-            date_delta = (lesson.date - now.date()).days
-            if date_delta < 0 or date_delta > _UPCOMING_HORIZON_DAYS:
-                continue
-
-            lesson_minutes = time_to_minutes(lesson.time_start)
-            if lesson_minutes < 0:
-                continue
-
-            candidates.append(lesson)
-            date_strings.append(lesson.date_str)
-            start_minutes.append(lesson_minutes)
-
-        if not candidates:
+        lessons = self._planner_manager.get_all_lessons()
+        if not lessons:
             return None
 
-        selected_index = select_next_lesson_index(date_strings, start_minutes, now)
+        selected_index = select_next_lesson_index(
+            [lesson.date_str for lesson in lessons],
+            [time_to_minutes(lesson.time_start) for lesson in lessons],
+            now,
+            max_days_ahead = _UPCOMING_HORIZON_DAYS,
+        )
         if selected_index < 0:
             return None
 
-        selected_lesson = candidates[selected_index]
+        selected_lesson = lessons[selected_index]
         return selected_lesson.date, selected_lesson
 
     def _build_auto_alarm(
