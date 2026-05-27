@@ -109,6 +109,30 @@ class TasksManager:
     def get_all_tasks(self) -> List[Task]:
         return list(self._tasks)
 
+    def reconcile_with_lessons(self, lessons) -> int:
+        lesson_index: dict[tuple[str, str, str], str] = {}
+        for lesson in lessons:
+            lesson_index[(lesson.date_str, lesson.time_start, lesson.subject)] = lesson.id
+
+        changed = 0
+        filtered_tasks: list[Task] = []
+        for task in self._tasks:
+            key = (task.date_str, task.time_start, task.subject)
+            lesson_id = lesson_index.get(key)
+            if lesson_id is None:
+                changed += 1
+                continue
+            if task.lesson_id != lesson_id:
+                task.lesson_id = lesson_id
+                changed += 1
+            filtered_tasks.append(task)
+
+        if changed:
+            self._tasks = filtered_tasks
+            self._save()
+
+        return changed
+
     def _get_by_type_and_date(self, task_type: str, date: datetime.date) -> List[Task]:
         ds = date.strftime("%d.%m.%Y")
         indices = collect_task_indices_for_type_and_date_sorted(

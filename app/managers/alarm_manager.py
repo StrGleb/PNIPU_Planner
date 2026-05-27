@@ -11,6 +11,8 @@ from bridges.planner_bridge import (
     build_next_one_time_target_date as native_build_next_one_time_target_date,
     collect_expired_one_time_alarm_indices,
     collect_triggered_alarm_indices,
+    days_to_mask,
+    week_type_code,
 )
 from models.alarm_model import Alarm
 
@@ -185,22 +187,14 @@ class AlarmManager:
             week_type_codes = []
             day_masks = []
             for alarm in alarms_copy:
-                if alarm.week_type == "odd":
-                    week_type_codes.append(1)
-                elif alarm.week_type == "even":
-                    week_type_codes.append(2)
-                else:
-                    week_type_codes.append(0)
-
-                mask = 0
+                week_type_codes.append(week_type_code(alarm.week_type))
+                normalized_days: list[int] = []
                 for day in alarm.days:
                     try:
-                        day_number = int(day)
+                        normalized_days.append(int(day))
                     except (TypeError, ValueError):
                         continue
-                    if 1 <= day_number <= 7:
-                        mask |= 1 << (day_number - 1)
-                day_masks.append(mask)
+                day_masks.append(days_to_mask(normalized_days))
 
             triggered_indices = collect_triggered_alarm_indices(
                 [int(alarm.enabled) for alarm in alarms_copy],

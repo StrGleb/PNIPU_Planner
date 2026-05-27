@@ -23,6 +23,36 @@ extern "C"
 
     PLANNER_CORE_API int normalize_hour_24(int hour);
 
+    PLANNER_CORE_API int normalize_end_minutes_for_day_span(
+        int start_minutes,
+        int end_minutes
+    );
+
+    PLANNER_CORE_API int week_type_code(const char* week_type);
+
+    PLANNER_CORE_API int days_to_mask(
+        const int* days,
+        int count
+    );
+
+    PLANNER_CORE_API int is_alarm_within_recheck_window(
+        int alarm_hour,
+        int alarm_minute,
+        int now_hour,
+        int now_minute,
+        int lead_minutes
+    );
+
+    PLANNER_CORE_API int can_recheck_alarm_now(
+        const char* rechecked_at,
+        int now_day,
+        int now_month,
+        int now_year,
+        int now_hour,
+        int now_minute,
+        int cooldown_minutes
+    );
+
     PLANNER_CORE_API int is_week_even(
         int day,
         int month,

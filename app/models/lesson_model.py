@@ -25,6 +25,23 @@ class Lesson:
     lab_works: list[str] = field(default_factory = list)
     id: str = field(default_factory = lambda: str(uuid.uuid4()))
 
+    @staticmethod
+    def build_stable_id(
+        date: datetime.date,
+        time_start: str,
+        time_end: str,
+        subject: str,
+        entry_type: str = ENTRY_TYPE_LESSON,
+    ) -> str:
+        seed = "|".join([
+            date.strftime("%d.%m.%Y"),
+            str(time_start).strip(),
+            str(time_end).strip(),
+            str(subject).strip(),
+            str(entry_type).strip() or ENTRY_TYPE_LESSON,
+        ])
+        return str(uuid.uuid5(uuid.NAMESPACE_URL, seed))
+
     @property
     def date_str(self) -> str:
         return self.date.strftime("%d.%m.%Y")
@@ -92,6 +109,13 @@ class Lesson:
         date = datetime.datetime.strptime(date_part, "%d.%m.%Y").date()
         time_start, time_end = time_part.split("-")
         return cls(
+            id = cls.build_stable_id(
+                date,
+                time_start.strip(),
+                time_end.strip(),
+                subject,
+                ENTRY_TYPE_LESSON,
+            ),
             date = date,
             time_start = time_start.strip(),
             time_end = time_end.strip(),

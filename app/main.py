@@ -46,7 +46,6 @@ def main(page: ft.Page):
 
         config_manager = ConfigManager()
         tasks_manager = TasksManager()
-        start_daily_checker(tasks_manager)
 
         now = lambda: strftime("%H:%M:%S", localtime())
         clock_text = ft.Text(value=now())
@@ -106,6 +105,8 @@ def main(page: ft.Page):
             config_manager.set_semester_start(schedule_manager.template.semester_start)
         config_manager.set_first_week_even(schedule_manager.template.first_week_even)
         schedule_manager.apply_template_to_planner(planner_manager)
+        tasks_manager.reconcile_with_lessons(planner_manager.get_all_lessons())
+        start_daily_checker(tasks_manager)
         auto_alarm_service = AutoAlarmService(
             alarm_manager = alarm_manager,
             config_manager = config_manager,
@@ -115,6 +116,22 @@ def main(page: ft.Page):
         auto_alarm_service.start()
 
         planner_cleanup = [None]
+
+        def build_home_root():
+            return build_home_view(
+                navigation_bar=create_navigation_bar(index = 0),
+                user_name=config_manager.config.user_name or "Student",
+                tasks_manager=tasks_manager,
+                config_manager=config_manager,
+            )
+
+        def refresh_home_view():
+            home_view = build_home_root()
+            if page.views:
+                page.views[0] = home_view
+            else:
+                page.views.append(home_view)
+            page.update()
 
         async def handle_change(e):
             routes = {0: "/", 1: "/planner", 2: "/alarm", 3: "/settings"}
@@ -165,14 +182,7 @@ def main(page: ft.Page):
                 planner_cleanup[0] = None
 
             page.views.clear()
-            page.views.append(
-                build_home_view(
-                    navigation_bar=create_navigation_bar(index=0),
-                    user_name=config_manager.config.user_name or "Student",
-                    tasks_manager=tasks_manager,
-                    config_manager=config_manager,
-                )
-            )
+            page.views.append(build_home_root())
 
             if page.route == "/alarm":
                 page.views.append(
@@ -193,6 +203,7 @@ def main(page: ft.Page):
                     tasks_manager=tasks_manager,
                     auto_alarm_service=auto_alarm_service,
                     page=page,
+                    on_tasks_changed=refresh_home_view,
                 )
                 page.views.append(view)
                 planner_cleanup[0] = cleanup
@@ -203,7 +214,9 @@ def main(page: ft.Page):
                         config_manager=config_manager,
                         schedule_manager=schedule_manager,
                         planner_manager=planner_manager,
+                        tasks_manager=tasks_manager,
                         page=page,
+                        on_schedule_changed=refresh_home_view,
                     )
                 )
 

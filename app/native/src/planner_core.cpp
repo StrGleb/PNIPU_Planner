@@ -139,6 +139,43 @@ namespace
         return day >= 1 && day <= max_day;
     }
 
+    bool parse_datetime_text(
+        const char* text,
+        int& day,
+        int& month,
+        int& year,
+        int& hour,
+        int& minute
+    )
+    {
+        if (text == nullptr || std::strlen(text) != 16) {
+            return false;
+        }
+
+        if (text[10] != ' ') {
+            return false;
+        }
+
+        char date_text[11];
+        std::memcpy(date_text, text, 10);
+        date_text[10] = '\0';
+        if (!parse_date_text(date_text, day, month, year)) {
+            return false;
+        }
+
+        if (!parse_two_digits(text, 11, hour)) {
+            return false;
+        }
+        if (text[13] != ':') {
+            return false;
+        }
+        if (!parse_two_digits(text, 14, minute)) {
+            return false;
+        }
+
+        return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
+    }
+
     void stable_sort_indices_by_int_desc(
         const int* values,
         std::vector<int>& indices
@@ -215,6 +252,106 @@ int normalize_hour_24(int hour)
         return 23;
     }
     return hour;
+}
+
+int normalize_end_minutes_for_day_span(int start_minutes, int end_minutes)
+{
+    if (start_minutes < 0 || end_minutes < 0) {
+        return -1;
+    }
+
+    if (end_minutes <= start_minutes) {
+        return end_minutes + 24 * 60;
+    }
+
+    return end_minutes;
+}
+
+int week_type_code(const char* week_type)
+{
+    if (equals_text(week_type, "odd")) {
+        return 1;
+    }
+    if (equals_text(week_type, "even")) {
+        return 2;
+    }
+    return 0;
+}
+
+int days_to_mask(const int* days, int count)
+{
+    if (days == nullptr || count <= 0) {
+        return 0;
+    }
+
+    int mask = 0;
+    for (int i = 0; i < count; ++i) {
+        const int day_number = days[i];
+        if (day_number >= 1 && day_number <= 7) {
+            mask |= 1 << (day_number - 1);
+        }
+    }
+    return mask;
+}
+
+int is_alarm_within_recheck_window(
+    int alarm_hour,
+    int alarm_minute,
+    int now_hour,
+    int now_minute,
+    int lead_minutes
+)
+{
+    const int alarm_minutes = time_to_minutes(alarm_hour, alarm_minute);
+    const int current_minutes = time_to_minutes(now_hour, now_minute);
+    if (alarm_minutes < 0 || current_minutes < 0 || lead_minutes < 0) {
+        return 0;
+    }
+
+    const int minutes_until_alarm = alarm_minutes - current_minutes;
+    return minutes_until_alarm >= 0 && minutes_until_alarm <= lead_minutes;
+}
+
+int can_recheck_alarm_now(
+    const char* rechecked_at,
+    int now_day,
+    int now_month,
+    int now_year,
+    int now_hour,
+    int now_minute,
+    int cooldown_minutes
+)
+{
+    if (rechecked_at == nullptr || rechecked_at[0] == '\0' || cooldown_minutes <= 0) {
+        return 1;
+    }
+
+    int checked_day = 0;
+    int checked_month = 0;
+    int checked_year = 0;
+    int checked_hour = 0;
+    int checked_minute = 0;
+    if (!parse_datetime_text(
+        rechecked_at,
+        checked_day,
+        checked_month,
+        checked_year,
+        checked_hour,
+        checked_minute
+    )) {
+        return 1;
+    }
+
+    const int checked_total_minutes =
+        days_from_civil(checked_year, checked_month, checked_day) * 24 * 60
+        + checked_hour * 60
+        + checked_minute;
+    const int now_total_minutes =
+        days_from_civil(now_year, now_month, now_day) * 24 * 60
+        + now_hour * 60
+        + now_minute;
+
+    return now_total_minutes - checked_total_minutes >= cooldown_minutes;
 }
 
 int is_week_even(
