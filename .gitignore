@@ -5,6 +5,11 @@ __pycache__/
 
 # C extensions
 *.so
+!app/native/bin/android/**/*.so
+!app/native/bin/android/**/libc++_shared.so
+*.pyd
+app/native/bin/*.dll
+app/native/bin/*.dll.a
 
 # Distribution / packaging
 .Python
