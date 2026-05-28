@@ -3,10 +3,9 @@ import datetime
 import pathlib
 import shutil
 import sys
-import os
 import tempfile
 
-from models.schedule_template import ScheduleTemplate, TemplateLesson
+from models.schedule_template import ScheduleTemplate
 from managers.planner_manager import PlannerManager
 
 
@@ -72,7 +71,6 @@ class ScheduleManager:
         lessons = self.template.get_week(is_even)
         for tl in lessons:
             target_date = monday + datetime.timedelta(days = tl.day - 1)
-            date_str = target_date.strftime("%d.%m.%Y")
 
             # Проверяем, нет ли уже такой пары на это место (дату и время)
             existing = planner.get_lessons_for_date(target_date)

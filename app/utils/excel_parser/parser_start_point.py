@@ -7,6 +7,8 @@ excel_path = "2025-2026 Raspisanie ehkzamenov EHTF RIS -25-2b (vesennijj  sessiy
 import json
 import pathlib
 import logging
+import sys
+import tempfile
 from utils.excel_parser.parser import Parser
 from utils.excel_parser.session_parser import SessionParser
 
@@ -68,6 +70,20 @@ def build_session_json(parser) -> dict:
         )
     }
 
+def _storage_path() -> pathlib.Path:
+    if hasattr(sys, "getandroidapilevel"):
+        # На Android получаем путь к кэшу (/data/user/0/<pkg>/cache)
+        cache_dir = pathlib.Path(tempfile.gettempdir())
+        # Его родитель — это корень песочницы приложения (/data/user/0/<pkg>)
+        base_dir = cache_dir.parent / "files"
+        d = base_dir / ".pnipu_planner"
+    else:
+        # На Windows/macOS/Linux используем домашнюю папку пользователя
+        d = pathlib.Path.home() / ".pnipu_planner"
+
+    d.mkdir(parents = True, exist_ok = True)
+    return d
+
 def finally_excel_parser_algorithm(excel_path: str):
     try:
         with open(excel_path, "rb") as f:
@@ -94,16 +110,16 @@ def finally_excel_parser_algorithm(excel_path: str):
     try:
         if isinstance(parser, SessionParser):
             data = build_session_json(parser)
-            d = pathlib.Path.home() / ".pnipu_planner"
+            d =_storage_path()
             save_json(data, fr"{d}\timetable_session.json")
             logger.info("JSON file saved: timetable_session.json")
         else:
             data = build_normal_json(parser)
-            d = pathlib.Path.home() / ".pnipu_planner"
+            d =_storage_path()
             save_json(data, fr"{d}\schedule.json")
-            logger.info("JSON file saved: timetable.json")
+            logger.info("JSON file saved: schedule.json")
     except Exception as e:
-        logger.error("Не удалось сохранить файл расписания пара/сессии: {e}")
+        logger.error(f"Не удалось сохранить файл расписания пара/сессии: {e}")
 
 
 # Тестирование функции

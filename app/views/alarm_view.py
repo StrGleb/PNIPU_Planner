@@ -6,6 +6,8 @@ import sys
 from models.alarm_model import Alarm, WEEK_ANY, WEEK_ODD, WEEK_EVEN, WEEK_NAMES
 from managers.alarm_manager import AlarmManager
 from managers.config_manager import ConfigManager
+from utils.geocoder_utils import get_coordinates_by_address
+from utils.route_utis import get_route
 
 if sys.platform == 'win32':
     from bridges.planner_bridge import lib
@@ -17,7 +19,17 @@ logger = logging.getLogger(__name__)
 
 _DAYS = [(1, "Пн"), (2, "Вт"), (3, "Ср"), (4, "Чт"), (5, "Пт"), (6, "Сб"), (7, "Вс")]
 _WEEKS = [(WEEK_ANY, "Любая"), (WEEK_ODD, "Нечёт."), (WEEK_EVEN, "Чётная")]
-
+FACULTIES_COORDS = {
+    "ЭТФ - Электротехнический факультет": [58.054531, 56.222769], 
+    "ХТФ - Факультет химических технологий, промышленной экологии и биотехнологий": [58.054541, 56.223820],
+    "АКФ - Аэрокосмический факультет": [58.054355, 56.231653], 
+    "Гуманитарный факультет": [58.002134, 56.247455], 
+    "МТФ - Механико-технологический факультет": [58.008495, 56.239190],
+    "Строительный факультет": [57.984680, 56.247428], 
+    "Прикладной математики и механики": [58.054531, 56.224898],
+    "ГНФ - Горно-нефтяной факультет": [58.008295, 56.240250],
+    "Автодорожный факультет": [58.056593, 56.235830],
+}
 
 def build_alarm_view(
     navigation_bar: ft.NavigationBar,
@@ -260,7 +272,10 @@ def build_alarm_view(
 
     # ── Авто ─────────────────────────────────────────────────────────────────
     def _on_auto(e):
+        """ Автоматически создаёт будильники под расписание пользователя """
         cfg = config_manager.config
+
+        # ── Валидация расписания ──────────────────────────────────────────────
         schedule_path = pathlib.Path.home() / ".pnipu_planner" / "schedule.json"
 
         if not schedule_path.exists():
@@ -270,21 +285,55 @@ def build_alarm_view(
         try:
             with open(schedule_path, encoding = "utf-8") as f:
                 schedule = json.load(f)
-        except Exception:
+        except Exception as exc:
             show_error("Не удалось прочитать файл расписания.")
+            logger.error(f"Не удалось прочитать файл расписания: {exc}")
             return
 
         if not schedule.get("odd") and not schedule.get("even"):
-            show_error("Файл расписания пуст.")
+            show_error("Файл расписания пуст.\nИмпортируйте расписание через Настройки.")
             return
 
         if cfg.get_together_time <= 0:
             show_error("Укажите время на сборы в Настройках.")
             return
 
-        if cfg.travel_time <= 0:
-            show_error("Укажите время до ВУЗа в Настройках.")
+        # ── Валидация данных для маршрута ─────────────────────────────────────
+        if not cfg.user_address.strip():
+            show_error("Укажите адрес проживания в Настройках\nдля автоматического расчёта маршрута.")
             return
+ 
+        # ── Рассчитываем время в пути ─────────────────────────────────────────
+        user_address = "Пермь, " + cfg.user_address
+        try:
+            user_address_coordinates = tuple(reversed(list(get_coordinates_by_address(user_address))))
+        except Exception as e:
+            ...
+        faculty_name = cfg.user_faculty
+        try:
+            faculty_address_coordinates = tuple(FACULTIES_COORDS[faculty_name])
+        except Exception:
+            ...
+        transport_type = cfg.transport_type
+
+        print(user_address)
+        print(user_address_coordinates)
+        print(faculty_name)
+        print(faculty_address_coordinates)
+        print(transport_type)
+
+        try:
+            travel_minutes = 0
+            travel_minutes = get_route(user_address_coordinates, faculty_address_coordinates, transport_type)
+            print(travel_minutes)
+            travel_minutes = round(travel_minutes[1] / 60)
+        except Exception as e:
+            logger.warning(f"Маршрут не рассчитан. Произошла ошибка: {e}")
+            if cfg.travel_time <= 0:
+                show_error(
+                    f"Не удалось рассчитать маршрут:\n"
+                )
+                return
 
         # Дни с парами по типу недели
         odd_days: dict[int, int] = {}
@@ -332,7 +381,7 @@ def build_alarm_view(
 
             fh = first_lesson // 60
             fm = first_lesson % 60
-            alarm_mins = make_alarm(fh, fm, cfg.get_together_time, cfg.travel_time)
+            alarm_mins = make_alarm(fh, fm, cfg.get_together_time, travel_minutes)
             alarm_mins = ((alarm_mins % 1440) + 1440) % 1440
 
             ah = alarm_mins // 60

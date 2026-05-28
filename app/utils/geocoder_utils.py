@@ -3,9 +3,10 @@ from typing import Tuple, Optional
 import logging
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 
 # Важные начальные объявления
-load_dotenv(r"app\utils\config.env") 
+load_dotenv(Path(__file__).resolve().parent.parent.parent / "app/utils/config.env")
 logger = logging.getLogger(__name__)
 YANDEX_GEOCODER_API_URL = "https://geocode-maps.yandex.ru/1.x"
 
@@ -166,7 +167,7 @@ def get_address_info(address: str) -> Optional[dict]:
 # Простые функции для примеры использования
 def example_get_coordinates():
     """Пример 1: Получение координат по адресу"""
-    address = "Пермь, ул. Попова 21"
+    address = "Пермь, улица Малкова, 26"
     coordinates = get_coordinates_by_address(address)
     
     if coordinates:
@@ -202,7 +203,7 @@ if __name__ == "__main__":
         print("=" * 60)
         example_get_coordinates()
         
-        print("\n" + "=" * 60)
-        print("Пример 2: Получение полной информации об адресе")
-        print("=" * 60)
-        example_get_address_info()
+        # print("\n" + "=" * 60)
+        # print("Пример 2: Получение полной информации об адресе")
+        # print("=" * 60)
+        # example_get_address_info()

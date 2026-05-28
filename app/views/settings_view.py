@@ -2,51 +2,56 @@ import flet as ft
 import sys
 import pathlib
 import logging
+import datetime
+import threading
 from managers.config_manager import ConfigManager
-from utils.excel_parser.parsaer_start_point import finally_excel_parser_algorithm
+from utils.excel_parser.parser_start_point import finally_excel_parser_algorithm
+from managers.planner_manager import PlannerManager
+from managers.schedule_manager import ScheduleManager
 
 logger = logging.getLogger(__name__)
 
-if sys.platform == 'win32':
-    from bridges.planner_bridge import lib
-    normalize_duration_minutes = lib.normalize_duration_minutes
-else:
-    from bridges.planner_bridge import normalize_duration_minutes
+# if sys.platform == 'win32':
+#     from bridges.planner_bridge import lib
+#     normalize_duration_minutes = lib.normalize_duration_minutes
+# else:
+#     from bridges.planner_bridge import normalize_duration_minutes
+
+def normalize_duration_minutes(minutes: int) -> int:
+    return max(0, minutes)
 
 FACULTIES = [
-    "ЭТФ - Электротехнический факультет", "ХТФ - Факультет химических технологий, промышленной экологии и биотехнологий", "АКФ - Аэрокосмический факультет", "Гуманитарный факультет", "МТФ - Механико-технологический факультет",
-    "Строительный факультет", "Прикладной математики и механики факультет",
-    "ГНФ - Горно-нефтяной факультет", "Автодорожный факультет",
+    "ЭТФ - Электротехнический факультет", 
+    "ХТФ - Факультет химических технологий, промышленной экологии и биотехнологий", 
+    "АКФ - Аэрокосмический факультет", 
+    "Гуманитарный факультет", 
+    "МТФ - Механико-технологический факультет",
+    "Строительный факультет", 
+    "Прикладной математики и механики факультет",
+    "ГНФ - Горно-нефтяной факультет", 
+    "Автодорожный факультет",
 ]
 
 TRANSPORT_TYPE = [
-    "Автомобиль",
-    "Общественный транспорт",
-    "Пеший ход",
+    ft.DropdownOption(key = "public_transport", text = "Общественный транспорт"),
+    ft.DropdownOption(key = "driving", text = "Автомобиль"),
+    ft.DropdownOption(key = "pedestrian", text = "Пеший ход"),
 ]
-
-FACULTIES_COORDS = {
-    "ЭТФ - Электротехнический факультет": [58.054531, 56.222769], 
-    "ХТФ - Факультет химических технологий, промышленной экологии и биотехнологий": [58.054541, 56.223820],
-    "АКФ - Аэрокосмический факультет": [58.054355, 56.231653], 
-    "Гуманитарный факультет": [58.002134, 56.247455], 
-    "МТФ - Механико-технологический факультет": [58.008495, 56.239190],
-    "Строительный факультет": [57.984680, 56.247428], 
-    "Прикладной математики и механики": [58.054531, 56.224898],
-    "ГНФ - Горно-нефтяной факультет": [58.008295, 56.240250],
-    "Автодорожный факультет": [58.056593, 56.235830],
-}
 
 THEME_OPTIONS = [
     ft.DropdownOption(key = "system", text = "Системная"),
-    ft.DropdownOption(key = "light",  text = "Светлая"),
-    ft.DropdownOption(key = "dark",   text = "Тёмная"),
+    ft.DropdownOption(key = "light", text = "Светлая"),
+    ft.DropdownOption(key = "dark", text = "Тёмная"),
 ]
+
+
 
 
 def build_settings_view(
     navigation_bar: ft.NavigationBar,
     config_manager: ConfigManager,
+    planner_manager: PlannerManager,
+    schedule_manager: ScheduleManager,
     page: ft.Page,
 ) -> ft.View:
     cfg = config_manager.config
@@ -56,17 +61,90 @@ def build_settings_view(
         page.theme_mode = modes.get(theme_key, ft.ThemeMode.SYSTEM)
         page.update()
 
-    # ── Тема ─────────────────────────────────────────────────────────────────────
-    def on_theme_change(e):
-        config_manager.set_theme(e.control.value)
-        _apply_theme(e.control.value)
+    def _make_selector(
+        options: list[tuple[str, str]],  # [(key, label), ...]
+        initial_key: str,
+        on_select,  # callback(key: str)
+        width: int = 280,
+    ) -> ft.Container:
+        """
+        Заменитель Dropdown, работающий на Android.
+        Показывает текущее значение, при тапе открывает AlertDialog со списком.
+        """
+        current_key = [initial_key]
 
-    dd_theme = ft.Dropdown(
-        value = cfg.theme,
-        options = THEME_OPTIONS,
+        label_map = {k: lbl for k, lbl in options}
+        display_text = ft.Text(
+            label_map.get(initial_key, initial_key),
+            size = 14,
+            color = ft.Colors.WHITE,
+            expand = True,
+        )
+
+        selector_dialog = ft.AlertDialog(modal = True, title = ft.Text("Выберите значение"))
+        page.overlay.append(selector_dialog)
+
+        def pick(key: str):
+            current_key[0] = key
+            display_text.value = label_map.get(key, key)
+            selector_dialog.open = False
+            try:
+                display_text.update()
+            except Exception:
+                pass
+            page.update()
+            on_select(key)
+
+        def open_selector(e):
+            selector_dialog.content = ft.Column(
+                [
+                    ft.ListTile(
+                        title = ft.Text(lbl),
+                        on_click = lambda e, k = key: pick(k),
+                        selected = (key == current_key[0]),
+                    )
+                    for key, lbl in options
+                ],
+                tight = True,
+                spacing = 0,
+                scroll = ft.ScrollMode.AUTO,
+                width = 300,
+            )
+            selector_dialog.open = True
+            page.update()
+
+        return ft.Container(
+            content = ft.Row(
+                [display_text, ft.Icon(ft.Icons.ARROW_DROP_DOWN, color = ft.Colors.WHITE70)],
+                vertical_alignment = ft.CrossAxisAlignment.CENTER,
+            ),
+            width = width,
+            bgcolor = ft.Colors.GREY_700,
+            border_radius = 8,
+            padding = ft.Padding.symmetric(horizontal = 12, vertical = 10),
+            on_click = open_selector,
+            ink = True,
+        )
+
+    # ── Тема ─────────────────────────────────────────────────────────────────────
+    # def on_theme_change(e):
+    #     val = e.data 
+    #     config_manager.set_theme(val)
+    #     _apply_theme(val)
+
+    # dd_theme = ft.Dropdown(
+    #     options = THEME_OPTIONS,
+    #     width = 200,
+    # )
+    # dd_theme.value = cfg.theme
+    # dd_theme.on_change = on_theme_change
+
+    dd_theme = _make_selector(
+        options = [("system", "Системная"), ("light", "Светлая"), ("dark", "Тёмная")],
+        initial_key = cfg.theme,
+        on_select = lambda key: (config_manager.set_theme(key), _apply_theme(key)),
         width = 200,
     )
-    dd_theme.on_change = on_theme_change
 
     # ── Имя ──────────────────────────────────────────────────────────────────────
     tf_name = ft.TextField(
@@ -100,22 +178,42 @@ def build_settings_view(
     )
 
     # ── Факультет ────────────────────────────────────────────────────────────────
-    dd_faculty = ft.Dropdown(
-        value = cfg.user_faculty if cfg.user_faculty in FACULTIES else FACULTIES[0],
-        options = [ft.DropdownOption(f) for f in FACULTIES],
+    # dd_faculty = ft.Dropdown(
+    #     value = cfg.user_faculty if cfg.user_faculty in FACULTIES else FACULTIES[0],
+    #     options = [ft.DropdownOption(f) for f in FACULTIES],
+    #     width = 280,
+    # )
+    # dd_faculty.on_change = lambda e: config_manager.set_user_faculty(e.data)
+
+    dd_faculty = _make_selector(
+        options = [(f, f) for f in FACULTIES],
+        initial_key = cfg.user_faculty if cfg.user_faculty in FACULTIES else FACULTIES[0],
+        on_select = config_manager.set_user_faculty,
         width = 280,
     )
-    dd_faculty.on_change = lambda e: config_manager.set_user_faculty(e.control.value)
 
     # ── Способ передвижения ───────────────────────────────────────────────────────────────────
-    dd_transport = ft.Dropdown(
-        value = cfg.user_faculty if cfg.user_faculty in TRANSPORT_TYPE else TRANSPORT_TYPE[0],
-        options = [ft.DropdownOption(f) for f in TRANSPORT_TYPE],
+    valid_transport_keys = {"driving", "public_transport", "pedestrian"}
+    # dd_transport = ft.Dropdown(
+    #     value = cfg.transport_type if cfg.transport_type in valid_transport_keys else "public_transport",
+    #     options = TRANSPORT_TYPE,
+    #     width = 280,
+    # )
+    # dd_transport.on_change = lambda e: config_manager.set_transport_type(e.data)
+
+    dd_transport = _make_selector(
+        options = [
+            ("public_transport", "Общественный транспорт"),
+            ("driving",          "Автомобиль"),
+            ("pedestrian",       "Пеший ход"),
+        ],
+        initial_key = cfg.transport_type if cfg.transport_type in valid_transport_keys else "public_transport",
+        on_select = config_manager.set_transport_type,
         width = 280,
     )
-    # dd_transport.on_change = lambda e: config_manager.set_user_faculty(e.control.value)
 
     # ── Начало семестра ───────────────────────────────────────────────────────────
+    # Должно быть удалено
     def on_semester_start_blur(e):
         import re
         v = e.control.value.strip()
@@ -194,6 +292,7 @@ def build_settings_view(
             ft.DropdownOption(text = "1 семестр - вторая половина"),
             ft.DropdownOption(text = "2 семестр - первая половина"),
             ft.DropdownOption(text = "2 семестр - вторая половина"),
+            ft.DropdownOption(text = "Экзамены"),
         ],
         width = 300,
     )
@@ -209,19 +308,49 @@ def build_settings_view(
         progress.visible = True
         page.update()
 
-        import threading
-        import time
-
         def finish_import():
             # Обработка парсером
-            finally_excel_parser_algorithm(selected_file_path[0])
+            try:
+                finally_excel_parser_algorithm(selected_file_path[0])
+            except Exception as e:
+                logger.error(f"Не удалось спарсить расписание из excel-файла: {e}")
+                progress.visible = False
+                btn_confirm.disabled = False
+                btn_confirm.text = "Подтвердить импорт"
+                page.snack_bar = ft.SnackBar(
+                    ft.Text(f"Ошибка импорта: {e}"),
+                    bgcolor = ft.Colors.RED_700,
+                )
+                page.snack_bar.open = True
+                page.update()
+                return
 
             logger.debug(f"[EXCEL IMPORT] Путь к файлу на Android: {selected_file_path[0]}")
-            dialog.open = False
             file_name = pathlib.Path(selected_file_path[0]).name
+
+            # Применение расписания 
+            try:
+                logger.debug("Начало применения распсиания в приложение")
+                schedule_manager.apply_semester(
+                    planner_manager,
+                    start_date = datetime.date(2026, 3, 30),
+                    end_date = datetime.date(2026, 6, 30),
+                    first_week_even = False, # 1 неделя = нечётная
+                )
+                logger.debug("Окончание применения распсиания в приложение")
+            except Exception as e:
+                logger.error(f"Не удалось применить расписание на необходимый семестр: {e}")
+
+            logger.debug("Успешное применения распсиания в приложение")
+            page.pop_dialog()
+            page.update()
+            progress.visible = False
+            btn_confirm.disabled = False
+            btn_confirm.text = "Подтвердить импорт"
             page.snack_bar = ft.SnackBar(ft.Text(f"Импорт завершён! Файл: {file_name}"))
             page.snack_bar.open = True
             page.update()
+            return
 
         threading.Thread(target = finish_import, daemon = True).start()
 
@@ -293,7 +422,7 @@ def build_settings_view(
                             ft.Container(height = 12),
 
                             # Раздел "О приложении"
-                            ft.Text("Сведения о приложении", size = 16, weight = ft.FontWeight.W_600),
+                            #ft.Text("Сведения о приложении", size = 16, weight = ft.FontWeight.W_600),
                             ft.Divider(height = 1),
                             ft.ElevatedButton(
                                 "О приложении",

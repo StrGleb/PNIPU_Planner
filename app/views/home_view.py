@@ -35,9 +35,12 @@ def build_home_view(
 
     if config_manager and config_manager.config.user_address.strip():
         address = "Пермь, " + config_manager.config.user_address
-        coords = get_coordinates_by_address(address)
+        # coords = get_coordinates_by_address(address)
+        coords = 1
         if coords:
-            longitude, latitude = coords
+            # longitude, latitude = coords
+            latitude = 58.0105
+            longitude = 56.2502
             weather_data = get_weather_by_coords(latitude, longitude)
 
     if weather_data:
@@ -131,38 +134,7 @@ def build_home_view(
             [ft.Text(label, size = 15, weight = ft.FontWeight.BOLD), ft.Container(height = 6), box],
             spacing = 0,
         )
-
-
-    # ── Тестирование геокодирования ────────────────────────────────────────
-    # test_result = ft.Text("", size=12)
     
-    # def test_geocoder(e):
-    #     if not config_manager:
-    #         test_result.value = "✗ Ошибка: config_manager не инициализирован"
-    #         test_result.color = ft.Colors.RED
-    #         test_result.update()
-    #         return
-        
-    #     address = config_manager.config.user_address.strip()
-    #     address = "Пермь, " + address
-    #     print(address)
-    #     if not address:
-    #         test_result.value = "✗ Адрес не указан в настройках"
-    #         test_result.color = ft.Colors.ORANGE
-    #         test_result.update()
-    #         return
-        
-    #     coords = get_coordinates_by_address(address)
-    #     if coords:
-    #         lon, lat = coords
-    #         test_result.value = f"✓ {address}: {lat}, {lon}"
-    #         test_result.color = ft.Colors.GREEN
-    #     else:
-    #         test_result.value = f"✗ Адрес не найден: {address}"
-    #         test_result.color = ft.Colors.RED
-    #     test_result.update()
-    
-    # geocoder_test_btn = ft.IconButton(ft.Icons.LOCATION_ON, on_click = test_geocoder, tooltip = "Геокодировать адрес проживания")
 
     # ── View ──────────────────────────────────────────────────────────────────
     return ft.View(

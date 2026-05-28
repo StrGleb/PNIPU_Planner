@@ -25,8 +25,8 @@ if sys.platform == "win32":
     logging.basicConfig(
         level = logging.INFO,
         format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        filename = "app.log",
-        encoding = "utf-8"
+        # filename = "app.log",
+        # encoding = "utf-8"
     )
     logger = logging.getLogger(__name__)
 else: 
@@ -100,12 +100,12 @@ def main(page: ft.Page):
         schedule_manager = ScheduleManager()
 
         # При первом запуске заполнить семестр (раскомментировать один раз):
-        schedule_manager.apply_semester(
-            planner_manager,
-            start_date = datetime.date(2026, 3, 30),
-            end_date = datetime.date(2026, 6, 30),
-            first_week_even = False, # 1 неделя = нечётная
-        )
+        # schedule_manager.apply_semester(
+        #     planner_manager,
+        #     start_date = datetime.date(2026, 3, 30),
+        #     end_date = datetime.date(2026, 6, 30),
+        #     first_week_even = False, # 1 неделя = нечётная
+        # )
 
         # Хранит cleanup-функцию активного planner view
         _planner_cleanup = [None]
@@ -191,6 +191,8 @@ def main(page: ft.Page):
                         navigation_bar = create_navigation_bar(index = 3),
                         config_manager = config_manager, # Все настройки переданы через конфиг
                         page = page, # Функционал переключения темы приложения
+                        planner_manager = planner_manager,
+                        schedule_manager = schedule_manager,
                     )
                 )
 

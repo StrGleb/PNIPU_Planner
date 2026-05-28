@@ -1,16 +1,18 @@
 from dotenv import load_dotenv
 import requests
 import os
+from pathlib import Path
 
-load_dotenv("config.env") 
-API_KEY = os.getenv("DOUBLE_GIS_API_KEY")
+# Важные начальные объявления
+load_dotenv(Path(__file__).resolve().parent.parent.parent / "app/utils/config.env")
 
-def get_route(start, end, transport):
+
+def get_route(start, end, transport) -> None|list[int, int]|dict:
     """
     start, end: tuple (lat, lon)
     transport: "pedestrian" | "driving" | "public_transport"
     """
-    
+    API_KEY = os.getenv("DOUBLE_GIS_API_KEY")
     if transport == "public_transport":
         url = f"https://routing.api.2gis.com/public_transport/2.0?key={API_KEY}"
         payload = {
@@ -35,6 +37,7 @@ def get_route(start, end, transport):
     resp = requests.post(url, json=payload)
     data = resp.json()
 
+
     if type(data) == list:
         return [data[0]['total_distance'], data[0]['total_duration']]
     else:
@@ -52,9 +55,11 @@ def get_route(start, end, transport):
 if __name__ == "__main__":
     point_a = {'lat': 57.997622, 'lon': 56.193610}
     point_b = {'lat': 58.054531, 'lon': 56.222769}
-    walking = get_route((point_a["lat"], point_a["lon"]), (point_b["lat"], point_b["lon"]), "pedestrian")
-    car = get_route((point_a["lat"], point_a["lon"]), (point_b["lat"], point_b["lon"]), "driving")
-    bus = get_route((point_a["lat"], point_a["lon"]), (point_b["lat"], point_b["lon"]), "public_transport")
-    print(walking) # Пример возвращаемого значения {'duration_min': 119, 'distance_km': 10.731}, первое время в минутах, второе дистанция в км
-    print(car) # Пример возвращаемого значения: {'duration_min': 119, 'distance_km': 10.731}, первое время в минутах, второе дистанция в км
+
+    # walking = get_route((point_a["lat"], point_a["lon"]), (point_b["lat"], point_b["lon"]), "pedestrian")
+    # car = get_route((point_a["lat"], point_a["lon"]), (point_b["lat"], point_b["lon"]), "driving")
+    bus = get_route((56.19361, 57.997622), (58.054531, 56.222769), "public_transport")
+
+    # print(walking) # Пример возвращаемого значения {'duration_min': 119, 'distance_km': 10.731}, первое время в минутах, второе дистанция в км
+    # print(car) # Пример возвращаемого значения: {'duration_min': 119, 'distance_km': 10.731}, первое время в минутах, второе дистанция в км
     print(bus) # Пример возвращаемого значения: [10723, 6013] - первое время с ожиданием атобуса в секундах, второе время вообще без ожидания тоже в секундах

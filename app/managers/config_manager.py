@@ -63,9 +63,9 @@ class ConfigManager:
     def set_user_faculty(self, value: str) -> None:
         self.config.user_faculty = value
         self.save()
-
-    def set_has_car(self, value: bool) -> None:
-        self.config.has_car = value
+    
+    def set_transport_type(self, value: str) -> None:
+        self.config.transport_type = value
         self.save()
 
     def set_semester_start(self, value: str) -> None:

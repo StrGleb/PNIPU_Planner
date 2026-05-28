@@ -3,9 +3,10 @@ import logging
 import os
 from dotenv import load_dotenv
 from typing import Optional, Dict
+from pathlib import Path
 
 # Загружаем переменные окружения
-load_dotenv(r"app\utils\config.env")
+load_dotenv(Path(__file__).resolve().parent.parent.parent / "app/utils/config.env")
 logger = logging.getLogger(__name__)
 
 YANDEX_WEATHER_API_URL = "https://api.weather.yandex.ru/v2/informers"
@@ -26,23 +27,23 @@ TEMP_RECOMMENDATIONS = [
 
 # Иконки погоды для Flet (маппинг условий Яндекса)
 WEATHER_ICONS = {
-    "clear": "☀️",           # ясно
-    "partly-cloudy": "⛅",   # малооблачно
-    "cloudy": "☁️",          # облачно с прояснениями
-    "overcast": "☁️",        # пасмурно
-    "drizzle": "🌦️",         # моросящий дождь
-    "light-rain": "🌧️",      # небольшой дождь
-    "rain": "🌧️",            # дождь
-    "moderate-rain": "🌧️",   # умеренный дождь
-    "heavy-rain": "🌧️",      # сильный дождь
+    "clear": "☀️", # ясно
+    "partly-cloudy": "⛅", # малооблачно
+    "cloudy": "☁️", # облачно с прояснениями
+    "overcast": "☁️", # пасмурно
+    "drizzle": "🌦️", # моросящий дождь
+    "light-rain": "🌧️", # небольшой дождь
+    "rain": "🌧️", # дождь
+    "moderate-rain": "🌧️", # умеренный дождь
+    "heavy-rain": "🌧️", # сильный дождь
     "continuous-heavy-rain": "🌧️", # продолжительный сильный дождь
-    "showers": "🌦️",         # ливень
-    "wet-snow": "🌨️",        # дождь со снегом
-    "light-snow": "❄️",      # небольшой снег
-    "snow": "❄️",            # снег
-    "snow-showers": "❄️",    # снежные ливни
-    "hail": "🌨️",            # град
-    "thunderstorm": "⛈️",    # гроза
+    "showers": "🌦️", # ливень
+    "wet-snow": "🌨️", # дождь со снегом
+    "light-snow": "❄️", # небольшой снег
+    "snow": "❄️", # снег
+    "snow-showers": "❄️", # снежные ливни
+    "hail": "🌨️", # град
+    "thunderstorm": "⛈️", # гроза
     "thunderstorm-with-rain": "⛈️", # дождь с грозой
     "thunderstorm-with-hail": "⛈️", # гроза с градом
 }
@@ -99,9 +100,8 @@ def get_weather_by_coords(latitude: float, longitude: float) -> Optional[Dict]:
             "lang": "ru_RU",
         }
 
-        response = requests.get(YANDEX_WEATHER_API_URL, headers=headers, params=params, timeout=10)
+        response = requests.get(YANDEX_WEATHER_API_URL, headers = headers, params = params, timeout = 10)
         response.raise_for_status()
-
         data = response.json()
 
         # Извлекаем данные о погоде из ответа Яндекса
@@ -179,15 +179,13 @@ def get_weather_for_address(address: str) -> Optional[Dict]:
     coords = get_coordinates_by_address(address)
     if not coords:
         logger.warning(f"Не удалось получить координаты для адреса: {address}")
-        return None
+        return
 
     longitude, latitude = coords
     return get_weather_by_coords(latitude, longitude)
 
-
 def example_get_weather():
     """Пример получения погоды по координатам (Пермь)"""
-    # Координаты Перми
     latitude = 58.0105
     longitude = 56.2502
 
