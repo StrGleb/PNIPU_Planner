@@ -122,3 +122,10 @@ __marimo__/
 # Project-local data
 app/test.py
 *.xlsx
+test/
+*.apk
+*.env
+*.apk.sha1
+*.kt
+*.html
+app/build/
