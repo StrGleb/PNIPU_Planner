@@ -6,7 +6,9 @@ import sys
 from pathlib import Path
 
 
-_NATIVE_BIN_DIR = (Path(__file__).resolve().parent / ".." / "native" / "bin").resolve()
+_NATIVE_BIN_DIR = (
+    Path(__file__).resolve().parent / ".." / "native" / "jniLibs" / "arm64-v8a"
+).resolve()
 
 if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
     os.add_dll_directory(str(_NATIVE_BIN_DIR))
@@ -48,28 +50,51 @@ def _candidate_library_refs() -> list[str]:
 
     if hasattr(sys, "getandroidapilevel"):
         refs.extend(names)
-        for abi in _android_abi_hints():
-            abi_dir = _NATIVE_BIN_DIR / "android" / abi
-            refs.extend(str((abi_dir / name).resolve()) for name in names)
 
     refs.extend(str((_NATIVE_BIN_DIR / name).resolve()) for name in names)
+
     return list(dict.fromkeys(refs))
 
 
 def _load_native_library():
+    errors: list[str] = []
+
+    # Сначала пробуем подгрузить C++ runtime рядом с libplanner_core.so
+    cpp_shared = _NATIVE_BIN_DIR / "libc++_shared.so"
+    if cpp_shared.exists():
+        try:
+            ctypes.CDLL(str(cpp_shared))
+            errors.append(f"Loaded dependency: {cpp_shared}")
+        except OSError as error:
+            errors.append(f"Failed to load dependency {cpp_shared}: {error}")
+    else:
+        errors.append(f"Dependency not found: {cpp_shared}")
+
     for reference in _candidate_library_refs():
         try:
             reference_path = Path(reference)
+
             if reference_path.is_absolute():
                 if not reference_path.exists():
+                    errors.append(f"Not found: {reference_path}")
                     continue
-                return ctypes.CDLL(str(reference_path))
 
-            return ctypes.CDLL(reference)
-        except OSError:
-            continue
+                loaded = ctypes.CDLL(str(reference_path))
+                errors.append(f"Loaded native library: {reference_path}")
+                return loaded
 
-    return None
+            loaded = ctypes.CDLL(reference)
+            errors.append(f"Loaded native library by name: {reference}")
+            return loaded
+
+        except OSError as error:
+            errors.append(f"Failed to load {reference}: {error}")
+
+    raise RuntimeError(
+        "Native planner core load failed.\n"
+        + "\n".join(errors)
+        + f"\nExpected directory: {_NATIVE_BIN_DIR}"
+    )
 
 
 _lib = _load_native_library()
