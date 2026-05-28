@@ -1,8 +1,9 @@
 from dotenv import load_dotenv
 import requests
 import os
+from pathlib import Path
 
-load_dotenv("config.env") 
+load_dotenv((Path(__file__).resolve().parent.parent / "config.env").resolve())
 API_KEY = os.getenv("DOUBLE_GIS_API_KEY")
 
 def get_route(start, end, transport):

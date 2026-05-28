@@ -276,11 +276,13 @@ def build_alarm_view(
             "scheduled": ("info", "Автобудильник обновлен под ближайшее событие."),
             "no_upcoming_entries": ("info", "Ближайших событий пока нет. Авто-режим остается включенным."),
             "missing_prep": ("error", "Укажите время на сборы в настройках."),
-            "missing_travel": ("error", "Укажите время дороги до вуза в настройках."),
             "invalid_lesson_time": ("error", "Не удалось определить время ближайшего события."),
             "disabled": ("info", "Автобудильники выключены."),
         }
         level, message = messages.get(result, ("error", "Не удалось обновить автобудильник."))
+        if result == "route_unavailable":
+            show_error("Не удалось рассчитать маршрут. Проверьте адрес, API-ключи или укажите запасное время до вуза.")
+            return
         if level == "info":
             show_info(message)
         else:
@@ -296,7 +298,7 @@ def build_alarm_view(
 
         config_manager.set_auto_alarm_enabled(True)
         result = auto_alarm_service.sync_next_upcoming(force = True)
-        if result in {"missing_prep", "missing_travel", "invalid_lesson_time"}:
+        if result in {"missing_prep", "invalid_lesson_time", "route_unavailable"}:
             config_manager.set_auto_alarm_enabled(False)
         refresh_list()
         _show_auto_result(result)

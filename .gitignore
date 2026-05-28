@@ -22,6 +22,7 @@ env.bak/
 venv.bak/
 .env
 .env.*
+*.env
 .envrc
 .python-version
 .pdm-python
@@ -48,14 +49,25 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Build outputs: ignore generated files, but keep release APK / AAB bundles
+# Local env / secrets
+*.secret
+*.secrets
+*.local
+local.properties
+*.jks
+*.keystore
+
+# Build outputs
 build/
-!build/
-build/**
-!build/**/
-!build/**/*.apk
-!build/**/*.aab
-!build/**/*.apks
+app/build/*
+!app/build/apk/
+app/build/apk/*
+!app/build/apk/*.apk
+*.aab
+*.apks
+*.sha1
+*.zip.hash
+*.vars
 
 # PyInstaller
 *.manifest

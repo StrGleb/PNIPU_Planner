@@ -67,9 +67,6 @@ class AutoAlarmService:
         if cfg.get_together_time <= 0:
             return "missing_prep"
 
-        if cfg.travel_time <= 0:
-            return "missing_travel"
-
         now = from_datetime or datetime.datetime.now()
         candidate = self._select_next_candidate(now)
         if candidate is None:
@@ -77,10 +74,10 @@ class AutoAlarmService:
             return "no_upcoming_entries"
 
         target_date, lesson = candidate
-        alarm = self._build_auto_alarm(target_date, lesson, allow_live = False)
+        alarm = self._build_auto_alarm(target_date, lesson, allow_live = True)
         if alarm is None:
             self._alarm_manager.clear_auto_schedule_alarms()
-            return "invalid_lesson_time"
+            return "route_unavailable"
 
         self._alarm_manager.replace_auto_schedule_alarms([alarm])
         return "scheduled"
@@ -148,6 +145,7 @@ class AutoAlarmService:
 
         was_shifted = False
         if live_travel_minutes > alarm.route_minutes:
+            alarm_minutes = alarm.hour * 60 + alarm.minute
             delta = live_travel_minutes - alarm.route_minutes
             new_alarm_minutes = alarm_minutes - delta
             while new_alarm_minutes < 0:
@@ -204,7 +202,7 @@ class AutoAlarmService:
 
         travel_minutes = self._resolve_travel_minutes(lesson, allow_live = allow_live)
         if travel_minutes <= 0:
-            travel_minutes = normalize_duration_minutes(cfg.travel_time)
+            return None
 
         alarm_minutes = compute_buffered_alarm_minutes(
             lesson_minutes,
@@ -323,7 +321,9 @@ class AutoAlarmService:
         else:
             return None
 
-        transport = "driving" if cfg.has_car else "public_transport"
+        transport = str(getattr(cfg, "transport_type", "")).strip()
+        if transport not in {"driving", "public_transport", "pedestrian"}:
+            transport = "driving" if getattr(cfg, "has_car", False) else "public_transport"
         route = get_route(start, end, transport)
         if not route:
             return None
