@@ -1,6 +1,18 @@
-import flet as ft
-import sys
 import pathlib
+
+import flet as ft
+
+from bridges.planner_bridge import (
+    has_native_schedule_parser,
+    is_valid_date_text,
+    normalize_duration_minutes,
+    parse_schedule_xlsx_file,
+)
+from managers.config_manager import ConfigManager
+from managers.planner_manager import PlannerManager
+from managers.schedule_manager import ScheduleManager, get_schedule_storage_path
+from managers.tasks_manager import TasksManager
+from utils.campus_locations import FACULTIES
 import logging
 import datetime
 from managers.config_manager import ConfigManager
@@ -9,12 +21,6 @@ from managers.planner_manager import PlannerManager
 from managers.schedule_manager import ScheduleManager
 
 logger = logging.getLogger(__name__)
-
-# if sys.platform == 'win32':
-#     from bridges.planner_bridge import lib
-#     normalize_duration_minutes = lib.normalize_duration_minutes
-# else:
-#     from bridges.planner_bridge import normalize_duration_minutes
 
 def normalize_duration_minutes(minutes: int) -> int:
     return max(0, minutes)
@@ -49,9 +55,11 @@ THEME_OPTIONS = [
 def build_settings_view(
     navigation_bar: ft.NavigationBar,
     config_manager: ConfigManager,
-    planner_manager: PlannerManager,
     schedule_manager: ScheduleManager,
+    planner_manager: PlannerManager,
+    tasks_manager: TasksManager,
     page: ft.Page,
+    on_schedule_changed = None,
 ) -> ft.View:
     cfg = config_manager.config
 
@@ -68,6 +76,19 @@ def build_settings_view(
         page.snack_bar = ft.SnackBar(ft.Text(text))
         page.snack_bar.open = True
         page.update()
+
+    def _show_message(text: str):
+        page.snack_bar = ft.SnackBar(ft.Text(text))
+        page.snack_bar.open = True
+        page.update()
+
+    def on_theme_change(e):
+        config_manager.set_theme(e.control.value)
+        _apply_theme(e.control.value)
+
+    dd_theme = ft.Dropdown(value = cfg.theme, options = THEME_OPTIONS, width = 220)
+    dd_theme.on_change = on_theme_change
+    
 
     def _make_selector(
         options: list[tuple[str, str]],  # [(key, label), ...]
@@ -142,21 +163,20 @@ def build_settings_view(
         width = 200,
     )
 
-    # ── Имя ──────────────────────────────────────────────────────────────────────
     tf_name = ft.TextField(
         value = cfg.user_name,
         width = 280,
         on_blur = lambda e: config_manager.set_user_name(e.control.value.strip()),
     )
 
-    # ── Время на сборы ────────────────────────────────────────────────────────────
     def on_time_blur(e):
         try:
-            v = int(e.control.value)
-            config_manager.set_get_together_time(normalize_duration_minutes(v))
+            value = int(e.control.value)
+            config_manager.set_get_together_time(normalize_duration_minutes(value))
         except ValueError:
-            e.control.value = str(cfg.get_together_time)
-            page.update()
+            pass
+        e.control.value = str(config_manager.config.get_together_time)
+        page.update()
 
     tf_time = ft.TextField(
         value = str(cfg.get_together_time),
@@ -165,14 +185,42 @@ def build_settings_view(
         on_blur = on_time_blur,
     )
 
-    # ── Адрес ────────────────────────────────────────────────────────────────────
     tf_address = ft.TextField(
         value = cfg.user_address,
         width = 280,
-        hint_text="Пример: улица Попова, 1",
+        hint_text = "Пример: улица Попова, 1",
         on_blur = lambda e: config_manager.set_user_address(e.control.value.strip()),
     )
 
+    
+    
+    
+    
+
+
+    def on_semester_start_blur(e):
+        value = e.control.value.strip()
+        if is_valid_date_text(value):
+            config_manager.set_semester_start(value)
+        e.control.value = config_manager.config.semester_start
+        page.update()
+
+    tf_semester = ft.TextField(
+        value = cfg.semester_start,
+        width = 140,
+        hint_text = "ДД.ММ.ГГГГ",
+        on_blur = on_semester_start_blur,
+    )
+
+    cb_first_even = ft.Checkbox(
+        label = "Первая неделя семестра чётная",
+        value = cfg.first_week_even,
+        on_change = lambda e: config_manager.set_first_week_even(e.control.value),
+      
+      
+      
+      
+      
     # ── Факультет ────────────────────────────────────────────────────────────────
     dd_faculty = _make_selector(
         options = [(f, f) for f in FACULTIES],
@@ -193,15 +241,19 @@ def build_settings_view(
         on_select = config_manager.set_transport_type,
         width = 280,
     )
+      
+      
+      
+      
 
-    # ── Время до ВУЗа ────────────────────────────────────────────────────────────
     def on_travel_blur(e):
         try:
-            v = int(e.control.value)
-            config_manager.set_travel_time(normalize_duration_minutes(v))
+            value = int(e.control.value)
+            config_manager.set_travel_time(normalize_duration_minutes(value))
         except ValueError:
-            e.control.value = str(cfg.travel_time)
-            page.update()
+            pass
+        e.control.value = str(config_manager.config.travel_time)
+        page.update()
 
     tf_travel = ft.TextField(
         value = str(cfg.travel_time),
@@ -210,7 +262,6 @@ def build_settings_view(
         on_blur = on_travel_blur,
     )
 
-    # ── Вспомогательная функция разметки ─────────────────────────────────────────
     def row(label: str, control, hint: str = "") -> ft.Column:
         items = [
             ft.Text(label, size = 13, color = ft.Colors.GREY_600),
@@ -220,37 +271,55 @@ def build_settings_view(
             items.append(ft.Text(hint, size = 11, color = ft.Colors.GREY_500, italic = True))
         return ft.Column(items, spacing = 4)
 
-    # ── Переменная для сохранения пути к выбранному файлу ──────────────────────────
     selected_file_path = [None]
+
     async def open_file_picker(e: ft.Event[ft.ElevatedButton]):
         files = await ft.FilePicker().pick_files(allowed_extensions = ["xlsx"])
-        
-        # Если пользователь выбрал файл
-        if files:
-            selected_file_path[0] = files[0].path # Сохраняем локальный путь к файлу на телефоне
-            dialog.title = ft.Text(f"Выбран файл: {files[0].name}") # Меняем заголовок диалога на имя выбранного файла
-            # Сбрасываем визуальное состояние элементов диалога
-            btn_confirm.disabled = False
-            btn_confirm.text = "Подтвердить импорт"
-            progress.visible = False
-            
-            # Открываем диалоговое окно подтверждения выбора
-            page.show_dialog(dialog)
-            page.update()
-        else: return
+        if not files:
+            return
 
-    # ── Диалог импорта ────────────────────────────────────────────────────────────
-    dd_semester = ft.Dropdown(
-        label = "Выберите период",
-        options = [
-            ft.DropdownOption(text = "1 семестр - первая половина"),
-            ft.DropdownOption(text = "1 семестр - вторая половина"),
-            ft.DropdownOption(text = "2 семестр - первая половина"),
-            ft.DropdownOption(text = "2 семестр - вторая половина"),
-            ft.DropdownOption(text = "Экзамены"),
-        ],
-        width = 300,
-    )
+        selected_file_path[0] = files[0].path
+        dialog.title = ft.Text(f"Выбран файл: {files[0].name}")
+        btn_confirm.disabled = False
+        btn_confirm.text = "Подтвердить импорт"
+        progress.visible = False
+        page.show_dialog(dialog)
+        page.update()
+
+    import_note = ft.Text(
+        "Первая неделя и дата начала берутся из файла автоматически.",
+        size = 12,
+        color = ft.Colors.GREY_600,
+      
+#     async def open_file_picker(e: ft.Event[ft.ElevatedButton]):
+#         files = await ft.FilePicker().pick_files(allowed_extensions = ["xlsx"])
+        
+#         # Если пользователь выбрал файл
+#         if files:
+#             selected_file_path[0] = files[0].path # Сохраняем локальный путь к файлу на телефоне
+#             dialog.title = ft.Text(f"Выбран файл: {files[0].name}") # Меняем заголовок диалога на имя выбранного файла
+#             # Сбрасываем визуальное состояние элементов диалога
+#             btn_confirm.disabled = False
+#             btn_confirm.text = "Подтвердить импорт"
+#             progress.visible = False
+            
+#             # Открываем диалоговое окно подтверждения выбора
+#             page.show_dialog(dialog)
+#             page.update()
+#         else: return
+
+#     # ── Диалог импорта ────────────────────────────────────────────────────────────
+#     dd_semester = ft.Dropdown(
+#         label = "Выберите период",
+#         options = [
+#             ft.DropdownOption(text = "1 семестр - первая половина"),
+#             ft.DropdownOption(text = "1 семестр - вторая половина"),
+#             ft.DropdownOption(text = "2 семестр - первая половина"),
+#             ft.DropdownOption(text = "2 семестр - вторая половина"),
+#             ft.DropdownOption(text = "Экзамены"),
+#         ],
+#         width = 300,
+#     )
 
     def close_import_dialog(e):
         dialog.open = False
@@ -260,75 +329,57 @@ def build_settings_view(
         if not selected_file_path[0]:
             _show_message("Сначала выберите xlsx-файл.")
             return
-        
-        btn_confirm.disabled = True
-        btn_confirm.text = "Загрузка..."
-        progress.visible = True
-        page.update()
 
-    def confirm_import(e):
-        # 1. Проверяем, выбран ли файл в проводнике
-        if not selected_file_path[0]:
-            _show_message("Сначала выберите xlsx-файл.")
+        if not has_native_schedule_parser():
+            _show_message("Native XLSX-парсер пока недоступен.")
             return
-        
-        # Визуально блокируем кнопку и показываем анимацию загрузки
+
         btn_confirm.disabled = True
         btn_confirm.text = "Загрузка..."
         progress.visible = True
         page.update()
 
-        def finish_import():
-            # 2. Запуск парсера на чистом Python (через вашу функцию и openpyxl)
-            try:
-                finally_excel_parser_algorithm(selected_file_path[0])
-            except Exception as e:
-                logger.error(f"Не удалось спарсить расписание из excel-файла: {e}")
-                # Сбрасываем интерфейс в исходное состояние при ошибке
-                progress.visible = False
-                btn_confirm.disabled = False
-                btn_confirm.text = "Подтвердить импорт"
-                page.snack_bar = ft.SnackBar(
-                    ft.Text(f"Ошибка импорта: {e}"),
-                    bgcolor = ft.Colors.RED_700,
-                )
-                page.snack_bar.open = True
-                page.update()
-                return
+        try:
+            import_path = get_schedule_storage_path().with_name("schedule_import.json")
+            parse_schedule_xlsx_file(selected_file_path[0], import_path)
+            schedule_manager.import_schedule_json(import_path)
 
-            logger.info(f"[EXCEL IMPORT] Путь к файлу на Android: {selected_file_path[0]}")
+            if schedule_manager.template.semester_start:
+                config_manager.set_semester_start(schedule_manager.template.semester_start)
+            config_manager.set_first_week_even(schedule_manager.template.first_week_even)
+
+            tf_semester.value = config_manager.config.semester_start
+            cb_first_even.value = config_manager.config.first_week_even
+
+            applied = schedule_manager.apply_template_to_planner(
+                planner_manager,
+                clear_existing = True,
+            )
+            tasks_manager.reconcile_with_lessons(planner_manager.get_all_lessons())
+            if on_schedule_changed is not None:
+                try:
+                    on_schedule_changed()
+                except Exception:
+                    pass
+
+            dialog.open = False
             file_name = pathlib.Path(selected_file_path[0]).name
-
-            # 3. Применение расписания (Динамически на основе ваших настроек!)
-            try:
-                logger.info("Начало применения расписания в приложение")
-                schedule_manager.reload()
-                # Применяем расписание к календарю
-                schedule_manager.apply_semester(
-                    planner_manager,
-                    start_date = datetime.date(2026, 3, 30),
-                    end_date = datetime.date(2026, 6, 30),
-                    first_week_even = False,
-                )
-                logger.info("Окончание применения расписания в приложение")
-            except Exception as e:
-                logger.error(f"Не удалось применить расписание на необходимый семестр: {e}")
-
-            logger.info("Успешное применения расписания в приложение")
-            
-            # Закрываем диалог и сбрасываем состояние кнопки загрузки
-            page.pop_dialog()
-            progress.visible = False
+            if applied:
+                _show_message(f"Расписание импортировано: {file_name}")
+            else:
+                _show_message(f"Файл импортирован, но семестр не применён: {file_name}")
+        except Exception as exc:
+            _show_message(f"Ошибка импорта: {exc}")
+        finally:
+            if "import_path" in locals() and import_path.exists():
+                try:
+                    import_path.unlink()
+                except OSError:
+                    pass
             btn_confirm.disabled = False
             btn_confirm.text = "Подтвердить импорт"
-            
-            # Показываем уведомление об успехе
-            page.snack_bar = ft.SnackBar(ft.Text(f"Импорт завершён! Файл: {file_name}"))
-            page.snack_bar.open = True
+            progress.visible = False
             page.update()
-            return
-        
-        finish_import()
 
     progress = ft.ProgressRing(visible = False, width = 20, height = 20, stroke_width = 2)
 
@@ -342,7 +393,7 @@ def build_settings_view(
         title = ft.Text(""),
         content = ft.Column(
             [
-                dd_semester,
+                import_note,
                 ft.Container(height = 10),
                 ft.Row([progress, btn_confirm], alignment = ft.MainAxisAlignment.CENTER),
             ],
@@ -372,41 +423,49 @@ def build_settings_view(
                         controls = [
                             ft.Text("Настройки", size = 26, weight = ft.FontWeight.BOLD),
                             ft.Container(height = 8),
-
-                            # Оформление
                             ft.Text("Оформление", size = 16, weight = ft.FontWeight.W_600),
                             ft.Divider(height = 1),
                             row("Цветовая тема", dd_theme),
                             ft.Container(height = 12),
-
-                            # Персональные данные
                             ft.Text("Персональные данные", size = 16, weight = ft.FontWeight.W_600),
                             ft.Divider(height = 1),
                             row("Ваше имя", tf_name),
                             row("Время на сборы (мин)", tf_time),
-                            row("Адрес проживания", tf_address),
+                            row("Адрес проживания", tf_address, "Нужен для расчёта маршрута по API."),
                             row("Факультет", dd_faculty),
-                            row("Время до ВУЗа (мин)", tf_travel, "временное решение"),
-                            row("Способ передвижения", dd_transport),
-                            # dd_transport,
+                            row("Способ передвижения", dd_transport, "Влияет на расчёт маршрута и авто-будильника."),
+                            row("Время до ВУЗа (мин)", tf_travel, "Запасной вариант, если API-маршрут недоступен."),
                             ft.Container(height = 12),
-
-                            # Экспорт
-                            ft.Text("Экспорт расписания", size = 16, weight = ft.FontWeight.W_600),
+                            ft.Text("Семестр", size = 16, weight = ft.FontWeight.W_600),
                             ft.Divider(height = 1),
+                            row(
+                                "Начало семестра",
+                                tf_semester,
+                                "Можно изменить вручную, но после импорта значение обновится из файла.",
+                            ),
+                            cb_first_even,
+                            ft.Container(height = 12),
+                            ft.Text("Импорт расписания", size = 16, weight = ft.FontWeight.W_600),
+                            ft.Divider(height = 1),
+                            import_note,
+                            ft.Container(height = 8),
                             btn_import,
                             ft.Container(height = 12),
-
-                            # Раздел "О приложении"
+                            ft.Text("Сведения о приложении", size = 16, weight = ft.FontWeight.W_600),
                             ft.Divider(height = 1),
                             ft.ElevatedButton(
                                 "О приложении",
                                 icon = ft.Icons.INFO_OUTLINE,
                             ),
-                            ft.Text("Версия: 0.1_beta", size = 12, weight = ft.FontWeight.W_500, color = ft.Colors.GREY_500),
+                            ft.Text(
+                                "Версия: 0.1_beta",
+                                size = 12,
+                                weight = ft.FontWeight.W_500,
+                                color = ft.Colors.GREY_500,
+                            ),
                             ft.Container(height = 20),
                         ]
-                    )
+                    ),
                 )
             )
         ],

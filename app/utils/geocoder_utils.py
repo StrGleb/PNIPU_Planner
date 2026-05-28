@@ -2,11 +2,12 @@ import requests
 from typing import Tuple, Optional
 import logging
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from pathlib import Path
 
 # Важные начальные объявления
-load_dotenv(Path(__file__).resolve().parent.parent.parent / "app/utils/config.env")
+load_dotenv((Path(__file__).resolve().parent.parent / "config.env").resolve())
 logger = logging.getLogger(__name__)
 YANDEX_GEOCODER_API_URL = "https://geocode-maps.yandex.ru/1.x"
 
@@ -203,7 +204,7 @@ if __name__ == "__main__":
         print("=" * 60)
         example_get_coordinates()
         
-        # print("\n" + "=" * 60)
-        # print("Пример 2: Получение полной информации об адресе")
-        # print("=" * 60)
-        # example_get_address_info()
+        print("\n" + "=" * 60)
+        print("Пример 2: Получение полной информации об адресе")
+        print("=" * 60)
+        example_get_address_info()

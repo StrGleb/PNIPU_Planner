@@ -1,130 +1,73 @@
 """
-Менеджер уведомлений: расчёт рейтинга задач и отправка push-уведомлений.
+Notification manager: refreshes task ratings and sends desktop notifications.
 """
+
 import datetime
-import threading
 import logging
+import threading
 from time import sleep
 from typing import TYPE_CHECKING
+
 from plyer import notification
 
 if TYPE_CHECKING:
     from managers.tasks_manager import TasksManager
 
-def compute_rating(priority, days_until):
-    try:
-        import planner_algorithm
-        return planner_algorithm.compute_rating_value(priority, days_until)
-    except ImportError:
-        pass
-    # Python fallback
-    priority_score = priority * 30.0
-    if days_until < 0:      urgency = 150.0
-    elif days_until == 0:   urgency = 120.0
-    elif days_until <= 14:  urgency = (1.0 - days_until / 14.0) * 100.0
-    else:                   urgency = 0.0
-    return priority_score + urgency
 
-
-
-
-# Порог рейтинга, при превышении которого отправляется уведомление
 NOTIFICATION_THRESHOLD = 80.0
 logger = logging.getLogger(__name__)
 
 
-# ── Алгоритм рейтинга ─────────────────────────────────────────────────────────
-def calculate_task_rating(task, today: datetime.date) -> float:
-    """
-    Адаптер: берет объект, достает из него данные, считает дни,
-    и передает их в «ядро»
-    (Логика для перехода от пользовательских данных в Python к простым типам данных, читаемых в C++)
-    """
-    try:
-        task_date = datetime.datetime.strptime(task.date_str, "%d.%m.%Y").date()
-    except Exception:
-        return 0.0
-
-    days_until = (task_date - today).days
-    
-    # Вызов будущего C++ модуля
-    return compute_rating(task.priority, days_until)
-
-# ── Отправка уведомления ──────────────────────────────────────────────────────
 def send_notification(title: str, message: str) -> None:
-    """
-    Отправляет системное push-уведомление через plyer.
-
-    Временная реализация через plyer, может не поддерживаться на Android
-    """
+    """Send a system notification through plyer when available."""
     try:
         notification.notify(
             title = title,
             message = message,
-            app_name = "Университетский помощник",
+            app_name = "University Planner",
             timeout = 10,
         )
-    except Exception as e:
-        logger.error(f"Возникла проблема с отправкой уведомлений пользователю: {e}")
+    except Exception as exc:
+        logger.error("Failed to send notification: %s", exc)
 
 
-# ── Основная проверка ─────────────────────────────────────────────────────────
 def check_and_notify(tasks_manager: "TasksManager") -> None:
     """
-    Логика управления: берет менеджер, итерируется по задачам,
-    дергает вычисления и отправляет уведомления.
-    БУДЕТ ПЕРЕПИСАНО НА C++
+    Refresh task ratings and notify about the most urgent tasks.
+
+    Rating calculation, urgent filtering and sorting are delegated to the
+    tasks manager, which now uses the native C++ core for bulk operations.
     """
     today = datetime.date.today()
-    all_tasks = tasks_manager.get_all_tasks()
-
-    # Пересчёт рейтингов
-    for task in all_tasks:
-        rating = calculate_task_rating(task, today)
-        tasks_manager.update_rating(task.id, rating)
-
-    # Отбор задач с высоким рейтингом
-    urgent = [
-        t for t in tasks_manager.get_all_tasks()
-        if t.rating >= NOTIFICATION_THRESHOLD
-    ]
+    tasks_manager.refresh_all_ratings(today)
+    urgent = tasks_manager.get_urgent_tasks(NOTIFICATION_THRESHOLD)
     if not urgent:
         return
 
-    urgent.sort(key = lambda t: t.rating, reverse = True)
-
-    lines = [
-        f"[{t.type_label}] {t.subject}: {t.text}"
-        for t in urgent[:5]
-    ]
+    lines = [f"[{task.type_label}] {task.subject}: {task.text}" for task in urgent[:5]]
     send_notification(
-        title = f"⚠ Важные задачи ({len(urgent)} шт.)",
+        title = f"Important tasks ({len(urgent)})",
         message = "\n".join(lines),
     )
 
 
-# ── Фоновый поток: проверка в 00:00 каждый день ──────────────────────────────
 def start_daily_checker(tasks_manager: "TasksManager") -> None:
-    """
-    Запускает check_and_notify сразу при старте,
-    затем повторяет каждый день в 00:00.
-    """
-    def _loop():
-        # Первый запуск — сразу при старте приложения
+    """Run notification checks immediately and then every day after midnight."""
+
+    def _loop() -> None:
         check_and_notify(tasks_manager)
 
         while True:
             now = datetime.datetime.now()
             next_midnight = (now + datetime.timedelta(days = 1)).replace(
-                hour = 0, minute = 0, second = 5, microsecond = 0)
-            sleep_secs = (next_midnight - now).total_seconds()
-            sleep(max(sleep_secs, 1))
+                hour = 0,
+                minute = 0,
+                second = 5,
+                microsecond = 0,
+            )
+            sleep_seconds = (next_midnight - now).total_seconds()
+            sleep(max(sleep_seconds, 1))
             check_and_notify(tasks_manager)
 
-    t = threading.Thread(target = _loop, daemon = True)
-    t.start()
-
-
-if __name__ == "__main__":
-    r = calculate_task_rating(2, datetime.datetime(2026, 5, 20))
-    print(r)
+    thread = threading.Thread(target = _loop, daemon = True)
+    thread.start()
