@@ -2,32 +2,29 @@ import json
 import pathlib
 import sys
 import tempfile
-import os
+
 from bridges.planner_bridge import (
     is_valid_date_text,
     normalize_duration_minutes,
     normalize_hour_24,
     normalize_theme,
 )
-from models.user_config import UserConfig
+from models.user_config import UserConfig, VALID_TRANSPORT_TYPES
+
 
 def _storage_path() -> pathlib.Path:
     if hasattr(sys, "getandroidapilevel"):
-        # На Android получаем путь к кэшу (/data/user/0/<pkg>/cache)
         cache_dir = pathlib.Path(tempfile.gettempdir())
-        # Его родитель — это корень песочницы приложения (/data/user/0/<pkg>)
         base_dir = cache_dir.parent / "files"
-        d = base_dir / ".pnipu_planner"
+        directory = base_dir / ".pnipu_planner"
     else:
-        # На Windows/macOS/Linux используем домашнюю папку пользователя
-        d = pathlib.Path.home() / ".pnipu_planner"
+        directory = pathlib.Path.home() / ".pnipu_planner"
 
-    d.mkdir(parents = True, exist_ok = True)
-    return d / "config.json" # (или "tasks.json" / "alarms.json" / "schedule.json")
+    directory.mkdir(parents = True, exist_ok = True)
+    return directory / "config.json"
 
 
 class ConfigManager:
-    """Хранит настройки пользователя. Читает/пишет JSON"""
     def __init__(self):
         self._path = _storage_path()
         self.config: UserConfig = self._load()
@@ -39,19 +36,32 @@ class ConfigManager:
         if not self._path.exists():
             return self._sanitize(UserConfig())
         try:
-            with open(self._path, encoding = "utf-8") as f:
-                return self._sanitize(UserConfig.from_dict(json.load(f)))
+            with open(self._path, encoding = "utf-8") as file:
+                return self._sanitize(UserConfig.from_dict(json.load(file)))
         except Exception:
             return self._sanitize(UserConfig())
 
+    def _sanitize_transport_type(self, value: str, fallback_has_car: bool = False) -> str:
+        normalized = str(value).strip()
+        if normalized in VALID_TRANSPORT_TYPES:
+            return normalized
+        return "driving" if fallback_has_car else "public_transport"
+
     def _sanitize(self, config: UserConfig) -> UserConfig:
-        default_semester_start = UserConfig().semester_start
+        defaults = UserConfig()
         semester_start = str(config.semester_start).strip()
         if not is_valid_date_text(semester_start):
-            semester_start = default_semester_start
+            semester_start = defaults.semester_start
 
-        refresh_hour = normalize_hour_24(getattr(config, "auto_alarm_refresh_hour", 21))
-        recheck_lead = normalize_duration_minutes(getattr(config, "auto_alarm_recheck_lead_minutes", 60))
+        refresh_hour = normalize_hour_24(getattr(config, "auto_alarm_refresh_hour", defaults.auto_alarm_refresh_hour))
+        recheck_lead = normalize_duration_minutes(
+            getattr(config, "auto_alarm_recheck_lead_minutes", defaults.auto_alarm_recheck_lead_minutes)
+        )
+        user_faculty = str(getattr(config, "user_faculty", defaults.user_faculty)).strip() or defaults.user_faculty
+        transport_type = self._sanitize_transport_type(
+            getattr(config, "transport_type", ""),
+            fallback_has_car = bool(getattr(config, "has_car", False)),
+        )
 
         return UserConfig(
             theme = normalize_theme(config.theme),
@@ -59,8 +69,8 @@ class ConfigManager:
             get_together_time = normalize_duration_minutes(config.get_together_time),
             travel_time = normalize_duration_minutes(config.travel_time),
             user_address = str(config.user_address).strip(),
-            user_faculty = str(config.user_faculty).strip(),
-            has_car = bool(config.has_car),
+            user_faculty = user_faculty,
+            transport_type = transport_type,
             semester_start = semester_start,
             first_week_even = bool(config.first_week_even),
             auto_alarm_enabled = bool(getattr(config, "auto_alarm_enabled", False)),
@@ -70,11 +80,9 @@ class ConfigManager:
 
     def save(self) -> None:
         self.config = self._sanitize(self.config)
-        with open(self._path, "w", encoding = "utf-8") as f:
-            json.dump(self.config.to_dict(), f, ensure_ascii = False, indent = 2)
+        with open(self._path, "w", encoding = "utf-8") as file:
+            json.dump(self.config.to_dict(), file, ensure_ascii = False, indent = 2)
 
-
-    # ── Набор сеттеров ─────────────────────────
     def set_theme(self, value: str) -> None:
         self.config.theme = normalize_theme(value)
         self.save()
@@ -95,8 +103,12 @@ class ConfigManager:
         self.config.user_faculty = str(value).strip()
         self.save()
 
+    def set_transport_type(self, value: str) -> None:
+        self.config.transport_type = self._sanitize_transport_type(value, fallback_has_car = self.config.has_car)
+        self.save()
+
     def set_has_car(self, value: bool) -> None:
-        self.config.has_car = bool(value)
+        self.config.transport_type = "driving" if bool(value) else "public_transport"
         self.save()
 
     def set_semester_start(self, value: str) -> None:

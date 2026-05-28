@@ -12,12 +12,19 @@ from managers.config_manager import ConfigManager
 from managers.planner_manager import PlannerManager
 from managers.schedule_manager import ScheduleManager, get_schedule_storage_path
 from managers.tasks_manager import TasksManager
+from models.user_config import VALID_TRANSPORT_TYPES
 from utils.campus_locations import FACULTIES
 
 THEME_OPTIONS = [
-    ft.DropdownOption(key="system", text="Системная"),
-    ft.DropdownOption(key="light", text="Светлая"),
-    ft.DropdownOption(key="dark", text="Темная"),
+    ft.DropdownOption(key = "system", text = "Системная"),
+    ft.DropdownOption(key = "light", text = "Светлая"),
+    ft.DropdownOption(key = "dark", text = "Тёмная"),
+]
+
+TRANSPORT_OPTIONS = [
+    ft.DropdownOption(key = "public_transport", text = "Общественный транспорт"),
+    ft.DropdownOption(key = "driving", text = "Автомобиль"),
+    ft.DropdownOption(key = "pedestrian", text = "Пешком"),
 ]
 
 
@@ -50,13 +57,13 @@ def build_settings_view(
         config_manager.set_theme(e.control.value)
         _apply_theme(e.control.value)
 
-    dd_theme = ft.Dropdown(value=cfg.theme, options=THEME_OPTIONS, width=220)
+    dd_theme = ft.Dropdown(value = cfg.theme, options = THEME_OPTIONS, width = 220)
     dd_theme.on_change = on_theme_change
 
     tf_name = ft.TextField(
-        value=cfg.user_name,
-        width=280,
-        on_blur=lambda e: config_manager.set_user_name(e.control.value.strip()),
+        value = cfg.user_name,
+        width = 280,
+        on_blur = lambda e: config_manager.set_user_name(e.control.value.strip()),
     )
 
     def on_time_blur(e):
@@ -69,31 +76,34 @@ def build_settings_view(
         page.update()
 
     tf_time = ft.TextField(
-        value=str(cfg.get_together_time),
-        width=90,
-        keyboard_type=ft.KeyboardType.NUMBER,
-        on_blur=on_time_blur,
+        value = str(cfg.get_together_time),
+        width = 90,
+        keyboard_type = ft.KeyboardType.NUMBER,
+        on_blur = on_time_blur,
     )
 
     tf_address = ft.TextField(
-        value=cfg.user_address,
-        width=280,
-        hint_text="Пример: улица Попова, 1",
-        on_blur=lambda e: config_manager.set_user_address(e.control.value.strip()),
+        value = cfg.user_address,
+        width = 280,
+        hint_text = "Пример: улица Попова, 1",
+        on_blur = lambda e: config_manager.set_user_address(e.control.value.strip()),
     )
 
+    faculty_value = cfg.user_faculty if cfg.user_faculty in FACULTIES else FACULTIES[0]
     dd_faculty = ft.Dropdown(
-        value=cfg.user_faculty if cfg.user_faculty in FACULTIES else FACULTIES[0],
-        options=[ft.DropdownOption(faculty) for faculty in FACULTIES],
-        width=280,
+        value = faculty_value,
+        options = [ft.DropdownOption(faculty) for faculty in FACULTIES],
+        width = 280,
     )
     dd_faculty.on_change = lambda e: config_manager.set_user_faculty(e.control.value)
 
-    cb_car = ft.Checkbox(
-        label="Есть своя машина для поездок в университет",
-        value=cfg.has_car,
-        on_change=lambda e: config_manager.set_has_car(e.control.value),
+    transport_value = cfg.transport_type if cfg.transport_type in VALID_TRANSPORT_TYPES else "public_transport"
+    dd_transport = ft.Dropdown(
+        value = transport_value,
+        options = TRANSPORT_OPTIONS,
+        width = 280,
     )
+    dd_transport.on_change = lambda e: config_manager.set_transport_type(e.control.value)
 
     def on_semester_start_blur(e):
         value = e.control.value.strip()
@@ -103,16 +113,16 @@ def build_settings_view(
         page.update()
 
     tf_semester = ft.TextField(
-        value=cfg.semester_start,
-        width=140,
-        hint_text="ДД.ММ.ГГГГ",
-        on_blur=on_semester_start_blur,
+        value = cfg.semester_start,
+        width = 140,
+        hint_text = "ДД.ММ.ГГГГ",
+        on_blur = on_semester_start_blur,
     )
 
     cb_first_even = ft.Checkbox(
-        label="Первая неделя семестра четная",
-        value=cfg.first_week_even,
-        on_change=lambda e: config_manager.set_first_week_even(e.control.value),
+        label = "Первая неделя семестра чётная",
+        value = cfg.first_week_even,
+        on_change = lambda e: config_manager.set_first_week_even(e.control.value),
     )
 
     def on_travel_blur(e):
@@ -125,25 +135,25 @@ def build_settings_view(
         page.update()
 
     tf_travel = ft.TextField(
-        value=str(cfg.travel_time),
-        width=90,
-        keyboard_type=ft.KeyboardType.NUMBER,
-        on_blur=on_travel_blur,
+        value = str(cfg.travel_time),
+        width = 90,
+        keyboard_type = ft.KeyboardType.NUMBER,
+        on_blur = on_travel_blur,
     )
 
     def row(label: str, control, hint: str = "") -> ft.Column:
         items = [
-            ft.Text(label, size=13, color=ft.Colors.GREY_600),
+            ft.Text(label, size = 13, color = ft.Colors.GREY_600),
             control,
         ]
         if hint:
-            items.append(ft.Text(hint, size=11, color=ft.Colors.GREY_500, italic=True))
-        return ft.Column(items, spacing=4)
+            items.append(ft.Text(hint, size = 11, color = ft.Colors.GREY_500, italic = True))
+        return ft.Column(items, spacing = 4)
 
     selected_file_path = [None]
 
     async def open_file_picker(e: ft.Event[ft.ElevatedButton]):
-        files = await ft.FilePicker().pick_files(allowed_extensions=["xlsx"])
+        files = await ft.FilePicker().pick_files(allowed_extensions = ["xlsx"])
         if not files:
             return
 
@@ -157,8 +167,8 @@ def build_settings_view(
 
     import_note = ft.Text(
         "Первая неделя и дата начала берутся из файла автоматически.",
-        size=12,
-        color=ft.Colors.GREY_600,
+        size = 12,
+        color = ft.Colors.GREY_600,
     )
 
     def close_import_dialog(e):
@@ -193,7 +203,7 @@ def build_settings_view(
 
             applied = schedule_manager.apply_template_to_planner(
                 planner_manager,
-                clear_existing=True,
+                clear_existing = True,
             )
             tasks_manager.reconcile_with_lessons(planner_manager.get_all_lessons())
             if on_schedule_changed is not None:
@@ -207,11 +217,11 @@ def build_settings_view(
             if applied:
                 _show_message(f"Расписание импортировано: {file_name}")
             else:
-                _show_message(f"Файл импортирован, но семестр не применен: {file_name}")
+                _show_message(f"Файл импортирован, но семестр не применён: {file_name}")
         except Exception as exc:
             _show_message(f"Ошибка импорта: {exc}")
         finally:
-            if 'import_path' in locals() and import_path.exists():
+            if "import_path" in locals() and import_path.exists():
                 try:
                     import_path.unlink()
                 except OSError:
@@ -221,93 +231,93 @@ def build_settings_view(
             progress.visible = False
             page.update()
 
-    progress = ft.ProgressRing(visible=False, width=20, height=20, stroke_width=2)
+    progress = ft.ProgressRing(visible = False, width = 20, height = 20, stroke_width = 2)
 
     btn_confirm = ft.ElevatedButton(
         "Подтвердить импорт",
-        icon=ft.Icons.CHECK,
-        on_click=confirm_import,
+        icon = ft.Icons.CHECK,
+        on_click = confirm_import,
     )
 
     dialog = ft.AlertDialog(
-        title=ft.Text(""),
-        content=ft.Column(
+        title = ft.Text(""),
+        content = ft.Column(
             [
                 import_note,
-                ft.Container(height=10),
-                ft.Row([progress, btn_confirm], alignment=ft.MainAxisAlignment.CENTER),
+                ft.Container(height = 10),
+                ft.Row([progress, btn_confirm], alignment = ft.MainAxisAlignment.CENTER),
             ],
-            tight=True,
+            tight = True,
         ),
-        actions=[
-            ft.TextButton("Отмена", on_click=close_import_dialog),
+        actions = [
+            ft.TextButton("Отмена", on_click = close_import_dialog),
         ],
-        actions_alignment=ft.MainAxisAlignment.END,
+        actions_alignment = ft.MainAxisAlignment.END,
     )
 
     btn_import = ft.ElevatedButton(
         "Импортировать из xlsx...",
-        icon=ft.Icons.UPLOAD_FILE,
-        on_click=open_file_picker,
+        icon = ft.Icons.UPLOAD_FILE,
+        on_click = open_file_picker,
     )
 
     return ft.View(
-        route="/settings",
-        scroll=ft.ScrollMode.HIDDEN,
-        padding=0,
-        controls=[
+        route = "/settings",
+        scroll = ft.ScrollMode.HIDDEN,
+        padding = 0,
+        controls = [
             ft.SafeArea(
-                content=ft.Container(
-                    padding=ft.Padding.symmetric(horizontal=20, vertical=16),
-                    content=ft.Column(
-                        controls=[
-                            ft.Text("Настройки", size=26, weight=ft.FontWeight.BOLD),
-                            ft.Container(height=8),
-                            ft.Text("Оформление", size=16, weight=ft.FontWeight.W_600),
-                            ft.Divider(height=1),
+                content = ft.Container(
+                    padding = ft.Padding.symmetric(horizontal = 20, vertical = 16),
+                    content = ft.Column(
+                        controls = [
+                            ft.Text("Настройки", size = 26, weight = ft.FontWeight.BOLD),
+                            ft.Container(height = 8),
+                            ft.Text("Оформление", size = 16, weight = ft.FontWeight.W_600),
+                            ft.Divider(height = 1),
                             row("Цветовая тема", dd_theme),
-                            ft.Container(height=12),
-                            ft.Text("Персональные данные", size=16, weight=ft.FontWeight.W_600),
-                            ft.Divider(height=1),
+                            ft.Container(height = 12),
+                            ft.Text("Персональные данные", size = 16, weight = ft.FontWeight.W_600),
+                            ft.Divider(height = 1),
                             row("Ваше имя", tf_name),
                             row("Время на сборы (мин)", tf_time),
-                            row("Адрес проживания", tf_address),
+                            row("Адрес проживания", tf_address, "Нужен для расчёта маршрута по API."),
                             row("Факультет", dd_faculty),
-                            row("Время до ВУЗа (мин)", tf_travel),
-                            cb_car,
-                            ft.Container(height=12),
-                            ft.Text("Семестр", size=16, weight=ft.FontWeight.W_600),
-                            ft.Divider(height=1),
+                            row("Способ передвижения", dd_transport, "Влияет на расчёт маршрута и авто-будильника."),
+                            row("Время до ВУЗа (мин)", tf_travel, "Запасной вариант, если API-маршрут недоступен."),
+                            ft.Container(height = 12),
+                            ft.Text("Семестр", size = 16, weight = ft.FontWeight.W_600),
+                            ft.Divider(height = 1),
                             row(
                                 "Начало семестра",
                                 tf_semester,
                                 "Можно изменить вручную, но после импорта значение обновится из файла.",
                             ),
                             cb_first_even,
-                            ft.Container(height=12),
-                            ft.Text("Импорт расписания", size=16, weight=ft.FontWeight.W_600),
-                            ft.Divider(height=1),
+                            ft.Container(height = 12),
+                            ft.Text("Импорт расписания", size = 16, weight = ft.FontWeight.W_600),
+                            ft.Divider(height = 1),
                             import_note,
-                            ft.Container(height=8),
+                            ft.Container(height = 8),
                             btn_import,
-                            ft.Container(height=12),
-                            ft.Text("Сведения о приложении", size=16, weight=ft.FontWeight.W_600),
-                            ft.Divider(height=1),
+                            ft.Container(height = 12),
+                            ft.Text("Сведения о приложении", size = 16, weight = ft.FontWeight.W_600),
+                            ft.Divider(height = 1),
                             ft.ElevatedButton(
                                 "О приложении",
-                                icon=ft.Icons.INFO_OUTLINE,
+                                icon = ft.Icons.INFO_OUTLINE,
                             ),
                             ft.Text(
                                 "Версия: 0.1_beta",
-                                size=12,
-                                weight=ft.FontWeight.W_500,
-                                color=ft.Colors.GREY_500,
+                                size = 12,
+                                weight = ft.FontWeight.W_500,
+                                color = ft.Colors.GREY_500,
                             ),
-                            ft.Container(height=20),
+                            ft.Container(height = 20),
                         ]
                     ),
                 )
             )
         ],
-        navigation_bar=navigation_bar,
+        navigation_bar = navigation_bar,
     )

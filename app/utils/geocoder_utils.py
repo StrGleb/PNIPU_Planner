@@ -2,10 +2,11 @@ import requests
 from typing import Tuple, Optional
 import logging
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 # Важные начальные объявления
-load_dotenv("config.env") 
+load_dotenv((Path(__file__).resolve().parent.parent / "config.env").resolve())
 logger = logging.getLogger(__name__)
 YANDEX_GEOCODER_API_URL = "https://geocode-maps.yandex.ru/1.x"
 
