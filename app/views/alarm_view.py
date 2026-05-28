@@ -10,8 +10,18 @@ from models.alarm_model import Alarm, WEEK_ANY, WEEK_EVEN, WEEK_ODD
 logger = logging.getLogger(__name__)
 
 _DAYS = [(1, "Пн"), (2, "Вт"), (3, "Ср"), (4, "Чт"), (5, "Пт"), (6, "Сб"), (7, "Вс")]
-_WEEKS = [(WEEK_ODD, "Нечет."), (WEEK_EVEN, "Четная")]
-
+_WEEKS = [(WEEK_ANY, "Любая"), (WEEK_ODD, "Нечёт."), (WEEK_EVEN, "Чётная")]
+FACULTIES_COORDS = {
+    "ЭТФ - Электротехнический факультет": [58.054531, 56.222769], 
+    "ХТФ - Факультет химических технологий, промышленной экологии и биотехнологий": [58.054541, 56.223820],
+    "АКФ - Аэрокосмический факультет": [58.054355, 56.231653], 
+    "Гуманитарный факультет": [58.002134, 56.247455], 
+    "МТФ - Механико-технологический факультет": [58.008495, 56.239190],
+    "Строительный факультет": [57.984680, 56.247428], 
+    "Прикладной математики и механики": [58.054531, 56.224898],
+    "ГНФ - Горно-нефтяной факультет": [58.008295, 56.240250],
+    "Автодорожный факультет": [58.056593, 56.235830],
+}
 
 def build_alarm_view(
     navigation_bar: ft.NavigationBar,
@@ -295,6 +305,33 @@ def build_alarm_view(
             refresh_list()
             _show_auto_result("disabled")
             return
+ 
+        # ── Рассчитываем время в пути ─────────────────────────────────────────
+        user_address = "Пермь, " + cfg.user_address
+        try:
+            user_address_coordinates = tuple(reversed(list(get_coordinates_by_address(user_address))))
+        except Exception as e:
+            ...
+        faculty_name = cfg.user_faculty
+        try:
+            faculty_address_coordinates = tuple(FACULTIES_COORDS[faculty_name])
+        except Exception:
+            ...
+        transport_type = cfg.transport_type
+
+        try:
+            travel_minutes = get_route(user_address_coordinates, faculty_address_coordinates, transport_type)
+            if type(travel_minutes) == dict:
+                travel_minutes = travel_minutes['duration_min']
+            else:
+                travel_minutes = round(travel_minutes[0] / 60)
+        except Exception as e:
+            logger.warning(f"Маршрут не рассчитан. Произошла ошибка: {e}")
+            if cfg.travel_time <= 0:
+                show_error(
+                    f"Не удалось рассчитать маршрут:\n"
+                )
+                return
 
         config_manager.set_auto_alarm_enabled(True)
         result = auto_alarm_service.sync_next_upcoming(force = True)

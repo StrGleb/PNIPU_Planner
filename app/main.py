@@ -25,12 +25,14 @@ is_android = hasattr(sys, "getandroidapilevel")
 if sys.platform == "win32":
     sys.path.insert(0, str(pathlib.Path(__file__).parent))
     logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        filename="app.log",
-        encoding="utf-8",
+        level = logging.INFO,
+        format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        filename = "app.log",
+        encoding = "utf-8"
     )
-else:
+    logger = logging.getLogger(__name__)
+else: 
+    # Нужно, чтобы в при работе на Android dсе логи писались в терминал, а не в отдельный файлик
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -83,13 +85,13 @@ def main(page: ft.Page):
 
         def global_alarm_callback(alarm):
             snack = ft.SnackBar(
-                content=ft.Text(
+                content = ft.Text(
                     f"Alarm fired: {alarm.label}!",
-                    size=18,
-                    weight=ft.FontWeight.BOLD,
+                    size = 18,
+                    weight = ft.FontWeight.BOLD,
                 ),
-                bgcolor=ft.Colors.BLUE_700,
-                duration=5000,
+                bgcolor = ft.Colors.BLUE_700,
+                duration = 5000,
             )
             page.overlay.append(snack)
             snack.open = True
@@ -119,10 +121,10 @@ def main(page: ft.Page):
 
         def build_home_root():
             return build_home_view(
-                navigation_bar=create_navigation_bar(index = 0),
-                user_name=config_manager.config.user_name or "Student",
-                tasks_manager=tasks_manager,
-                config_manager=config_manager,
+                navigation_bar = create_navigation_bar(index = 0),
+                user_name = config_manager.config.user_name or "Student",
+                tasks_manager = tasks_manager,
+                config_manager = config_manager,
             )
 
         def refresh_home_view():
@@ -139,32 +141,32 @@ def main(page: ft.Page):
 
         def create_navigation_bar(index: int = 0) -> ft.NavigationBar:
             return ft.NavigationBar(
-                selected_index=index,
-                on_change=handle_change,
-                destinations=[
+                selected_index = index,
+                on_change = handle_change,
+                destinations = [
                     ft.NavigationBarDestination(
-                        icon=ft.Icons.HOME_ROUNDED,
-                        label="Home",
+                        icon = ft.Icons.HOME_ROUNDED,
+                        label = "Home",
                     ),
                     ft.NavigationBarDestination(
-                        icon=ft.Icons.CALENDAR_TODAY_OUTLINED,
-                        selected_icon=ft.Icons.CALENDAR_TODAY,
-                        label="Planner",
+                        icon = ft.Icons.CALENDAR_TODAY_OUTLINED,
+                        selected_icon = ft.Icons.CALENDAR_TODAY,
+                        label = "Planner",
                     ),
                     ft.NavigationBarDestination(
-                        icon=ft.Icons.ACCESS_ALARM,
-                        label="Alarm",
+                        icon = ft.Icons.ACCESS_ALARM,
+                        label = "Alarm",
                     ),
                     ft.NavigationBarDestination(
-                        icon=ft.Icons.SETTINGS_APPLICATIONS_OUTLINED,
-                        selected_icon=ft.Icons.SETTINGS_APPLICATIONS,
-                        label="Settings",
+                        icon = ft.Icons.SETTINGS_APPLICATIONS_OUTLINED,
+                        selected_icon = ft.Icons.SETTINGS_APPLICATIONS,
+                        label = "Settings",
                     ),
                 ],
-                border=ft.Border(
-                    top=ft.BorderSide(
-                        color=ft.CupertinoColors.SYSTEM_GREY2,
-                        width=2,
+                border = ft.Border(
+                    top = ft.BorderSide(
+                        color = ft.CupertinoColors.SYSTEM_GREY2,
+                        width = 2,
                     )
                 ),
             )
@@ -187,36 +189,36 @@ def main(page: ft.Page):
             if page.route == "/alarm":
                 page.views.append(
                     build_alarm_view(
-                        navigation_bar=create_navigation_bar(index=2),
-                        clock_text=clock_text,
-                        alarm_manager=alarm_manager,
-                        config_manager=config_manager,
-                        auto_alarm_service=auto_alarm_service,
-                        page=page,
+                        navigation_bar = create_navigation_bar(index = 2),
+                        clock_text = clock_text,
+                        alarm_manager = alarm_manager,
+                        config_manager = config_manager,
+                        auto_alarm_service = auto_alarm_service,
+                        page = page,
                     )
                 )
             elif page.route == "/planner":
                 view, cleanup = build_planner_view(
-                    navigation_bar=create_navigation_bar(index=1),
-                    planner_manager=planner_manager,
-                    config_manager=config_manager,
-                    tasks_manager=tasks_manager,
-                    auto_alarm_service=auto_alarm_service,
-                    page=page,
-                    on_tasks_changed=refresh_home_view,
+                    navigation_bar = create_navigation_bar(index=1),
+                    planner_manager = planner_manager,
+                    config_manager = config_manager,
+                    tasks_manager = tasks_manager,
+                    auto_alarm_service = auto_alarm_service,
+                    page = page,
+                    on_tasks_changed = refresh_home_view,
                 )
                 page.views.append(view)
                 planner_cleanup[0] = cleanup
             elif page.route == "/settings":
                 page.views.append(
                     build_settings_view(
-                        navigation_bar=create_navigation_bar(index=3),
-                        config_manager=config_manager,
-                        schedule_manager=schedule_manager,
-                        planner_manager=planner_manager,
-                        tasks_manager=tasks_manager,
-                        page=page,
-                        on_schedule_changed=refresh_home_view,
+                        navigation_bar = create_navigation_bar(index = 3),
+                        config_manager = config_manager,
+                        schedule_manager = schedule_manager,
+                        planner_manager = planner_manager,
+                        tasks_manager = tasks_manager,
+                        page = page,
+                        on_schedule_changed = refresh_home_view,
                     )
                 )
 
@@ -225,23 +227,24 @@ def main(page: ft.Page):
         page.on_route_change = route_change
         page.on_view_pop = view_pop
         route_change(page.route)
-    except Exception:
+
+    except Exception as e:
         import traceback
 
         error_text = traceback.format_exc()
         page.views.clear()
         page.views.append(
             ft.View(
-                controls=[
+                controls = [
                     ft.Text(
                         "Critical startup error:",
-                        weight="bold",
-                        color="red",
-                        size=20,
+                        weight = "bold",
+                        color = "red",
+                        size = 20,
                     ),
-                    ft.Text(error_text, selectable=True, size=12),
+                    ft.Text(error_text, selectable = True, size = 12),
                 ],
-                scroll=ft.ScrollMode.ALWAYS,
+                scroll = ft.ScrollMode.ALWAYS,
             )
         )
         page.update()

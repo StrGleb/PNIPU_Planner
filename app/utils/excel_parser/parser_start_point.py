@@ -1,0 +1,132 @@
+"""
+excel_path = "2025-2026 Raspisanie ehkzamenov EHTF RIS -25-2b (vesennijj  sessiya).xlsx" -
+название таблицы (его не меняем, оставляем тем, что счачано с сайта)
+результат в файлах .json
+"""
+
+import json
+import pathlib
+import logging
+import sys
+import tempfile
+from utils.excel_parser.parser import Parser
+from utils.excel_parser.session_parser import SessionParser
+
+logger = logging.getLogger(__name__)
+
+def save_json(data: dict, filename: str):
+    with open(filename, "w", encoding = "utf-8") as f:
+        json.dump(data, f, ensure_ascii = False, indent = 2)
+
+def minutes_to_hhmm(minutes: int) -> str:
+    h = minutes // 60
+    m = minutes % 60
+    return f"{h}:{m:02d}"
+
+
+def build_normal_json(parser: Parser) -> dict:
+    teacher_map = {}
+    for a in parser.teacher_location_assignments:
+        teacher_map.setdefault(a.staging_id, []).append((a.teacher, a.location))
+
+    odd_lessons = []
+    even_lessons = []
+
+    for lesson in parser.lessons:
+        p = lesson.insert_params
+        assignments = teacher_map.get(p.staging_id, [("", "")])
+
+        for teacher, room in assignments:
+            entry = {
+                "day": p.day,
+                "time_start": minutes_to_hhmm(p.time_start),
+                "time_end": minutes_to_hhmm(p.time_end),
+                "subject": p.subject,
+                "lesson_type": p.category.replace("(", "").replace(")", ""),
+                "teacher": "" if teacher == "Unknown" else teacher,
+                "room": "" if room == "Unknown" else room
+            }
+
+            if p.repeat_rule == 1:
+                odd_lessons.append(entry)
+            elif p.repeat_rule == 2:
+                even_lessons.append(entry)
+            else:
+                odd_lessons.append(entry)
+                even_lessons.append(entry)
+
+    return {
+        "version": 1,
+        "odd": sorted(odd_lessons, key = lambda x: (x["day"], x["time_start"])),
+        "even": sorted(even_lessons, key = lambda x: (x["day"], x["time_start"]))
+    }
+
+def build_session_json(parser) -> dict:
+    return {
+        "version": 1,
+        "session": sorted(
+            parser.lessons,
+            key = lambda x: (x["day"], x["time_start"])
+        )
+    }
+
+def _storage_path() -> pathlib.Path:
+    if hasattr(sys, "getandroidapilevel"):
+        # На Android получаем путь к кэшу (/data/user/0/<pkg>/cache)
+        cache_dir = pathlib.Path(tempfile.gettempdir())
+        # Его родитель — это корень песочницы приложения (/data/user/0/<pkg>)
+        base_dir = cache_dir.parent / "files"
+        d = base_dir / ".pnipu_planner"
+    else:
+        # На Windows/macOS/Linux используем домашнюю папку пользователя
+        d = pathlib.Path.home() / ".pnipu_planner"
+
+    d.mkdir(parents = True, exist_ok = True)
+    return d
+
+def finally_excel_parser_algorithm(excel_path: str):
+    try:
+        with open(excel_path, "rb") as f:
+            file_bytes = f.read()
+    except FileNotFoundError:
+        logger.error("Не удалось найти файл с расписанием")
+        return
+    except Exception as e:
+        logger.error(f"Произошла ошибка при попытке открытия файла с распсианеим:{e}")
+        return
+
+    try: 
+        if "sessiya" in excel_path.lower():
+            parser = SessionParser()
+        else:
+            parser = Parser()
+        parser = Parser() # Временное решение 
+
+        parser.parse_lessons_from_bytes(file_bytes)
+        logger.info(f"Lessons parsed: {len(parser.lessons)}")
+    except Exception as e:
+        logger.error(f"Ошибка при парсинге полученных данных из файла расписаняи: {e}")
+        return
+
+    try:
+        if isinstance(parser, SessionParser):
+            data = build_session_json(parser)
+            d =_storage_path()
+            path_to_save = str(d / "timetable_session.json")
+            save_json(data, path_to_save)
+            logger.info("JSON file saved: timetable_session.json")
+        else:
+            data = build_normal_json(parser)
+            d =_storage_path()
+            path_to_save = str(d / "schedule.json")
+            save_json(data, path_to_save)
+            logger.info("JSON file saved: schedule.json")
+    except Exception as e:
+        logger.error(f"Не удалось сохранить файл расписания пара/сессии: {e}")
+
+
+# Тестирование функции
+if __name__ == "__main__":
+    # excel_path = "2025-2026 Raspisanie ehkzamenov EHTF RIS -25-2b (vesennijj  sessiya).xlsx"
+    excel_path = r"2025_2026_Raspisanie_zanyatijj_EHTF_RIS_25_2b_vesennijj_posle_smeny.xlsx"
+    finally_excel_parser_algorithm(excel_path)

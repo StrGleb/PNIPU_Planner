@@ -4,6 +4,7 @@ import logging
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from pathlib import Path
 
 # Важные начальные объявления
 load_dotenv((Path(__file__).resolve().parent.parent / "config.env").resolve())
@@ -167,7 +168,7 @@ def get_address_info(address: str) -> Optional[dict]:
 # Простые функции для примеры использования
 def example_get_coordinates():
     """Пример 1: Получение координат по адресу"""
-    address = "Пермь, ул. Попова 21"
+    address = "Пермь, улица Малкова, 26"
     coordinates = get_coordinates_by_address(address)
     
     if coordinates:

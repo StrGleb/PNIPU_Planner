@@ -3,6 +3,7 @@ import json
 import pathlib
 import sys
 import tempfile
+import logging
 
 from bridges.planner_bridge import (
     collect_schedule_lesson_indices_for_day,
@@ -16,6 +17,7 @@ from bridges.planner_bridge import (
 from managers.planner_manager import PlannerManager
 from models.schedule_template import ScheduleArchive, ScheduleTemplate, TemplateLesson
 
+logger = logging.getLogger(__name__)
 
 def _storage_dir() -> pathlib.Path:
     if hasattr(sys, "getandroidapilevel"):
@@ -25,7 +27,7 @@ def _storage_dir() -> pathlib.Path:
     else:
         root = pathlib.Path.home() / ".pnipu_planner"
 
-    root.mkdir(parents=True, exist_ok=True)
+    root.mkdir(parents = True, exist_ok = True)
     return root
 
 
@@ -45,15 +47,15 @@ class ScheduleManager:
             return ScheduleArchive()
 
         try:
-            with open(self._path, encoding="utf-8") as handle:
+            with open(self._path, encoding = "utf-8") as handle:
                 return ScheduleArchive.from_dict(json.load(handle))
         except Exception:
             return ScheduleArchive()
 
     def save(self) -> None:
         self._sort_archive()
-        with open(self._path, "w", encoding="utf-8") as handle:
-            json.dump(self.archive.to_dict(), handle, ensure_ascii=False, indent=2)
+        with open(self._path, "w", encoding = "utf-8") as handle:
+            json.dump(self.archive.to_dict(), handle, ensure_ascii = False, indent = 2)
 
     def reload(self) -> None:
         self.archive = self._load()
@@ -106,7 +108,7 @@ class ScheduleManager:
         self._sort_archive()
 
     def import_schedule_json(self, parsed_json_path: str | pathlib.Path) -> ScheduleTemplate:
-        with open(parsed_json_path, encoding="utf-8") as handle:
+        with open(parsed_json_path, encoding = "utf-8") as handle:
             template = ScheduleTemplate.from_dict(json.load(handle))
 
         self.merge_template(template)

@@ -23,6 +23,7 @@ START_HOUR = 8
 END_HOUR = 24
 TIME_COL_W = 52
 
+# ── Окраска блоков пар в планере ────────────────────────────────────────────────────────
 LESSON_BG = ft.Colors.GREEN_200
 LESSON_BORDER = ft.Colors.GREEN_400
 LESSON_TEXT = ft.Colors.GREEN_900
@@ -39,6 +40,24 @@ PRIORITY_COLORS = {
     2: ft.Colors.ORANGE_400,
     3: ft.Colors.RED_400,
 }
+
+_SUBJECT_PALETTE = [
+    (ft.Colors.GREEN_100, ft.Colors.GREEN_400, ft.Colors.GREEN_900, ft.Colors.GREEN_700),
+    (ft.Colors.BLUE_100, ft.Colors.BLUE_400, ft.Colors.BLUE_900, ft.Colors.BLUE_700),
+    (ft.Colors.PURPLE_100, ft.Colors.PURPLE_400, ft.Colors.PURPLE_900, ft.Colors.PURPLE_700),
+    (ft.Colors.ORANGE_100, ft.Colors.ORANGE_400, ft.Colors.ORANGE_900, ft.Colors.ORANGE_700),
+    (ft.Colors.PINK_100, ft.Colors.PINK_400, ft.Colors.PINK_900, ft.Colors.PINK_700),
+    (ft.Colors.TEAL_100, ft.Colors.TEAL_400, ft.Colors.TEAL_900, ft.Colors.TEAL_700),
+    (ft.Colors.RED_100, ft.Colors.RED_400, ft.Colors.RED_900, ft.Colors.RED_700),
+    (ft.Colors.CYAN_100, ft.Colors.CYAN_400, ft.Colors.CYAN_900, ft.Colors.CYAN_700),
+] # После мержа не применено, надо поменять 
+
+def _subject_colors(subject: str) -> tuple:
+    """Возвращает (bg, border, text, time) по названию предмета"""
+    # Берём только базовое название без типа и аудитории
+    base = subject.split("(")[0].split("|")[0].strip()
+    idx = hash(base) % len(_SUBJECT_PALETTE)
+    return _SUBJECT_PALETTE[idx]
 
 
 def build_planner_view(
@@ -538,10 +557,12 @@ def build_planner_view(
         except Exception:
             return ft.Container()
 
-        background = EVENT_BG if lesson.is_event else LESSON_BG
-        border_color = EVENT_BORDER if lesson.is_event else LESSON_BORDER
-        title_color = EVENT_TEXT if lesson.is_event else LESSON_TEXT
-        time_color = EVENT_TIME if lesson.is_event else LESSON_TIME
+#         background = EVENT_BG if lesson.is_event else LESSON_BG
+#         border_color = EVENT_BORDER if lesson.is_event else LESSON_BORDER
+#         title_color = EVENT_TEXT if lesson.is_event else LESSON_TEXT
+#         time_color = EVENT_TIME if lesson.is_event else LESSON_TIME
+        
+        background, border_color, title_color, time_color = _subject_colors(lesson.subject)
 
         return ft.Container(
             content = ft.Column(
