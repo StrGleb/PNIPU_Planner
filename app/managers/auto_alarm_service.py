@@ -4,10 +4,12 @@ import threading
 from time import sleep
 
 from bridges.planner_bridge import (
+    can_recheck_alarm_now,
     collect_alarm_indices_for_target_date_sorted,
     collect_alarm_indices_on_or_after_date,
     find_lesson_index_for_date_time_subject,
     compute_buffered_alarm_minutes,
+    is_alarm_within_recheck_window,
     normalize_duration_minutes,
     select_next_lesson_index,
     time_to_minutes,
@@ -122,10 +124,13 @@ class AutoAlarmService:
             return "no_alarm_today"
 
         alarm = alarms[indices[0]]
-        alarm_minutes = alarm.hour * 60 + alarm.minute
-        now_minutes = now.hour * 60 + now.minute
-        minutes_until_alarm = alarm_minutes - now_minutes
-        if minutes_until_alarm < 0 or minutes_until_alarm > cfg.auto_alarm_recheck_lead_minutes:
+        if not is_alarm_within_recheck_window(
+            alarm.hour,
+            alarm.minute,
+            now.hour,
+            now.minute,
+            cfg.auto_alarm_recheck_lead_minutes,
+        ):
             return "outside_recheck_window"
 
         if not self._can_recheck_again(alarm, now):
@@ -255,16 +260,11 @@ class AutoAlarmService:
             self._alarm_manager.replace_auto_schedule_alarms(valid_alarms)
 
     def _can_recheck_again(self, alarm: Alarm, now: datetime.datetime) -> bool:
-        if not alarm.rechecked_at:
-            return True
-
-        try:
-            last_check = datetime.datetime.strptime(alarm.rechecked_at, "%d.%m.%Y %H:%M")
-        except ValueError:
-            return True
-
-        delta = now - last_check
-        return delta.total_seconds() >= _ROUTE_RECHECK_COOLDOWN_MINUTES * 60
+        return can_recheck_alarm_now(
+            alarm.rechecked_at,
+            now,
+            _ROUTE_RECHECK_COOLDOWN_MINUTES,
+        )
 
     def _resolve_travel_minutes(self, lesson: Lesson, allow_live: bool) -> int:
         cfg = self._config_manager.config

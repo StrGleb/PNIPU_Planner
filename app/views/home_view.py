@@ -1,9 +1,10 @@
-import flet as ft
 import datetime
-from utils.time_utils import greeting_choose
+
+import flet as ft
+
+from bridges.planner_bridge import time_to_minutes
 from managers.tasks_manager import TasksManager
-from models.task_model import PRIORITY_COLORS
-from utils.geocoder_utils import get_coordinates_by_address
+from utils.time_utils import greeting_choose
 
 PRIORITY_DOT_COLORS = {
     0: ft.Colors.GREY_400,
@@ -19,16 +20,21 @@ def build_home_view(
     tasks_manager: TasksManager,
     config_manager = None,
 ) -> ft.View:
-
     greeting = greeting_choose()
     today = datetime.date.today()
     tomorrow = today + datetime.timedelta(days = 1)
 
-    tests_today = tasks_manager.get_tests_for_date(today) # контрольные работы в этот день сегодня
-    homework_tmrw = tasks_manager.get_homework_for_date(tomorrow) # домашнее задание на завтрашний день
-    labs_tmrw = tasks_manager.get_labs_for_date(tomorrow) # лабораторные работы на завтра
+    def _sort_tasks_by_time(items: list) -> list:
+        return sorted(
+            items,
+            key = lambda task: (time_to_minutes(task.time_start), task.subject.lower(), task.text.lower()),
+        )
 
-    # ── Строка задачи с цветовым индикатором ──────────────────────────────────
+    tests_today = _sort_tasks_by_time(tasks_manager.get_tests_for_date(today))
+    tests_tomorrow = _sort_tasks_by_time(tasks_manager.get_tests_for_date(tomorrow))
+    homework_tomorrow = _sort_tasks_by_time(tasks_manager.get_homework_for_date(tomorrow))
+    labs_tomorrow = _sort_tasks_by_time(tasks_manager.get_labs_for_date(tomorrow))
+
     def _task_row(task) -> ft.Row:
         dot = ft.Container(
             width = 10,
@@ -37,22 +43,52 @@ def build_home_view(
             bgcolor = PRIORITY_DOT_COLORS.get(task.priority, ft.Colors.GREY_400),
         )
         return ft.Row(
-            [dot, ft.Text(task.display_line, size = 14, expand = True,  color = ft.Colors.BLACK)],
+            [dot, ft.Text(task.display_line, size = 14, expand = True, color = ft.Colors.BLACK)],
             spacing = 8,
             vertical_alignment = ft.CrossAxisAlignment.CENTER,
         )
 
-    # ── Блок с задачами (уже отсортированных по приоритету из tasks_manager) ──
     def _task_box(items: list, empty_text: str, box_color = ft.Colors.GREY_200) -> ft.Container:
-        if items:
-            content_controls = [_task_row(t) for t in items]
-        else:
-            content_controls = [
-                ft.Text(empty_text, size = 14, italic = True, color = ft.Colors.GREY_500)
-            ]
-
+        content_controls = [_task_row(task) for task in items] if items else [
+            ft.Text(empty_text, size = 14, italic = True, color = ft.Colors.GREY_500)
+        ]
         return ft.Container(
             content = ft.Column(content_controls, spacing = 8),
+            bgcolor = box_color,
+            border_radius = 16,
+            padding = ft.Padding.symmetric(horizontal = 16, vertical = 14),
+            width = float("inf"),
+        )
+
+    def _dual_task_box(
+        today_items: list,
+        tomorrow_items: list,
+        empty_today_text: str,
+        empty_tomorrow_text: str,
+        box_color = ft.Colors.GREY_200,
+    ) -> ft.Container:
+        def _subsection(title: str, items: list, empty_text: str) -> ft.Column:
+            content_controls = [_task_row(task) for task in items] if items else [
+                ft.Text(empty_text, size = 14, italic = True, color = ft.Colors.GREY_500)
+            ]
+            return ft.Column(
+                [
+                    ft.Text(title, size = 13, weight = ft.FontWeight.W_600, color = ft.Colors.GREY_800),
+                    ft.Container(height = 4),
+                    *content_controls,
+                ],
+                spacing = 8,
+            )
+
+        return ft.Container(
+            content = ft.Column(
+                [
+                    _subsection("\u0421\u0435\u0433\u043e\u0434\u043d\u044f", today_items, empty_today_text),
+                    ft.Divider(height = 18),
+                    _subsection("\u0417\u0430\u0432\u0442\u0440\u0430", tomorrow_items, empty_tomorrow_text),
+                ],
+                spacing = 0,
+            ),
             bgcolor = box_color,
             border_radius = 16,
             padding = ft.Padding.symmetric(horizontal = 16, vertical = 14),
@@ -65,76 +101,54 @@ def build_home_view(
             spacing = 0,
         )
 
-
-    # ── Тестирование геокодирования ────────────────────────────────────────
-    # test_result = ft.Text("", size=12)
-    
-    # def test_geocoder(e):
-    #     if not config_manager:
-    #         test_result.value = "✗ Ошибка: config_manager не инициализирован"
-    #         test_result.color = ft.Colors.RED
-    #         test_result.update()
-    #         return
-        
-    #     address = config_manager.config.user_address.strip()
-    #     address = "Пермь, " + address
-    #     print(address)
-    #     if not address:
-    #         test_result.value = "✗ Адрес не указан в настройках"
-    #         test_result.color = ft.Colors.ORANGE
-    #         test_result.update()
-    #         return
-        
-    #     coords = get_coordinates_by_address(address)
-    #     if coords:
-    #         lon, lat = coords
-    #         test_result.value = f"✓ {address}: {lat}, {lon}"
-    #         test_result.color = ft.Colors.GREEN
-    #     else:
-    #         test_result.value = f"✗ Адрес не найден: {address}"
-    #         test_result.color = ft.Colors.RED
-    #     test_result.update()
-    
-    # geocoder_test_btn = ft.IconButton(ft.Icons.LOCATION_ON, on_click = test_geocoder, tooltip = "Геокодировать адрес проживания")
-
-    # ── View ──────────────────────────────────────────────────────────────────
     return ft.View(
         route = "/",
         padding = 0,
         controls = [
             ft.SafeArea(
                 content = ft.Container(
-                    # Переносим отступы сюда, чтобы они работали внутри SafeArea
                     padding = ft.Padding.symmetric(horizontal = 20, vertical = 24),
                     content = ft.Column(
                         [
                             ft.Text(
-                                f"{greeting},\n{user_name or 'Студент'}!",
-                                size = 30, weight = ft.FontWeight.BOLD,
+                                f"{greeting},\n{user_name or '\u0421\u0442\u0443\u0434\u0435\u043d\u0442'}!",
+                                size = 30,
+                                weight = ft.FontWeight.BOLD,
                             ),
                             ft.Container(height = 20),
-
                             _section(
-                                "Ваши к/р сегодня:",
-                                _task_box(tests_today, "Контрольных работ сегодня нет", ft.Colors.RED_100),
+                                "\u0412\u0430\u0448\u0438 \u043a/\u0440:",
+                                _dual_task_box(
+                                    tests_today,
+                                    tests_tomorrow,
+                                    "\u041a\u043e\u043d\u0442\u0440\u043e\u043b\u044c\u043d\u044b\u0445 \u0440\u0430\u0431\u043e\u0442 \u0441\u0435\u0433\u043e\u0434\u043d\u044f \u043d\u0435\u0442",
+                                    "\u041a\u043e\u043d\u0442\u0440\u043e\u043b\u044c\u043d\u044b\u0445 \u0440\u0430\u0431\u043e\u0442 \u043d\u0430 \u0437\u0430\u0432\u0442\u0440\u0430 \u043d\u0435\u0442",
+                                    ft.Colors.RED_100,
+                                ),
                             ),
                             ft.Container(height = 16),
-
                             _section(
-                                "Ваши домашние работы на завтра:",
-                                _task_box(homework_tmrw, "Домашних работ на завтра нет", ft.Colors.BLUE_100),
+                                "\u0412\u0430\u0448\u0438 \u0434\u043e\u043c\u0430\u0448\u043d\u0438\u0435 \u0440\u0430\u0431\u043e\u0442\u044b \u043d\u0430 \u0437\u0430\u0432\u0442\u0440\u0430:",
+                                _task_box(
+                                    homework_tomorrow,
+                                    "\u0414\u043e\u043c\u0430\u0448\u043d\u0438\u0445 \u0440\u0430\u0431\u043e\u0442 \u043d\u0430 \u0437\u0430\u0432\u0442\u0440\u0430 \u043d\u0435\u0442",
+                                    ft.Colors.BLUE_100,
+                                ),
                             ),
                             ft.Container(height = 16),
-
                             _section(
-                                "Ваши лабораторные на завтра:",
-                                _task_box(labs_tmrw, "Лабораторных работ на завтра нет", ft.Colors.GREEN_100),
+                                "\u0412\u0430\u0448\u0438 \u043b\u0430\u0431\u043e\u0440\u0430\u0442\u043e\u0440\u043d\u044b\u0435 \u043d\u0430 \u0437\u0430\u0432\u0442\u0440\u0430:",
+                                _task_box(
+                                    labs_tomorrow,
+                                    "\u041b\u0430\u0431\u043e\u0440\u0430\u0442\u043e\u0440\u043d\u044b\u0445 \u0440\u0430\u0431\u043e\u0442 \u043d\u0430 \u0437\u0430\u0432\u0442\u0440\u0430 \u043d\u0435\u0442",
+                                    ft.Colors.GREEN_100,
+                                ),
                             ),
                             ft.Container(height = 16),
                         ],
                         expand = True,
                         scroll = ft.ScrollMode.HIDDEN,
-                    )
+                    ),
                 )
             )
         ],

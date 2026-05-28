@@ -69,6 +69,16 @@ class PlannerManager:
         entry_type: str = "lesson",
         is_custom: bool = False,
     ) -> Lesson:
+        lesson_kwargs = {}
+        if not is_custom:
+            lesson_kwargs["id"] = Lesson.build_stable_id(
+                date,
+                time_start,
+                time_end,
+                subject,
+                entry_type,
+            )
+
         lesson = Lesson(
             date = date,
             time_start = time_start,
@@ -82,6 +92,7 @@ class PlannerManager:
             address = address,
             entry_type = entry_type,
             is_custom = is_custom,
+            **lesson_kwargs,
         )
         self._lessons[lesson.id] = lesson
         if lesson.is_custom:

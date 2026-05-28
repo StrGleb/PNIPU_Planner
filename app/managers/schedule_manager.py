@@ -84,12 +84,6 @@ class ScheduleManager:
         except Exception:
             return None
 
-    @staticmethod
-    def _derive_period_end(start_date: datetime.date) -> datetime.date:
-        if start_date.month >= 8:
-            return datetime.date(start_date.year + 1, 1, 31)
-        return datetime.date(start_date.year, 6, 30)
-
     def merge_template(self, template: ScheduleTemplate) -> None:
         start_date = self._parse_template_start(template)
         if start_date is None:

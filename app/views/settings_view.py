@@ -11,6 +11,7 @@ from bridges.planner_bridge import (
 from managers.config_manager import ConfigManager
 from managers.planner_manager import PlannerManager
 from managers.schedule_manager import ScheduleManager, get_schedule_storage_path
+from managers.tasks_manager import TasksManager
 from utils.campus_locations import FACULTIES
 
 THEME_OPTIONS = [
@@ -25,7 +26,9 @@ def build_settings_view(
     config_manager: ConfigManager,
     schedule_manager: ScheduleManager,
     planner_manager: PlannerManager,
+    tasks_manager: TasksManager,
     page: ft.Page,
+    on_schedule_changed = None,
 ) -> ft.View:
     cfg = config_manager.config
 
@@ -192,6 +195,12 @@ def build_settings_view(
                 planner_manager,
                 clear_existing=True,
             )
+            tasks_manager.reconcile_with_lessons(planner_manager.get_all_lessons())
+            if on_schedule_changed is not None:
+                try:
+                    on_schedule_changed()
+                except Exception:
+                    pass
 
             dialog.open = False
             file_name = pathlib.Path(selected_file_path[0]).name

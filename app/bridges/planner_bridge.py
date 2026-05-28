@@ -59,7 +59,6 @@ def _candidate_library_refs() -> list[str]:
 def _load_native_library():
     errors: list[str] = []
 
-    # Сначала пробуем подгрузить C++ runtime рядом с libplanner_core.so
     cpp_shared = _NATIVE_BIN_DIR / "libc++_shared.so"
     if cpp_shared.exists():
         try:

@@ -36,7 +36,7 @@ function Resolve-AndroidTriple {
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $NativeRoot = Join-Path $RepoRoot "app\native"
 $BuildRoot = Join-Path $RepoRoot "build"
-$AndroidBinRoot = Join-Path $NativeRoot "bin\android"
+$AndroidBinRoot = Join-Path $NativeRoot "jniLibs"
 $ToolchainFile = Join-Path $NdkRoot "build\cmake\android.toolchain.cmake"
 $LlvmSysrootLibRoot = Join-Path $NdkRoot "toolchains\llvm\prebuilt\windows-x86_64\sysroot\usr\lib"
 

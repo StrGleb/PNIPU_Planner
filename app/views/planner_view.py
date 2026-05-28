@@ -34,6 +34,7 @@ def build_planner_view(
     tasks_manager: TasksManager,
     auto_alarm_service: Any,
     page: ft.Page,
+    on_tasks_changed: Callable[[], None] | None = None,
 ) -> tuple[ft.View, Callable]:
     state = {"date": datetime.date.today()}
 
@@ -47,6 +48,15 @@ def build_planner_view(
     def sync_auto_alarm():
         try:
             auto_alarm_service.handle_planner_change()
+        except Exception:
+            pass
+
+    def refresh_task_related_views():
+        check_and_notify(tasks_manager)
+        if on_tasks_changed is None:
+            return
+        try:
+            on_tasks_changed()
         except Exception:
             pass
 
@@ -218,6 +228,7 @@ def build_planner_view(
 
                 tasks_manager.update_task(task.id, text, int(priority_dropdown.value or "0"))
                 input_dialog.open = False
+                refresh_task_related_views()
                 page.update()
                 fresh_lesson = planner_manager.get_lesson(current.id)
                 if fresh_lesson:
@@ -283,6 +294,7 @@ def build_planner_view(
                 current.test_works.remove(task.text)
             elif task.task_type == TASK_TYPE_LAB and task.text in current.lab_works:
                 current.lab_works.remove(task.text)
+            refresh_task_related_views()
             open_detail(current)
 
         all_tasks = tasks_manager.get_tasks_for_lesson(current.id)
@@ -322,7 +334,7 @@ def build_planner_view(
                     lesson_id = lesson_id,
                     priority = priority,
                 )
-                check_and_notify(tasks_manager)
+                refresh_task_related_views()
             fresh_lesson = planner_manager.get_lesson(lesson_id)
             if fresh_lesson:
                 open_detail(fresh_lesson)
@@ -340,7 +352,7 @@ def build_planner_view(
                     lesson_id = lesson_id,
                     priority = priority,
                 )
-                check_and_notify(tasks_manager)
+                refresh_task_related_views()
             fresh_lesson = planner_manager.get_lesson(lesson_id)
             if fresh_lesson:
                 open_detail(fresh_lesson)
@@ -358,7 +370,7 @@ def build_planner_view(
                     lesson_id = lesson_id,
                     priority = priority,
                 )
-                check_and_notify(tasks_manager)
+                refresh_task_related_views()
             fresh_lesson = planner_manager.get_lesson(lesson_id)
             if fresh_lesson:
                 open_detail(fresh_lesson)
@@ -377,6 +389,7 @@ def build_planner_view(
             planner_manager.remove_lesson(current.id)
             detail_sheet.open = False
             sync_auto_alarm()
+            refresh_task_related_views()
             page.update()
             rebuild_timeline()
 
