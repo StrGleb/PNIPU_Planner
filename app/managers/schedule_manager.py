@@ -4,10 +4,12 @@ import pathlib
 import shutil
 import sys
 import tempfile
+import logging
 
 from models.schedule_template import ScheduleTemplate
 from managers.planner_manager import PlannerManager
 
+logger = logging.getLogger(__name__)
 
 # ── Путь к файлу шаблона ────────────────────────────────────────────────────────
 # Должно работать на Windows / Linux / macOS / Android

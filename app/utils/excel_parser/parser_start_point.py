@@ -100,9 +100,10 @@ def finally_excel_parser_algorithm(excel_path: str):
             parser = SessionParser()
         else:
             parser = Parser()
+        parser = Parser() # Временное решение 
 
         parser.parse_lessons_from_bytes(file_bytes)
-        logger.debug(f"Lessons parsed: {len(parser.lessons)}")
+        logger.info(f"Lessons parsed: {len(parser.lessons)}")
     except Exception as e:
         logger.error(f"Ошибка при парсинге полученных данных из файла расписаняи: {e}")
         return
@@ -111,12 +112,14 @@ def finally_excel_parser_algorithm(excel_path: str):
         if isinstance(parser, SessionParser):
             data = build_session_json(parser)
             d =_storage_path()
-            save_json(data, fr"{d}\timetable_session.json")
+            path_to_save = str(d / "timetable_session.json")
+            save_json(data, path_to_save)
             logger.info("JSON file saved: timetable_session.json")
         else:
             data = build_normal_json(parser)
             d =_storage_path()
-            save_json(data, fr"{d}\schedule.json")
+            path_to_save = str(d / "schedule.json")
+            save_json(data, path_to_save)
             logger.info("JSON file saved: schedule.json")
     except Exception as e:
         logger.error(f"Не удалось сохранить файл расписания пара/сессии: {e}")

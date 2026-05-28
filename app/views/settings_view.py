@@ -3,7 +3,6 @@ import sys
 import pathlib
 import logging
 import datetime
-import threading
 from managers.config_manager import ConfigManager
 from utils.excel_parser.parser_start_point import finally_excel_parser_algorithm
 from managers.planner_manager import PlannerManager
@@ -57,8 +56,17 @@ def build_settings_view(
     cfg = config_manager.config
 
     def _apply_theme(theme_key: str):
-        modes = {"light": ft.ThemeMode.LIGHT, "dark": ft.ThemeMode.DARK, "system": ft.ThemeMode.SYSTEM}
+        modes = {
+            "light": ft.ThemeMode.LIGHT, 
+            "dark": ft.ThemeMode.DARK, 
+            "system": ft.ThemeMode.SYSTEM
+        }
         page.theme_mode = modes.get(theme_key, ft.ThemeMode.SYSTEM)
+        page.update()
+    
+    def _show_message(text: str):
+        page.snack_bar = ft.SnackBar(ft.Text(text))
+        page.snack_bar.open = True
         page.update()
 
     def _make_selector(
@@ -127,18 +135,6 @@ def build_settings_view(
         )
 
     # ── Тема ─────────────────────────────────────────────────────────────────────
-    # def on_theme_change(e):
-    #     val = e.data 
-    #     config_manager.set_theme(val)
-    #     _apply_theme(val)
-
-    # dd_theme = ft.Dropdown(
-    #     options = THEME_OPTIONS,
-    #     width = 200,
-    # )
-    # dd_theme.value = cfg.theme
-    # dd_theme.on_change = on_theme_change
-
     dd_theme = _make_selector(
         options = [("system", "Системная"), ("light", "Светлая"), ("dark", "Тёмная")],
         initial_key = cfg.theme,
@@ -178,13 +174,6 @@ def build_settings_view(
     )
 
     # ── Факультет ────────────────────────────────────────────────────────────────
-    # dd_faculty = ft.Dropdown(
-    #     value = cfg.user_faculty if cfg.user_faculty in FACULTIES else FACULTIES[0],
-    #     options = [ft.DropdownOption(f) for f in FACULTIES],
-    #     width = 280,
-    # )
-    # dd_faculty.on_change = lambda e: config_manager.set_user_faculty(e.data)
-
     dd_faculty = _make_selector(
         options = [(f, f) for f in FACULTIES],
         initial_key = cfg.user_faculty if cfg.user_faculty in FACULTIES else FACULTIES[0],
@@ -194,13 +183,6 @@ def build_settings_view(
 
     # ── Способ передвижения ───────────────────────────────────────────────────────────────────
     valid_transport_keys = {"driving", "public_transport", "pedestrian"}
-    # dd_transport = ft.Dropdown(
-    #     value = cfg.transport_type if cfg.transport_type in valid_transport_keys else "public_transport",
-    #     options = TRANSPORT_TYPE,
-    #     width = 280,
-    # )
-    # dd_transport.on_change = lambda e: config_manager.set_transport_type(e.data)
-
     dd_transport = _make_selector(
         options = [
             ("public_transport", "Общественный транспорт"),
@@ -210,30 +192,6 @@ def build_settings_view(
         initial_key = cfg.transport_type if cfg.transport_type in valid_transport_keys else "public_transport",
         on_select = config_manager.set_transport_type,
         width = 280,
-    )
-
-    # ── Начало семестра ───────────────────────────────────────────────────────────
-    # Должно быть удалено
-    def on_semester_start_blur(e):
-        import re
-        v = e.control.value.strip()
-        if re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", v):
-            config_manager.set_semester_start(v)
-        else:
-            e.control.value = cfg.semester_start
-            page.update()
-
-    tf_semester = ft.TextField(
-        value = cfg.semester_start,
-        width = 140,
-        hint_text = "ДД.ММ.ГГГГ",
-        on_blur = on_semester_start_blur,
-    )
-
-    cb_first_even = ft.Checkbox(
-        label = "Первая неделя семестра чётная",
-        value = cfg.first_week_even,
-        on_change = lambda e: config_manager.set_first_week_even(e.control.value),
     )
 
     # ── Время до ВУЗа ────────────────────────────────────────────────────────────
@@ -264,10 +222,6 @@ def build_settings_view(
 
     # ── Переменная для сохранения пути к выбранному файлу ──────────────────────────
     selected_file_path = [None]
-
-    # Инициализируем абсолютно пустой FilePicker (без on_result)
-    file_picker = ft.FilePicker()
-
     async def open_file_picker(e: ft.Event[ft.ElevatedButton]):
         files = await ft.FilePicker().pick_files(allowed_extensions = ["xlsx"])
         
@@ -283,6 +237,7 @@ def build_settings_view(
             # Открываем диалоговое окно подтверждения выбора
             page.show_dialog(dialog)
             page.update()
+        else: return
 
     # ── Диалог импорта ────────────────────────────────────────────────────────────
     dd_semester = ft.Dropdown(
@@ -302,18 +257,34 @@ def build_settings_view(
         page.update()
 
     def confirm_import(e):
-        # Имитация визуальной загрузки
+        if not selected_file_path[0]:
+            _show_message("Сначала выберите xlsx-файл.")
+            return
+        
+        btn_confirm.disabled = True
+        btn_confirm.text = "Загрузка..."
+        progress.visible = True
+        page.update()
+
+    def confirm_import(e):
+        # 1. Проверяем, выбран ли файл в проводнике
+        if not selected_file_path[0]:
+            _show_message("Сначала выберите xlsx-файл.")
+            return
+        
+        # Визуально блокируем кнопку и показываем анимацию загрузки
         btn_confirm.disabled = True
         btn_confirm.text = "Загрузка..."
         progress.visible = True
         page.update()
 
         def finish_import():
-            # Обработка парсером
+            # 2. Запуск парсера на чистом Python (через вашу функцию и openpyxl)
             try:
                 finally_excel_parser_algorithm(selected_file_path[0])
             except Exception as e:
                 logger.error(f"Не удалось спарсить расписание из excel-файла: {e}")
+                # Сбрасываем интерфейс в исходное состояние при ошибке
                 progress.visible = False
                 btn_confirm.disabled = False
                 btn_confirm.text = "Подтвердить импорт"
@@ -325,34 +296,39 @@ def build_settings_view(
                 page.update()
                 return
 
-            logger.debug(f"[EXCEL IMPORT] Путь к файлу на Android: {selected_file_path[0]}")
+            logger.info(f"[EXCEL IMPORT] Путь к файлу на Android: {selected_file_path[0]}")
             file_name = pathlib.Path(selected_file_path[0]).name
 
-            # Применение расписания 
+            # 3. Применение расписания (Динамически на основе ваших настроек!)
             try:
-                logger.debug("Начало применения распсиания в приложение")
+                logger.info("Начало применения расписания в приложение")
+                schedule_manager.reload()
+                # Применяем расписание к календарю
                 schedule_manager.apply_semester(
                     planner_manager,
                     start_date = datetime.date(2026, 3, 30),
                     end_date = datetime.date(2026, 6, 30),
-                    first_week_even = False, # 1 неделя = нечётная
+                    first_week_even = False,
                 )
-                logger.debug("Окончание применения распсиания в приложение")
+                logger.info("Окончание применения расписания в приложение")
             except Exception as e:
                 logger.error(f"Не удалось применить расписание на необходимый семестр: {e}")
 
-            logger.debug("Успешное применения распсиания в приложение")
+            logger.info("Успешное применения расписания в приложение")
+            
+            # Закрываем диалог и сбрасываем состояние кнопки загрузки
             page.pop_dialog()
-            page.update()
             progress.visible = False
             btn_confirm.disabled = False
             btn_confirm.text = "Подтвердить импорт"
+            
+            # Показываем уведомление об успехе
             page.snack_bar = ft.SnackBar(ft.Text(f"Импорт завершён! Файл: {file_name}"))
             page.snack_bar.open = True
             page.update()
             return
-
-        threading.Thread(target = finish_import, daemon = True).start()
+        
+        finish_import()
 
     progress = ft.ProgressRing(visible = False, width = 20, height = 20, stroke_width = 2)
 
@@ -381,7 +357,7 @@ def build_settings_view(
     btn_import = ft.ElevatedButton(
         "Импортировать из xlsx...",
         icon = ft.Icons.UPLOAD_FILE,
-        on_click = open_file_picker, # Теперь открывает FilePicker вместо прямого диалога
+        on_click = open_file_picker,
     )
 
     return ft.View(
@@ -422,7 +398,6 @@ def build_settings_view(
                             ft.Container(height = 12),
 
                             # Раздел "О приложении"
-                            #ft.Text("Сведения о приложении", size = 16, weight = ft.FontWeight.W_600),
                             ft.Divider(height = 1),
                             ft.ElevatedButton(
                                 "О приложении",

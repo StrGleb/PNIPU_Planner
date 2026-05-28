@@ -316,17 +316,12 @@ def build_alarm_view(
             ...
         transport_type = cfg.transport_type
 
-        print(user_address)
-        print(user_address_coordinates)
-        print(faculty_name)
-        print(faculty_address_coordinates)
-        print(transport_type)
-
         try:
-            travel_minutes = 0
             travel_minutes = get_route(user_address_coordinates, faculty_address_coordinates, transport_type)
-            print(travel_minutes)
-            travel_minutes = round(travel_minutes[1] / 60)
+            if type(travel_minutes) == dict:
+                travel_minutes = travel_minutes['duration_min']
+            else:
+                travel_minutes = round(travel_minutes[0] / 60)
         except Exception as e:
             logger.warning(f"Маршрут не рассчитан. Произошла ошибка: {e}")
             if cfg.travel_time <= 0:

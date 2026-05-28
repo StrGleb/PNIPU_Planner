@@ -99,13 +99,12 @@ def main(page: ft.Page):
         planner_manager = PlannerManager()
         schedule_manager = ScheduleManager()
 
-        # При первом запуске заполнить семестр (раскомментировать один раз):
-        # schedule_manager.apply_semester(
-        #     planner_manager,
-        #     start_date = datetime.date(2026, 3, 30),
-        #     end_date = datetime.date(2026, 6, 30),
-        #     first_week_even = False, # 1 неделя = нечётная
-        # )
+        schedule_manager.apply_semester(
+            planner_manager,
+            start_date = datetime.date(2026, 3, 30),
+            end_date = datetime.date(2026, 6, 30),
+            first_week_even = False, # 1 неделя = нечётная
+        )
 
         # Хранит cleanup-функцию активного planner view
         _planner_cleanup = [None]
@@ -201,6 +200,7 @@ def main(page: ft.Page):
         page.on_route_change = route_change
         page.on_view_pop = view_pop
         route_change(page.route)
+
     except Exception as e:
         import traceback
         error_text = traceback.format_exc()
