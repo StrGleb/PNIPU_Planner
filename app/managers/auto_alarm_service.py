@@ -1,15 +1,9 @@
 import datetime
 import logging
-import threading
-from time import sleep
 
 from bridges.planner_bridge import (
-    can_recheck_alarm_now,
-    collect_alarm_indices_for_target_date_sorted,
     collect_alarm_indices_on_or_after_date,
-    find_lesson_index_for_date_time_subject,
     compute_buffered_alarm_minutes,
-    is_alarm_within_recheck_window,
     normalize_duration_minutes,
     select_next_lesson_index,
     time_to_minutes,
@@ -23,7 +17,6 @@ from utils.campus_locations import FACULTIES_COORDS
 
 logger = logging.getLogger(__name__)
 
-_ROUTE_RECHECK_COOLDOWN_MINUTES = 10
 _ALARM_BUFFER_MINUTES = 10
 _UPCOMING_HORIZON_DAYS = 60
 
@@ -38,17 +31,9 @@ class AutoAlarmService:
         self._alarm_manager = alarm_manager
         self._config_manager = config_manager
         self._planner_manager = planner_manager
-        self._thread: threading.Thread | None = None
 
     def start(self) -> None:
-        if self._thread and self._thread.is_alive():
-            return
-
-        if self._config_manager.config.auto_alarm_enabled:
-            self.sync_next_upcoming(force = False)
-
-        self._thread = threading.Thread(target = self._loop, daemon = True)
-        self._thread.start()
+        self._cleanup_expired_auto_alarms(datetime.datetime.now())
 
     def sync_tomorrow(self, force: bool = False) -> str:
         now = datetime.datetime.now()
@@ -102,72 +87,6 @@ class AutoAlarmService:
 
     def disable(self) -> None:
         self._alarm_manager.clear_auto_schedule_alarms()
-
-    def recheck_upcoming_alarm(self, now: datetime.datetime | None = None) -> str:
-        cfg = self._config_manager.config
-        if not cfg.auto_alarm_enabled:
-            return "disabled"
-
-        now = now or datetime.datetime.now()
-        today_text = now.strftime("%d.%m.%Y")
-        alarms = self._alarm_manager.get_auto_schedule_alarms()
-        indices = collect_alarm_indices_for_target_date_sorted(
-            [alarm.target_date for alarm in alarms],
-            [1 if alarm.enabled else 0 for alarm in alarms],
-            [alarm.hour * 60 + alarm.minute for alarm in alarms],
-            today_text,
-        )
-        if not indices:
-            return "no_alarm_today"
-
-        alarm = alarms[indices[0]]
-        if not is_alarm_within_recheck_window(
-            alarm.hour,
-            alarm.minute,
-            now.hour,
-            now.minute,
-            cfg.auto_alarm_recheck_lead_minutes,
-        ):
-            return "outside_recheck_window"
-
-        if not self._can_recheck_again(alarm, now):
-            return "cooldown"
-
-        lesson = self._find_alarm_lesson(alarm)
-        if lesson is None:
-            return "lesson_missing"
-
-        live_travel_minutes = self._resolve_travel_minutes(lesson, allow_live = True)
-        if live_travel_minutes <= 0:
-            alarm.rechecked_at = now.strftime("%d.%m.%Y %H:%M")
-            self._alarm_manager.update_alarm_instance(alarm)
-            return "live_route_unavailable"
-
-        was_shifted = False
-        if live_travel_minutes > alarm.route_minutes:
-            alarm_minutes = alarm.hour * 60 + alarm.minute
-            delta = live_travel_minutes - alarm.route_minutes
-            new_alarm_minutes = alarm_minutes - delta
-            while new_alarm_minutes < 0:
-                new_alarm_minutes += 24 * 60
-            alarm.hour = new_alarm_minutes // 60
-            alarm.minute = new_alarm_minutes % 60
-            alarm.route_minutes = live_travel_minutes
-            was_shifted = True
-
-        alarm.rechecked_at = now.strftime("%d.%m.%Y %H:%M")
-        self._alarm_manager.update_alarm_instance(alarm)
-        return "shifted" if was_shifted else "checked"
-
-    def _loop(self) -> None:
-        while True:
-            try:
-                now = datetime.datetime.now()
-                self._cleanup_expired_auto_alarms(now.date())
-                self.recheck_upcoming_alarm(now)
-            except Exception:
-                logger.exception("Auto alarm loop failed")
-            sleep(30)
 
     def _select_next_candidate(
         self,
@@ -223,46 +142,32 @@ class AutoAlarmService:
             entry_type = lesson.entry_type,
         )
 
-    def _find_alarm_lesson(self, alarm: Alarm) -> Lesson | None:
-        if not alarm.target_date:
-            return None
-
-        lessons = self._planner_manager.get_all_lessons()
-        lesson_start_minutes = time_to_minutes(alarm.lesson_time)
-        if lesson_start_minutes < 0:
-            return None
-
-        selected_index = find_lesson_index_for_date_time_subject(
-            [lesson.date_str for lesson in lessons],
-            [time_to_minutes(lesson.time_start) for lesson in lessons],
-            [lesson.subject for lesson in lessons],
-            alarm.target_date,
-            lesson_start_minutes,
-            alarm.subject,
-        )
-        if selected_index < 0:
-            return None
-        return lessons[selected_index]
-
-    def _cleanup_expired_auto_alarms(self, today: datetime.date) -> None:
+    def _cleanup_expired_auto_alarms(self, now: datetime.datetime) -> None:
         auto_alarms = self._alarm_manager.get_auto_schedule_alarms()
         if not auto_alarms:
             return
 
         indices = collect_alarm_indices_on_or_after_date(
             [alarm.target_date for alarm in auto_alarms],
-            today,
+            now.date(),
         )
-        if len(indices) != len(auto_alarms):
-            valid_alarms = [auto_alarms[index] for index in indices]
-            self._alarm_manager.replace_auto_schedule_alarms(valid_alarms)
+        valid_alarms = [auto_alarms[index] for index in indices]
+        still_upcoming: list[Alarm] = []
+        for alarm in valid_alarms:
+            if not alarm.target_date:
+                continue
+            try:
+                alarm_datetime = datetime.datetime.strptime(alarm.target_date, "%d.%m.%Y").replace(
+                    hour = alarm.hour,
+                    minute = alarm.minute,
+                )
+            except ValueError:
+                continue
+            if alarm_datetime >= now:
+                still_upcoming.append(alarm)
 
-    def _can_recheck_again(self, alarm: Alarm, now: datetime.datetime) -> bool:
-        return can_recheck_alarm_now(
-            alarm.rechecked_at,
-            now,
-            _ROUTE_RECHECK_COOLDOWN_MINUTES,
-        )
+        if len(still_upcoming) != len(auto_alarms):
+            self._alarm_manager.replace_auto_schedule_alarms(still_upcoming)
 
     def _resolve_travel_minutes(self, lesson: Lesson, allow_live: bool) -> int:
         cfg = self._config_manager.config

@@ -122,7 +122,7 @@ def main(page: ft.Page):
         def build_home_root():
             return build_home_view(
                 navigation_bar = create_navigation_bar(index = 0),
-                user_name = config_manager.config.user_name or "Student",
+                user_name = config_manager.config.user_name or "Студент",
                 tasks_manager = tasks_manager,
                 config_manager = config_manager,
             )
@@ -216,6 +216,7 @@ def main(page: ft.Page):
                         config_manager = config_manager,
                         schedule_manager = schedule_manager,
                         planner_manager = planner_manager,
+                        auto_alarm_service = auto_alarm_service,
                         tasks_manager = tasks_manager,
                         page = page,
                         on_schedule_changed = refresh_home_view,
