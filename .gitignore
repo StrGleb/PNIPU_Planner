@@ -60,9 +60,6 @@ local.properties
 # Build outputs
 build/
 app/build/*
-!app/build/apk/
-app/build/apk/*
-!app/build/apk/*.apk
 *.aab
 *.apks
 *.sha1
