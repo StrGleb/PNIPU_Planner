@@ -14,6 +14,7 @@ WEEK_NAMES = {
 }
 SOURCE_MANUAL = "manual"
 SOURCE_AUTO_SCHEDULE = "auto_schedule"
+SOURCE_WEEK_SCHEDULE = "week_schedule"
 
 
 @dataclass
@@ -40,7 +41,12 @@ class Alarm:
     @property
     def days_label(self) -> str:
         if self.target_date:
-            prefix = "Авто" if self.source == SOURCE_AUTO_SCHEDULE else "Разово"
+            if self.source == SOURCE_AUTO_SCHEDULE:
+                prefix = "Авто"
+            elif self.source == SOURCE_WEEK_SCHEDULE:
+                prefix = "Неделя"
+            else:
+                prefix = "Разово"
             suffix_parts = []
             if self.lesson_time:
                 entry_label = "событие" if self.entry_type == "event" else "пара"

@@ -19,14 +19,6 @@ class UserConfig:
     auto_alarm_refresh_hour: int = 21
     auto_alarm_recheck_lead_minutes: int = 60
 
-    @property
-    def has_car(self) -> bool:
-        return self.transport_type == "driving"
-
-    @has_car.setter
-    def has_car(self, value: bool) -> None:
-        self.transport_type = "driving" if bool(value) else "public_transport"
-
     def to_dict(self) -> dict:
         return {
             "theme": self.theme,
@@ -35,7 +27,6 @@ class UserConfig:
             "user_address": self.user_address,
             "user_faculty": self.user_faculty,
             "transport_type": self.transport_type,
-            "has_car": self.has_car,
             "semester_start": self.semester_start,
             "first_week_even": self.first_week_even,
             "travel_time": self.travel_time,
@@ -48,7 +39,7 @@ class UserConfig:
     def from_dict(cls, d: dict) -> "UserConfig":
         transport_type = str(d.get("transport_type", "")).strip()
         if transport_type not in VALID_TRANSPORT_TYPES:
-            transport_type = "driving" if bool(d.get("has_car", False)) else "public_transport"
+            return
 
         return cls(
             theme = d.get("theme", "system"),

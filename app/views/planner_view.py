@@ -212,8 +212,8 @@ def build_planner_view(
 
     def open_add_dialog(e = None):
         date_field = ft.TextField(label = "Дата ДД.ММ.ГГГГ", value = active_date().strftime("%d.%m.%Y"))
-        start_field = ft.TextField(label = "Начало ЧЧ:ММ", width = 130)
-        end_field = ft.TextField(label = "Конец ЧЧ:ММ", width = 130)
+        start_field = ft.TextField(label = "Начало ЧЧ:ММ", expand = True)
+        end_field = ft.TextField(label = "Конец ЧЧ:ММ", expand = True)
         subject_field = ft.TextField(label = "Название события")
         description_field = ft.TextField(label = "Описание", multiline = True, min_lines = 2, max_lines = 4)
         address_field = ft.TextField(label = "Адрес")

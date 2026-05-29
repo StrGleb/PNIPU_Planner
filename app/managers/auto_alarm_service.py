@@ -11,7 +11,7 @@ from bridges.planner_bridge import (
 from managers.alarm_manager import AlarmManager
 from managers.config_manager import ConfigManager
 from managers.planner_manager import PlannerManager
-from models.alarm_model import Alarm, SOURCE_AUTO_SCHEDULE
+from models.alarm_model import Alarm, SOURCE_AUTO_SCHEDULE, WEEK_ANY
 from models.lesson_model import ENTRY_TYPE_EVENT, Lesson
 from utils.campus_locations import FACULTIES_COORDS
 
@@ -39,6 +39,65 @@ class AutoAlarmService:
         now = datetime.datetime.now()
         tomorrow = datetime.datetime.combine(now.date() + datetime.timedelta(days = 1), datetime.time.min)
         return self.sync_next_upcoming(force = force, from_datetime = tomorrow)
+
+    def sync_week_ahead(self) -> tuple[str, int]:
+        """
+        Генерирует авто-будильники для всех занятий на ближайшие 7 дней.
+        Использует сохранённое время в пути (без live API-вызовов).
+        """
+        cfg = self._config_manager.config
+        if cfg.get_together_time <= 0:
+            return "missing_prep", 0
+
+        travel_minutes = normalize_duration_minutes(cfg.travel_time)
+        if travel_minutes <= 0:
+            return "route_unavailable", 0
+
+        now = datetime.datetime.now()
+        cutoff = now.date() + datetime.timedelta(days = 7)
+        now_minutes = now.hour * 60 + now.minute
+
+        lessons = self._planner_manager.get_all_lessons()
+        if not lessons:
+            return "no_upcoming_entries", 0
+
+        upcoming: list[Lesson] = []
+        for lesson in lessons:
+            if lesson.date < now.date() or lesson.date > cutoff:
+                continue
+            if lesson.date == now.date() and time_to_minutes(lesson.time_start) <= now_minutes:
+                continue
+            upcoming.append(lesson)
+
+        if not upcoming:
+            return "no_upcoming_entries", 0
+
+        count = 0
+        for lesson in upcoming:
+            lesson_minutes = time_to_minutes(lesson.time_start)
+            if lesson_minutes < 0:
+                continue
+
+            alarm_minutes = compute_buffered_alarm_minutes(
+                lesson_minutes,
+                cfg.get_together_time,
+                travel_minutes,
+                _ALARM_BUFFER_MINUTES,
+            )
+
+            self._alarm_manager.add(
+                Alarm(
+                    hour = alarm_minutes // 60,
+                    minute = alarm_minutes % 60,
+                    days = [],
+                    week_type = WEEK_ANY,
+                    target_date = lesson.date.strftime("%d.%m.%Y"),
+                )
+            )
+            count += 1
+
+        return "scheduled", count
+    
 
     def sync_next_upcoming(
         self,
@@ -113,6 +172,7 @@ class AutoAlarmService:
         target_date: datetime.date,
         lesson: Lesson,
         allow_live: bool,
+        source: str = SOURCE_AUTO_SCHEDULE,
     ) -> Alarm | None:
         cfg = self._config_manager.config
         lesson_minutes = time_to_minutes(lesson.time_start)
@@ -133,7 +193,7 @@ class AutoAlarmService:
         return Alarm(
             hour = alarm_minutes // 60,
             minute = alarm_minutes % 60,
-            source = SOURCE_AUTO_SCHEDULE,
+            source = source,
             target_date = target_date.strftime("%d.%m.%Y"),
             lesson_time = lesson.time_start,
             route_minutes = travel_minutes,
@@ -228,7 +288,7 @@ class AutoAlarmService:
 
         transport = str(getattr(cfg, "transport_type", "")).strip()
         if transport not in {"driving", "public_transport", "pedestrian"}:
-            transport = "driving" if getattr(cfg, "has_car", False) else "public_transport"
+            return
         route = get_route(start, end, transport)
         if not route:
             return None

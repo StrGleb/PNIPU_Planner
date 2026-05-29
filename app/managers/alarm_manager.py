@@ -14,7 +14,7 @@ from bridges.planner_bridge import (
     days_to_mask,
     week_type_code,
 )
-from models.alarm_model import Alarm
+from models.alarm_model import Alarm, SOURCE_WEEK_SCHEDULE
 
 
 def _storage_path() -> pathlib.Path:
@@ -50,6 +50,7 @@ class AlarmManager:
             return []
 
     def _save(self) -> None:
+        """ Сохранение файла alarm.json для будильников """
         with open(self._path, "w", encoding = "utf-8") as file:
             json.dump(
                 {"version": 1, "alarms": [alarm.to_dict() for alarm in self.alarms]},
@@ -68,12 +69,14 @@ class AlarmManager:
         return native_build_next_one_time_target_date(hour, minute, current)
 
     def add(self, alarm: Alarm) -> None:
+        """ Добавление будильника """
         with self._lock:
             self.alarms.append(alarm)
             self.alarms.sort(key = lambda item: (item.hour, item.minute))
         self._save()
 
     def remove(self, alarm_id: str) -> None:
+        """ Уаделение будильника """
         with self._lock:
             self.alarms = [alarm for alarm in self.alarms if alarm.id != alarm_id]
         self._save()
@@ -98,6 +101,7 @@ class AlarmManager:
         week_type: str,
         target_date: str = "",
     ) -> None:
+        """ Изменение уже существующего будильника """
         with self._lock:
             for alarm in self.alarms:
                 if alarm.id != alarm_id:
@@ -120,6 +124,16 @@ class AlarmManager:
 
     def clear_auto_schedule_alarms(self) -> None:
         self.replace_auto_schedule_alarms([])
+
+    def replace_week_schedule_alarms(self, alarms: list[Alarm]) -> None:
+        with self._lock:
+            other_alarms = [alarm for alarm in self.alarms if alarm.source != SOURCE_WEEK_SCHEDULE]
+            self.alarms = other_alarms + list(alarms)
+            self.alarms.sort(key = lambda item: (item.hour, item.minute))
+        self._save()
+
+    def clear_week_schedule_alarms(self) -> None:
+        self.replace_week_schedule_alarms([])
 
     def get_auto_schedule_alarms(self) -> list[Alarm]:
         with self._lock:
