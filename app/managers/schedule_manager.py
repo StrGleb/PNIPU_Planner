@@ -84,7 +84,7 @@ class ScheduleManager:
         try:
             return datetime.datetime.strptime(str(value).strip(), "%d.%m.%Y").date()
         except Exception:
-            return None
+            return
 
     def merge_template(self, template: ScheduleTemplate) -> None:
         start_date = self._parse_template_start(template)

@@ -82,6 +82,8 @@ def build_planner_view(
                 asyncio.create_task(result)
             except RuntimeError:
                 pass
+            except Exception as e:
+                ...
 
     def sync_auto_alarm():
         try:

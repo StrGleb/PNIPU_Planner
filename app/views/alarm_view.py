@@ -151,6 +151,7 @@ def build_alarm_view(
             keyboard_type = ft.KeyboardType.NUMBER,
             width = 110,
         )
+
         minute_field = ft.TextField(
             label = "Минута (0-59)",
             value = str(existing.minute) if is_edit else "",
@@ -316,12 +317,12 @@ def build_alarm_view(
         try:
             user_address_coordinates = tuple(reversed(list(get_coordinates_by_address(user_address))))
         except Exception as e:
-            ...
+            logger.error(f"Не удалеось получить координаты пользователя: {e}")
         faculty_name = cfg.user_faculty
         try:
             faculty_address_coordinates = tuple(FACULTIES_COORDS[faculty_name])
         except Exception:
-            ...
+            logger.error(f"Не удалеось получить координаты факультета: {e}")
         transport_type = cfg.transport_type
 
         try:

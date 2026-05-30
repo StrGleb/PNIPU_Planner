@@ -261,7 +261,7 @@ class AutoAlarmService:
             from utils.route_utis import get_route
         except Exception:
             logger.exception("Route utilities are unavailable")
-            return None
+            return
 
         address_query = user_address
         if "перм" not in address_query.lower():
@@ -269,7 +269,7 @@ class AutoAlarmService:
 
         coordinates = get_coordinates_by_address(address_query)
         if not coordinates:
-            return None
+            return
 
         start = (coordinates[1], coordinates[0])
 

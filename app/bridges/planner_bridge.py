@@ -550,6 +550,7 @@ def is_week_even(
     semester_start: str,
     first_week_even: bool,
 ) -> bool:
+    """ Если неделя чётная -> True """
     try:
         start = datetime.datetime.strptime(semester_start, "%d.%m.%Y").date()
     except Exception:
