@@ -11,10 +11,11 @@ from bridges.planner_bridge import is_week_even
 from managers.alarm_manager import AlarmManager
 from managers.auto_alarm_service import AutoAlarmService
 from managers.config_manager import ConfigManager
-from managers.notification_manager import start_daily_checker
+from managers.notification_manager import send_notification, start_daily_checker
 from managers.planner_manager import PlannerManager
 from managers.schedule_manager import ScheduleManager
 from managers.tasks_manager import TasksManager
+from models.alarm_model import ALARM_KIND_REMINDER
 from views.alarm_view import build_alarm_view
 from views.home_view import build_home_view
 from views.planner_view import build_planner_view
@@ -83,10 +84,30 @@ def main(page: ft.Page):
             )
         )
 
+        def describe_alarm(alarm) -> tuple[str, str]:
+            if alarm.is_auto_schedule and alarm.alarm_kind == ALARM_KIND_REMINDER:
+                title = "Напоминание о событии"
+                message = f"Сегодня в {alarm.lesson_time} — {alarm.subject or 'событие'}."
+                if alarm.destination:
+                    message += f"\nМесто: {alarm.destination}"
+                return title, message
+
+            if alarm.is_auto_schedule:
+                title = "Пора собираться"
+                message = f"{alarm.subject or 'Ближайшее событие'} в {alarm.lesson_time}."
+                if alarm.route_minutes > 0:
+                    message += f"\nДорога: примерно {alarm.route_minutes} мин."
+                if alarm.destination:
+                    message += f"\nКуда: {alarm.destination}"
+                return title, message
+
+            return "Будильник", f"Сработал будильник на {alarm.label}."
+
         def global_alarm_callback(alarm):
+            title, message = describe_alarm(alarm)
             snack = ft.SnackBar(
                 content = ft.Text(
-                    f"Alarm fired: {alarm.label}!",
+                    title,
                     size = 18,
                     weight = ft.FontWeight.BOLD,
                 ),
@@ -96,6 +117,7 @@ def main(page: ft.Page):
             page.overlay.append(snack)
             snack.open = True
             page.update()
+            send_notification(title, message)
             if alarm.is_auto_schedule:
                 auto_alarm_service.handle_alarm_triggered(alarm)
 
@@ -122,7 +144,7 @@ def main(page: ft.Page):
         def build_home_root():
             return build_home_view(
                 navigation_bar = create_navigation_bar(index = 0),
-                user_name = config_manager.config.user_name or "Student",
+                user_name = config_manager.config.user_name or "Студент",
                 tasks_manager = tasks_manager,
                 config_manager = config_manager,
             )
@@ -216,6 +238,7 @@ def main(page: ft.Page):
                         config_manager = config_manager,
                         schedule_manager = schedule_manager,
                         planner_manager = planner_manager,
+                        auto_alarm_service = auto_alarm_service,
                         tasks_manager = tasks_manager,
                         page = page,
                         on_schedule_changed = refresh_home_view,

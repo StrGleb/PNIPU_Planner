@@ -4,6 +4,19 @@ from dataclasses import dataclass, field
 
 ENTRY_TYPE_LESSON = "lesson"
 ENTRY_TYPE_EVENT = "event"
+DEFAULT_EVENT_REMINDER_LEAD_MINUTES = 90
+VALID_EVENT_REMINDER_LEAD_MINUTES = {60, 90}
+
+
+def normalize_event_reminder_lead_minutes(value: int | str) -> int:
+    try:
+        lead_minutes = int(value)
+    except (TypeError, ValueError):
+        lead_minutes = DEFAULT_EVENT_REMINDER_LEAD_MINUTES
+
+    if lead_minutes not in VALID_EVENT_REMINDER_LEAD_MINUTES:
+        return DEFAULT_EVENT_REMINDER_LEAD_MINUTES
+    return lead_minutes
 
 
 @dataclass
@@ -18,6 +31,8 @@ class Lesson:
     building: str = ""
     description: str = ""
     address: str = ""
+    reminder_enabled: bool = False
+    reminder_lead_minutes: int = DEFAULT_EVENT_REMINDER_LEAD_MINUTES
     entry_type: str = ENTRY_TYPE_LESSON
     is_custom: bool = False
     homeworks: list[str] = field(default_factory = list)
@@ -81,6 +96,8 @@ class Lesson:
             "building": self.building,
             "description": self.description,
             "address": self.address,
+            "reminder_enabled": self.reminder_enabled,
+            "reminder_lead_minutes": normalize_event_reminder_lead_minutes(self.reminder_lead_minutes),
             "entry_type": self.entry_type,
             "is_custom": self.is_custom,
         }
@@ -99,6 +116,10 @@ class Lesson:
             building = str(data.get("building", "")).strip(),
             description = str(data.get("description", "")).strip(),
             address = str(data.get("address", "")).strip(),
+            reminder_enabled = bool(data.get("reminder_enabled", False)),
+            reminder_lead_minutes = normalize_event_reminder_lead_minutes(
+                data.get("reminder_lead_minutes", DEFAULT_EVENT_REMINDER_LEAD_MINUTES)
+            ),
             entry_type = str(data.get("entry_type", ENTRY_TYPE_LESSON)).strip() or ENTRY_TYPE_LESSON,
             is_custom = bool(data.get("is_custom", False)),
         )

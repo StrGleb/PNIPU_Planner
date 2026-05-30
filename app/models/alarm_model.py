@@ -14,6 +14,9 @@ WEEK_NAMES = {
 }
 SOURCE_MANUAL = "manual"
 SOURCE_AUTO_SCHEDULE = "auto_schedule"
+SOURCE_WEEK_SCHEDULE = "week_schedule"
+ALARM_KIND_ROUTE = "route"
+ALARM_KIND_REMINDER = "reminder"
 
 
 @dataclass
@@ -32,6 +35,8 @@ class Alarm:
     subject: str = ""
     destination: str = ""
     entry_type: str = ""
+    alarm_kind: str = ALARM_KIND_ROUTE
+    lead_minutes: int = 0
 
     @property
     def label(self) -> str:
@@ -40,13 +45,22 @@ class Alarm:
     @property
     def days_label(self) -> str:
         if self.target_date:
-            prefix = "Авто" if self.source == SOURCE_AUTO_SCHEDULE else "Разово"
+            if self.source == SOURCE_AUTO_SCHEDULE:
+                prefix = "Авто"
+            elif self.source == SOURCE_WEEK_SCHEDULE:
+                prefix = "Неделя"
+            else:
+                prefix = "Разово"
+
             suffix_parts = []
             if self.lesson_time:
                 entry_label = "событие" if self.entry_type == "event" else "пара"
                 suffix_parts.append(f"{entry_label} {self.lesson_time}")
+            if self.is_reminder and self.lead_minutes > 0:
+                suffix_parts.append(f"напоминание за {self.lead_minutes} мин")
             if self.subject:
                 suffix_parts.append(self.subject)
+
             suffix = f" · {' · '.join(suffix_parts)}" if suffix_parts else ""
             return f"{prefix} · {self.target_date}{suffix}"
 
@@ -63,6 +77,10 @@ class Alarm:
     @property
     def is_one_time_manual(self) -> bool:
         return self.source == SOURCE_MANUAL and bool(self.target_date)
+
+    @property
+    def is_reminder(self) -> bool:
+        return self.alarm_kind == ALARM_KIND_REMINDER
 
     def matches_now(self, now: datetime, is_even_week: bool) -> bool:
         if not self.enabled:
@@ -95,6 +113,8 @@ class Alarm:
             "subject": self.subject,
             "destination": self.destination,
             "entry_type": self.entry_type,
+            "alarm_kind": self.alarm_kind,
+            "lead_minutes": self.lead_minutes,
         }
 
     @classmethod
@@ -114,4 +134,6 @@ class Alarm:
             subject = str(data.get("subject", "")),
             destination = str(data.get("destination", "")),
             entry_type = str(data.get("entry_type", "")),
+            alarm_kind = str(data.get("alarm_kind", ALARM_KIND_ROUTE)) or ALARM_KIND_ROUTE,
+            lead_minutes = int(data.get("lead_minutes", 0)),
         )

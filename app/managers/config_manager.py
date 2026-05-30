@@ -41,11 +41,10 @@ class ConfigManager:
         except Exception:
             return self._sanitize(UserConfig())
 
-    def _sanitize_transport_type(self, value: str, fallback_has_car: bool = False) -> str:
+    def _sanitize_transport_type(self, value: str) -> str:
         normalized = str(value).strip()
         if normalized in VALID_TRANSPORT_TYPES:
             return normalized
-        return "driving" if fallback_has_car else "public_transport"
 
     def _sanitize(self, config: UserConfig) -> UserConfig:
         defaults = UserConfig()
@@ -60,7 +59,6 @@ class ConfigManager:
         user_faculty = str(getattr(config, "user_faculty", defaults.user_faculty)).strip() or defaults.user_faculty
         transport_type = self._sanitize_transport_type(
             getattr(config, "transport_type", ""),
-            fallback_has_car = bool(getattr(config, "has_car", False)),
         )
 
         return UserConfig(
@@ -104,7 +102,7 @@ class ConfigManager:
         self.save()
 
     def set_transport_type(self, value: str) -> None:
-        self.config.transport_type = self._sanitize_transport_type(value, fallback_has_car = self.config.has_car)
+        self.config.transport_type = self._sanitize_transport_type(value)
         self.save()
 
     def set_has_car(self, value: bool) -> None:

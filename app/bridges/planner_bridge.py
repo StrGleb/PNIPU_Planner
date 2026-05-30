@@ -5,13 +5,7 @@ import platform
 import sys
 from pathlib import Path
 
-
-_NATIVE_BIN_DIR = (
-    Path(__file__).resolve().parent / ".." / "native" / "jniLibs" / "arm64-v8a"
-).resolve()
-
-if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
-    os.add_dll_directory(str(_NATIVE_BIN_DIR))
+_NATIVE_LIB_ROOT = (Path(__file__).resolve().parent / ".." / "native" / "jniLibs").resolve()
 
 
 def _candidate_library_names() -> list[str]:
@@ -44,6 +38,19 @@ def _android_abi_hints() -> list[str]:
     return list(dict.fromkeys(ordered_hints))
 
 
+def _candidate_native_dirs() -> list[Path]:
+    candidate_dirs = [(_NATIVE_LIB_ROOT / abi).resolve() for abi in _android_abi_hints()]
+    return [directory for directory in dict.fromkeys(candidate_dirs) if directory.exists()]
+
+
+_NATIVE_SEARCH_DIRS = _candidate_native_dirs()
+_NATIVE_BIN_DIR = _NATIVE_SEARCH_DIRS[0] if _NATIVE_SEARCH_DIRS else (_NATIVE_LIB_ROOT / "arm64-v8a").resolve()
+
+if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
+    for native_dir in _NATIVE_SEARCH_DIRS:
+        os.add_dll_directory(str(native_dir))
+
+
 def _candidate_library_refs() -> list[str]:
     names = _candidate_library_names()
     refs: list[str] = []
@@ -51,7 +58,8 @@ def _candidate_library_refs() -> list[str]:
     if hasattr(sys, "getandroidapilevel"):
         refs.extend(names)
 
-    refs.extend(str((_NATIVE_BIN_DIR / name).resolve()) for name in names)
+    for native_dir in _NATIVE_SEARCH_DIRS or [_NATIVE_BIN_DIR]:
+        refs.extend(str((native_dir / name).resolve()) for name in names)
 
     return list(dict.fromkeys(refs))
 
@@ -59,15 +67,16 @@ def _candidate_library_refs() -> list[str]:
 def _load_native_library():
     errors: list[str] = []
 
-    cpp_shared = _NATIVE_BIN_DIR / "libc++_shared.so"
-    if cpp_shared.exists():
-        try:
-            ctypes.CDLL(str(cpp_shared))
-            errors.append(f"Loaded dependency: {cpp_shared}")
-        except OSError as error:
-            errors.append(f"Failed to load dependency {cpp_shared}: {error}")
-    else:
-        errors.append(f"Dependency not found: {cpp_shared}")
+    if sys.platform != "win32":
+        cpp_shared = _NATIVE_BIN_DIR / "libc++_shared.so"
+        if cpp_shared.exists():
+            try:
+                ctypes.CDLL(str(cpp_shared))
+                errors.append(f"Loaded dependency: {cpp_shared}")
+            except OSError as error:
+                errors.append(f"Failed to load dependency {cpp_shared}: {error}")
+        else:
+            errors.append(f"Dependency not found: {cpp_shared}")
 
     for reference in _candidate_library_refs():
         try:
@@ -130,6 +139,7 @@ _NATIVE_SIGNATURES: dict[str, tuple[list[object], object]] = {
     ),
     "compute_rating_value": ([ctypes.c_int, ctypes.c_int], ctypes.c_float),
     "is_valid_date_text": ([ctypes.c_char_p], ctypes.c_int),
+    "parse_date_text_yyyymmdd": ([ctypes.c_char_p], ctypes.c_int),
     "normalize_priority": ([ctypes.c_int], ctypes.c_int),
     "theme_mode_code": ([ctypes.c_char_p], ctypes.c_int),
     "sort_indices_by_int_desc": (
@@ -225,9 +235,28 @@ _NATIVE_SIGNATURES: dict[str, tuple[list[object], object]] = {
             ctypes.c_int,
             ctypes.c_int,
             ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_char_p,
         ],
         ctypes.c_int,
     ),
+    "derive_schedule_template_end_yyyymmdd": (
+        [
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_char_p,
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.c_int,
+        ],
+        ctypes.c_int,
+    ),
+    "is_session_schedule": ([ctypes.c_char_p, ctypes.c_char_p], ctypes.c_int),
     "select_next_lesson_index": (
         [
             ctypes.POINTER(ctypes.c_char_p),
@@ -263,6 +292,21 @@ _NATIVE_SIGNATURES: dict[str, tuple[list[object], object]] = {
             ctypes.POINTER(ctypes.c_int),
             ctypes.c_int,
             ctypes.c_char_p,
+            ctypes.POINTER(ctypes.c_int),
+        ],
+        ctypes.c_int,
+    ),
+    "collect_date_text_indices_in_range_sorted": (
+        [
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
             ctypes.POINTER(ctypes.c_int),
         ],
         ctypes.c_int,
@@ -582,6 +626,17 @@ def is_valid_date_text(value: str) -> bool:
     return bool(native_function(value.encode("utf-8")))
 
 
+def parse_date_text_to_date(value: str) -> datetime.date | None:
+    if not isinstance(value, str):
+        return None
+
+    native_function = _require_native_function("parse_date_text_yyyymmdd")
+    encoded = int(native_function(value.encode("utf-8")))
+    if encoded <= 0:
+        return None
+    return _decode_yyyymmdd_date(encoded)
+
+
 def normalize_priority(priority: int) -> int:
     native_function = _require_native_function("normalize_priority")
     return int(native_function(int(priority)))
@@ -826,6 +881,8 @@ def select_active_template_index(
 def derive_schedule_period_end_date(
     start_date: datetime.date,
     next_start: datetime.date | None,
+    template_title: str = "",
+    schedule_type: str = "weekly",
 ) -> datetime.date:
     native_function = _require_native_function("derive_schedule_period_end_yyyymmdd")
     encoded = int(
@@ -837,9 +894,48 @@ def derive_schedule_period_end_date(
             next_start.day if next_start else 0,
             next_start.month if next_start else 0,
             next_start.year if next_start else 0,
+            str(template_title).encode("utf-8"),
+            str(schedule_type).encode("utf-8"),
         )
     )
     return _decode_yyyymmdd_date(encoded)
+
+
+def derive_schedule_template_end_date(
+    start_date: datetime.date,
+    next_start: datetime.date | None,
+    template_title: str = "",
+    schedule_type: str = "weekly",
+    dated_date_texts: list[str] | None = None,
+) -> datetime.date:
+    native_function = _require_native_function("derive_schedule_template_end_yyyymmdd")
+    date_values = _encode_text_values(dated_date_texts or [])
+    encoded = int(
+        native_function(
+            start_date.day,
+            start_date.month,
+            start_date.year,
+            int(next_start is not None),
+            next_start.day if next_start else 0,
+            next_start.month if next_start else 0,
+            next_start.year if next_start else 0,
+            str(template_title).encode("utf-8"),
+            str(schedule_type).encode("utf-8"),
+            date_values,
+            len(dated_date_texts or []),
+        )
+    )
+    return _decode_yyyymmdd_date(encoded)
+
+
+def is_session_schedule_template(schedule_type: str, template_title: str = "") -> bool:
+    native_function = _require_native_function("is_session_schedule")
+    return bool(
+        native_function(
+            str(schedule_type).encode("utf-8"),
+            str(template_title).encode("utf-8"),
+        )
+    )
 
 
 def select_next_lesson_index(
@@ -923,6 +1019,40 @@ def collect_lesson_indices_for_date_sorted(
         minute_values,
         count,
         expected_date.encode("utf-8"),
+        output_indices,
+    )
+    return list(output_indices[:matched_count])
+
+
+def collect_date_text_indices_in_range_sorted(
+    date_strings: list[str],
+    start_minutes: list[int],
+    start_date: datetime.date,
+    end_date: datetime.date,
+) -> list[int]:
+    if (
+        not date_strings
+        or not start_minutes
+        or len(date_strings) != len(start_minutes)
+        or end_date < start_date
+    ):
+        return []
+
+    native_function = _require_native_function("collect_date_text_indices_in_range_sorted")
+    count = len(date_strings)
+    date_values = _encode_text_values(date_strings)
+    minute_values = (ctypes.c_int * count)(*start_minutes)
+    output_indices = (ctypes.c_int * count)()
+    matched_count = native_function(
+        date_values,
+        minute_values,
+        count,
+        start_date.day,
+        start_date.month,
+        start_date.year,
+        end_date.day,
+        end_date.month,
+        end_date.year,
         output_indices,
     )
     return list(output_indices[:matched_count])

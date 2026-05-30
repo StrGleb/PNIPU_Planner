@@ -111,6 +111,15 @@ namespace
         return std::strcmp(lhs, rhs) == 0;
     }
 
+    bool contains_text(const char* text, const char* needle)
+    {
+        if (text == nullptr || needle == nullptr) {
+            return false;
+        }
+
+        return std::strstr(text, needle) != nullptr;
+    }
+
     bool parse_date_text(const char* text, int& day, int& month, int& year)
     {
         if (text == nullptr || std::strlen(text) != 10) {
@@ -204,6 +213,138 @@ namespace
         std::stable_sort(indices.begin(), indices.end(), [values](int lhs, int rhs) {
             return values[lhs] < values[rhs];
         });
+    }
+
+    int week_end_for_month_switch_days(
+        int anchor_days,
+        int month_switch_days
+    )
+    {
+        if (month_switch_days <= anchor_days) {
+            return month_switch_days - 1;
+        }
+
+        const int days_since_anchor = month_switch_days - anchor_days;
+        const int offset = days_since_anchor % 7;
+        if (offset == 0) {
+            return month_switch_days - 1;
+        }
+        return month_switch_days + (6 - offset);
+    }
+
+    bool is_session_schedule_text(
+        const char* schedule_type,
+        const char* template_title
+    )
+    {
+        if (equals_text(schedule_type, "session")) {
+            return true;
+        }
+
+        return contains_text(template_title, "СЃРµСЃСЃРё")
+            || contains_text(template_title, "СЌРєР·Р°Рј");
+    }
+
+    int derive_regular_schedule_end_days(
+        int start_day,
+        int start_month,
+        int start_year,
+        const char* template_title
+    )
+    {
+        const int start_days = days_from_civil(start_year, start_month, start_day);
+
+        if (contains_text(template_title, "РїРѕСЃР»Рµ СЃРјРµРЅС‹")) {
+            if (start_month >= 8) {
+                return days_from_civil(start_year, 12, 30);
+            }
+            return days_from_civil(start_year, 5, 31);
+        }
+
+        if (contains_text(template_title, "РґРѕ СЃРјРµРЅС‹")) {
+            if (start_month >= 8) {
+                return week_end_for_month_switch_days(
+                    start_days,
+                    days_from_civil(start_year, 11, 1)
+                );
+            }
+            return week_end_for_month_switch_days(
+                start_days,
+                days_from_civil(start_year, 4, 1)
+            );
+        }
+
+        if (start_month >= 8) {
+            if (start_month >= 11 || (start_month == 10 && start_day >= 25)) {
+                return days_from_civil(start_year, 12, 30);
+            }
+            return week_end_for_month_switch_days(
+                start_days,
+                days_from_civil(start_year, 11, 1)
+            );
+        }
+
+        if (start_month >= 4 || (start_month == 3 && start_day >= 25)) {
+            return days_from_civil(start_year, 5, 31);
+        }
+        return week_end_for_month_switch_days(
+            start_days,
+            days_from_civil(start_year, 4, 1)
+        );
+    }
+
+    int derive_schedule_end_days(
+        int start_day,
+        int start_month,
+        int start_year,
+        int has_next_start,
+        int next_start_day,
+        int next_start_month,
+        int next_start_year,
+        const char* template_title,
+        const char* schedule_type,
+        const char* const* dated_date_texts,
+        int dated_count
+    )
+    {
+        int end_days = 0;
+        if (is_session_schedule_text(schedule_type, template_title)) {
+            end_days = days_from_civil(start_year, start_month, start_day);
+            for (int i = 0; i < dated_count; ++i) {
+                int day = 0;
+                int month = 0;
+                int year = 0;
+                if (!parse_date_text(dated_date_texts[i], day, month, year)) {
+                    continue;
+                }
+
+                const int lesson_days = days_from_civil(year, month, day);
+                if (lesson_days > end_days) {
+                    end_days = lesson_days;
+                }
+            }
+        }
+        else {
+            end_days = derive_regular_schedule_end_days(
+                start_day,
+                start_month,
+                start_year,
+                template_title
+            );
+        }
+
+        if (has_next_start != 0) {
+            const int next_start_days = days_from_civil(
+                next_start_year,
+                next_start_month,
+                next_start_day
+            ) - 1;
+            if (next_start_days < end_days) {
+                end_days = next_start_days;
+            }
+        }
+
+        return end_days;
     }
 }
 
@@ -400,6 +541,18 @@ int is_valid_date_text(const char* text)
     int month = 0;
     int year = 0;
     return parse_date_text(text, day, month, year) ? 1 : 0;
+}
+
+int parse_date_text_yyyymmdd(const char* text)
+{
+    int day = 0;
+    int month = 0;
+    int year = 0;
+    if (!parse_date_text(text, day, month, year)) {
+        return 0;
+    }
+
+    return year * 10000 + month * 100 + day;
 }
 
 int normalize_priority(int priority)
@@ -769,24 +922,62 @@ int derive_schedule_period_end_yyyymmdd(
     int has_next_start,
     int next_start_day,
     int next_start_month,
-    int next_start_year
+    int next_start_year,
+    const char* template_title,
+    const char* schedule_type
 )
 {
-    int end_year = start_year;
-    int end_month = 0;
-    int end_day = 0;
+    const int start_days = days_from_civil(start_year, start_month, start_day);
+    int end_days = 0;
 
-    if (start_month >= 8) {
-        end_year = start_year + 1;
-        end_month = 1;
-        end_day = 31;
+    if (equals_text(schedule_type, "session")) {
+        end_days = start_days;
+    }
+    else if (contains_text(template_title, "после смены")) {
+        if (start_month >= 8) {
+            end_days = days_from_civil(start_year, 12, 30);
+        }
+        else {
+            end_days = days_from_civil(start_year, 5, 31);
+        }
+    }
+    else if (contains_text(template_title, "до смены")) {
+        if (start_month >= 8) {
+            end_days = week_end_for_month_switch_days(
+                start_days,
+                days_from_civil(start_year, 11, 1)
+            );
+        }
+        else {
+            end_days = week_end_for_month_switch_days(
+                start_days,
+                days_from_civil(start_year, 4, 1)
+            );
+        }
+    }
+    else if (start_month >= 8) {
+        if (start_month >= 11 || (start_month == 10 && start_day >= 25)) {
+            end_days = days_from_civil(start_year, 12, 30);
+        }
+        else {
+            end_days = week_end_for_month_switch_days(
+                start_days,
+                days_from_civil(start_year, 11, 1)
+            );
+        }
     }
     else {
-        end_month = 6;
-        end_day = 30;
+        if (start_month >= 4 || (start_month == 3 && start_day >= 25)) {
+            end_days = days_from_civil(start_year, 5, 31);
+        }
+        else {
+            end_days = week_end_for_month_switch_days(
+                start_days,
+                days_from_civil(start_year, 4, 1)
+            );
+        }
     }
 
-    int end_days = days_from_civil(end_year, end_month, end_day);
     if (has_next_start != 0) {
         int next_start_days = days_from_civil(next_start_year, next_start_month, next_start_day) - 1;
         if (next_start_days < end_days) {
@@ -794,8 +985,54 @@ int derive_schedule_period_end_yyyymmdd(
         }
     }
 
+    int end_year = 0;
+    int end_month = 0;
+    int end_day = 0;
     civil_from_days(end_days, end_year, end_month, end_day);
     return end_year * 10000 + end_month * 100 + end_day;
+}
+
+int derive_schedule_template_end_yyyymmdd(
+    int start_day,
+    int start_month,
+    int start_year,
+    int has_next_start,
+    int next_start_day,
+    int next_start_month,
+    int next_start_year,
+    const char* template_title,
+    const char* schedule_type,
+    const char* const* dated_date_texts,
+    int dated_count
+)
+{
+    const int end_days = derive_schedule_end_days(
+        start_day,
+        start_month,
+        start_year,
+        has_next_start,
+        next_start_day,
+        next_start_month,
+        next_start_year,
+        template_title,
+        schedule_type,
+        dated_date_texts,
+        dated_count
+    );
+
+    int end_year = 0;
+    int end_month = 0;
+    int end_day = 0;
+    civil_from_days(end_days, end_year, end_month, end_day);
+    return end_year * 10000 + end_month * 100 + end_day;
+}
+
+int is_session_schedule(
+    const char* schedule_type,
+    const char* template_title
+)
+{
+    return is_session_schedule_text(schedule_type, template_title) ? 1 : 0;
 }
 
 int select_next_lesson_index(
@@ -953,6 +1190,77 @@ int collect_lesson_indices_for_date_sorted(
     }
 
     return static_cast<int>(indices.size());
+}
+
+int collect_date_text_indices_in_range_sorted(
+    const char* const* date_strings,
+    const int* start_minutes,
+    int count,
+    int start_day,
+    int start_month,
+    int start_year,
+    int end_day,
+    int end_month,
+    int end_year,
+    int* out_indices
+)
+{
+    if (
+        count <= 0
+        || date_strings == nullptr
+        || start_minutes == nullptr
+        || out_indices == nullptr
+    ) {
+        return 0;
+    }
+
+    const int start_days = days_from_civil(start_year, start_month, start_day);
+    const int end_days = days_from_civil(end_year, end_month, end_day);
+    if (end_days < start_days) {
+        return 0;
+    }
+
+    struct DatedRangeIndex
+    {
+        int index;
+        int day_count;
+        int start_minute;
+    };
+
+    std::vector<DatedRangeIndex> matches;
+    matches.reserve(static_cast<std::size_t>(count));
+
+    for (int i = 0; i < count; ++i) {
+        int day = 0;
+        int month = 0;
+        int year = 0;
+        if (!parse_date_text(date_strings[i], day, month, year)) {
+            continue;
+        }
+
+        const int lesson_days = days_from_civil(year, month, day);
+        if (lesson_days < start_days || lesson_days > end_days) {
+            continue;
+        }
+
+        matches.push_back({i, lesson_days, start_minutes[i]});
+    }
+
+    std::stable_sort(matches.begin(), matches.end(), [](const DatedRangeIndex& lhs, const DatedRangeIndex& rhs) {
+        if (lhs.day_count != rhs.day_count) {
+            return lhs.day_count < rhs.day_count;
+        }
+        if (lhs.start_minute != rhs.start_minute) {
+            return lhs.start_minute < rhs.start_minute;
+        }
+        return lhs.index < rhs.index;
+    });
+
+    for (std::size_t i = 0; i < matches.size(); ++i) {
+        out_indices[i] = matches[i].index;
+    }
+
+    return static_cast<int>(matches.size());
 }
 
 int find_lesson_index_for_date_time_subject(

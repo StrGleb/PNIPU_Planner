@@ -1,7 +1,6 @@
 import pathlib
-
+import logging
 import flet as ft
-
 from bridges.planner_bridge import (
     has_native_schedule_parser,
     is_valid_date_text,
@@ -10,47 +9,14 @@ from bridges.planner_bridge import (
 )
 from managers.config_manager import ConfigManager
 from managers.planner_manager import PlannerManager
-from managers.schedule_manager import ScheduleManager, get_schedule_storage_path
 from managers.tasks_manager import TasksManager
+from managers.schedule_manager import ScheduleManager, get_schedule_storage_path
 from utils.campus_locations import FACULTIES
-import logging
-import datetime
-from managers.config_manager import ConfigManager
-from utils.excel_parser.parser_start_point import finally_excel_parser_algorithm
-from managers.planner_manager import PlannerManager
-from managers.schedule_manager import ScheduleManager
 
 logger = logging.getLogger(__name__)
 
 def normalize_duration_minutes(minutes: int) -> int:
     return max(0, minutes)
-
-FACULTIES = [
-    "ЭТФ - Электротехнический факультет", 
-    "ХТФ - Факультет химических технологий, промышленной экологии и биотехнологий", 
-    "АКФ - Аэрокосмический факультет", 
-    "Гуманитарный факультет", 
-    "МТФ - Механико-технологический факультет",
-    "Строительный факультет", 
-    "Прикладной математики и механики факультет",
-    "ГНФ - Горно-нефтяной факультет", 
-    "Автодорожный факультет",
-]
-
-TRANSPORT_TYPE = [
-    ft.DropdownOption(key = "public_transport", text = "Общественный транспорт"),
-    ft.DropdownOption(key = "driving", text = "Автомобиль"),
-    ft.DropdownOption(key = "pedestrian", text = "Пеший ход"),
-]
-
-THEME_OPTIONS = [
-    ft.DropdownOption(key = "system", text = "Системная"),
-    ft.DropdownOption(key = "light", text = "Светлая"),
-    ft.DropdownOption(key = "dark", text = "Тёмная"),
-]
-
-
-
 
 def build_settings_view(
     navigation_bar: ft.NavigationBar,
@@ -58,7 +24,9 @@ def build_settings_view(
     schedule_manager: ScheduleManager,
     planner_manager: PlannerManager,
     tasks_manager: TasksManager,
+    
     page: ft.Page,
+    auto_alarm_service = None,
     on_schedule_changed = None,
 ) -> ft.View:
     cfg = config_manager.config
@@ -77,23 +45,23 @@ def build_settings_view(
         page.snack_bar.open = True
         page.update()
 
+    def _refresh_auto_alarm_if_needed():
+        if auto_alarm_service is None or not config_manager.config.auto_alarm_enabled:
+            return
+        try:
+            auto_alarm_service.handle_planner_change()
+        except Exception:
+            ...
+
     def _show_message(text: str):
         page.snack_bar = ft.SnackBar(ft.Text(text))
         page.snack_bar.open = True
         page.update()
 
-    def on_theme_change(e):
-        config_manager.set_theme(e.control.value)
-        _apply_theme(e.control.value)
-
-    dd_theme = ft.Dropdown(value = cfg.theme, options = THEME_OPTIONS, width = 220)
-    dd_theme.on_change = on_theme_change
-    
-
     def _make_selector(
-        options: list[tuple[str, str]],  # [(key, label), ...]
+        options: list[tuple[str, str]],
         initial_key: str,
-        on_select,  # callback(key: str)
+        on_select,
         width: int = 280,
     ) -> ft.Container:
         """
@@ -112,6 +80,7 @@ def build_settings_view(
 
         selector_dialog = ft.AlertDialog(modal = True, title = ft.Text("Выберите значение"))
         page.overlay.append(selector_dialog)
+        selector_dialog.modal = False
 
         def pick(key: str):
             current_key[0] = key
@@ -170,12 +139,15 @@ def build_settings_view(
     )
 
     def on_time_blur(e):
+        previous_value = config_manager.config.get_together_time
         try:
             value = int(e.control.value)
             config_manager.set_get_together_time(normalize_duration_minutes(value))
         except ValueError:
             pass
         e.control.value = str(config_manager.config.get_together_time)
+        if config_manager.config.get_together_time != previous_value:
+            _refresh_auto_alarm_if_needed()
         page.update()
 
     tf_time = ft.TextField(
@@ -185,24 +157,31 @@ def build_settings_view(
         on_blur = on_time_blur,
     )
 
+    def on_address_blur(e):
+        previous_value = config_manager.config.user_address
+        config_manager.set_user_address(e.control.value.strip())
+        e.control.value = config_manager.config.user_address
+        if config_manager.config.user_address != previous_value:
+            _refresh_auto_alarm_if_needed()
+        page.update()
+
     tf_address = ft.TextField(
         value = cfg.user_address,
         width = 280,
         hint_text = "Пример: улица Попова, 1",
-        on_blur = lambda e: config_manager.set_user_address(e.control.value.strip()),
+        # on_blur = lambda e: config_manager.set_user_address(e.control.value.strip()),
+        on_blur = on_address_blur,
     )
-
-    
-    
-    
-    
 
 
     def on_semester_start_blur(e):
+        previous_value = config_manager.config.semester_start
         value = e.control.value.strip()
         if is_valid_date_text(value):
             config_manager.set_semester_start(value)
         e.control.value = config_manager.config.semester_start
+        if config_manager.config.semester_start != previous_value:
+            _refresh_auto_alarm_if_needed()
         page.update()
 
     tf_semester = ft.TextField(
@@ -212,14 +191,17 @@ def build_settings_view(
         on_blur = on_semester_start_blur,
     )
 
+    def on_first_even_change(e):
+        previous_value = config_manager.config.first_week_even
+        config_manager.set_first_week_even(e.control.value)
+        if config_manager.config.first_week_even != previous_value:
+            _refresh_auto_alarm_if_needed()
+
     cb_first_even = ft.Checkbox(
         label = "Первая неделя семестра чётная",
         value = cfg.first_week_even,
         on_change = lambda e: config_manager.set_first_week_even(e.control.value),
-      
-      
-      
-      
+    )
       
     # ── Факультет ────────────────────────────────────────────────────────────────
     dd_faculty = _make_selector(
@@ -242,17 +224,17 @@ def build_settings_view(
         width = 280,
     )
       
-      
-      
-      
 
     def on_travel_blur(e):
+        previous_value = config_manager.config.travel_time
         try:
             value = int(e.control.value)
             config_manager.set_travel_time(normalize_duration_minutes(value))
         except ValueError:
             pass
         e.control.value = str(config_manager.config.travel_time)
+        if config_manager.config.travel_time != previous_value:
+            _refresh_auto_alarm_if_needed()
         page.update()
 
     tf_travel = ft.TextField(
@@ -290,7 +272,8 @@ def build_settings_view(
         "Первая неделя и дата начала берутся из файла автоматически.",
         size = 12,
         color = ft.Colors.GREY_600,
-      
+    )
+
 #     async def open_file_picker(e: ft.Event[ft.ElevatedButton]):
 #         files = await ft.FilePicker().pick_files(allowed_extensions = ["xlsx"])
         
@@ -356,6 +339,7 @@ def build_settings_view(
                 clear_existing = True,
             )
             tasks_manager.reconcile_with_lessons(planner_manager.get_all_lessons())
+            _refresh_auto_alarm_if_needed()
             if on_schedule_changed is not None:
                 try:
                     on_schedule_changed()

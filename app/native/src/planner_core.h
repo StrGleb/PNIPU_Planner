@@ -67,6 +67,8 @@ extern "C"
 
     PLANNER_CORE_API int is_valid_date_text(const char* text);
 
+    PLANNER_CORE_API int parse_date_text_yyyymmdd(const char* text);
+
     PLANNER_CORE_API int normalize_priority(int priority);
 
     PLANNER_CORE_API int theme_mode_code(const char* theme);
@@ -163,7 +165,28 @@ extern "C"
         int has_next_start,
         int next_start_day,
         int next_start_month,
-        int next_start_year
+        int next_start_year,
+        const char* template_title,
+        const char* schedule_type
+    );
+
+    PLANNER_CORE_API int derive_schedule_template_end_yyyymmdd(
+        int start_day,
+        int start_month,
+        int start_year,
+        int has_next_start,
+        int next_start_day,
+        int next_start_month,
+        int next_start_year,
+        const char* template_title,
+        const char* schedule_type,
+        const char* const* dated_date_texts,
+        int dated_count
+    );
+
+    PLANNER_CORE_API int is_session_schedule(
+        const char* schedule_type,
+        const char* template_title
     );
 
     PLANNER_CORE_API int select_next_lesson_index(
@@ -199,6 +222,19 @@ extern "C"
         const int* start_minutes,
         int count,
         const char* expected_date,
+        int* out_indices
+    );
+
+    PLANNER_CORE_API int collect_date_text_indices_in_range_sorted(
+        const char* const* date_strings,
+        const int* start_minutes,
+        int count,
+        int start_day,
+        int start_month,
+        int start_year,
+        int end_day,
+        int end_month,
+        int end_year,
         int* out_indices
     );
 

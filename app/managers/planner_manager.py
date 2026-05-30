@@ -7,7 +7,12 @@ import tempfile
 from typing import Optional
 
 from bridges.planner_bridge import collect_lesson_indices_for_date_sorted, time_to_minutes
-from models.lesson_model import ENTRY_TYPE_EVENT, Lesson
+from models.lesson_model import (
+    DEFAULT_EVENT_REMINDER_LEAD_MINUTES,
+    ENTRY_TYPE_EVENT,
+    Lesson,
+    normalize_event_reminder_lead_minutes,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +71,8 @@ class PlannerManager:
         building: str = "",
         description: str = "",
         address: str = "",
+        reminder_enabled: bool = False,
+        reminder_lead_minutes: int = DEFAULT_EVENT_REMINDER_LEAD_MINUTES,
         entry_type: str = "lesson",
         is_custom: bool = False,
     ) -> Lesson:
@@ -90,6 +97,8 @@ class PlannerManager:
             building = building,
             description = description,
             address = address,
+            reminder_enabled = reminder_enabled,
+            reminder_lead_minutes = normalize_event_reminder_lead_minutes(reminder_lead_minutes),
             entry_type = entry_type,
             is_custom = is_custom,
             **lesson_kwargs,
@@ -107,6 +116,8 @@ class PlannerManager:
         subject: str,
         description: str = "",
         address: str = "",
+        reminder_enabled: bool = False,
+        reminder_lead_minutes: int = DEFAULT_EVENT_REMINDER_LEAD_MINUTES,
     ) -> Lesson:
         return self.add_lesson(
             date = date,
@@ -115,9 +126,40 @@ class PlannerManager:
             subject = subject,
             description = description,
             address = address,
+            reminder_enabled = reminder_enabled,
+            reminder_lead_minutes = reminder_lead_minutes,
             entry_type = ENTRY_TYPE_EVENT,
             is_custom = True,
         )
+
+    def update_custom_event(
+        self,
+        lesson_id: str,
+        date: datetime.date,
+        time_start: str,
+        time_end: str,
+        subject: str,
+        description: str = "",
+        address: str = "",
+        reminder_enabled: bool = False,
+        reminder_lead_minutes: int = DEFAULT_EVENT_REMINDER_LEAD_MINUTES,
+    ) -> Lesson | None:
+        lesson = self._lessons.get(lesson_id)
+        if lesson is None or not lesson.is_custom:
+            return None
+
+        lesson.date = date
+        lesson.time_start = time_start
+        lesson.time_end = time_end
+        lesson.subject = subject
+        lesson.description = description
+        lesson.address = address
+        lesson.reminder_enabled = reminder_enabled
+        lesson.reminder_lead_minutes = normalize_event_reminder_lead_minutes(reminder_lead_minutes)
+        lesson.entry_type = ENTRY_TYPE_EVENT
+        lesson.is_custom = True
+        self._save_custom_lessons()
+        return lesson
 
     def remove_lesson(self, lesson_id: str) -> None:
         lesson = self._lessons.pop(lesson_id, None)

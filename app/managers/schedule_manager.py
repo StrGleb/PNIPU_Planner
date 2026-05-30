@@ -7,9 +7,13 @@ import logging
 
 from bridges.planner_bridge import (
     collect_schedule_lesson_indices_for_day,
+    collect_date_text_indices_in_range_sorted,
+    collect_lesson_indices_for_date_sorted,
     collect_template_occurrence_pairs,
-    derive_schedule_period_end_date,
+    derive_schedule_template_end_date,
+    is_session_schedule_template,
     is_week_even,
+    parse_date_text_to_date,
     select_active_template_index,
     sort_date_text_indices_asc,
     time_to_minutes,
@@ -81,10 +85,7 @@ class ScheduleManager:
 
     @staticmethod
     def _parse_start_text(value: str) -> datetime.date | None:
-        try:
-            return datetime.datetime.strptime(str(value).strip(), "%d.%m.%Y").date()
-        except Exception:
-            return None
+        return parse_date_text_to_date(value)
 
     def merge_template(self, template: ScheduleTemplate) -> None:
         start_date = self._parse_template_start(template)
@@ -160,13 +161,24 @@ class ScheduleManager:
         if not template.semester_start:
             return []
 
-        weekday = date.isoweekday()
-        is_even = is_week_even(
-            date,
-            template.semester_start,
-            template.first_week_even,
+        lessons: list[TemplateLesson] = []
+        if not is_session_schedule_template(template.schedule_type, template.title):
+            weekday = date.isoweekday()
+            is_even = is_week_even(
+                date,
+                template.semester_start,
+                template.first_week_even,
+            )
+            lessons.extend(self._get_weekday_lessons(template, is_even, weekday))
+
+        dated_indices = collect_lesson_indices_for_date_sorted(
+            [str(lesson.date_text).strip() for lesson in template.dated],
+            [time_to_minutes(lesson.time_start) for lesson in template.dated],
+            date.strftime("%d.%m.%Y"),
         )
-        return self._get_weekday_lessons(template, is_even, weekday)
+        lessons.extend(template.dated[index] for index in dated_indices)
+        lessons.sort(key = lambda lesson: time_to_minutes(lesson.time_start))
+        return lessons
 
     @staticmethod
     def _format_subject(lesson: TemplateLesson) -> str:
@@ -201,9 +213,21 @@ class ScheduleManager:
             return 0
 
         applied = 0
+        if template.dated:
+            applied += self._apply_dated_lessons(
+                planner,
+                template.dated,
+                start_date,
+                end_date,
+                existing_keys,
+            )
+
+        if is_session_schedule_template(template.schedule_type, template.title):
+            return applied
+
         semester_start = self._parse_start_text(template.semester_start)
         if semester_start is None:
-            return 0
+            return applied
 
         lessons: list[TemplateLesson] = []
         lesson_even_flags: list[int] = []
@@ -213,7 +237,7 @@ class ScheduleManager:
                 lesson_even_flags.append(1 if is_even else 0)
 
         if not lessons:
-            return 0
+            return applied
 
         lesson_start_minutes = [time_to_minutes(lesson.time_start) for lesson in lessons]
         formatted_subjects = [self._format_subject(lesson) for lesson in lessons]
@@ -254,6 +278,70 @@ class ScheduleManager:
 
         return applied
 
+    def _apply_dated_lessons(
+        self,
+        planner: PlannerManager,
+        lessons: list[TemplateLesson],
+        start_date: datetime.date,
+        end_date: datetime.date,
+        existing_keys: set[tuple[str, str, str, str]],
+    ) -> int:
+        if not lessons or end_date < start_date:
+            return 0
+
+        dated_indices = collect_date_text_indices_in_range_sorted(
+            [str(lesson.date_text).strip() for lesson in lessons],
+            [time_to_minutes(lesson.time_start) for lesson in lessons],
+            start_date,
+            end_date,
+        )
+
+        applied = 0
+        for index in dated_indices:
+            lesson = lessons[index]
+            lesson_date = parse_date_text_to_date(lesson.date_text)
+            if lesson_date is None:
+                continue
+
+            subject = self._format_subject(lesson)
+            key = (
+                lesson.date_text,
+                lesson.time_start,
+                lesson.time_end,
+                subject,
+            )
+            if key in existing_keys:
+                continue
+
+            planner.add_lesson(
+                lesson_date,
+                lesson.time_start,
+                lesson.time_end,
+                subject,
+                teacher = lesson.teacher,
+                room = lesson.room,
+                auditorium = lesson.auditorium,
+                building = lesson.building,
+            )
+            existing_keys.add(key)
+            applied += 1
+
+        return applied
+
+    def _derive_template_end_date(
+        self,
+        template: ScheduleTemplate,
+        start_date: datetime.date,
+        next_start: datetime.date | None,
+    ) -> datetime.date:
+        return derive_schedule_template_end_date(
+            start_date,
+            next_start,
+            template.title,
+            template.schedule_type,
+            [str(lesson.date_text).strip() for lesson in template.dated],
+        )
+
     def apply_template_to_planner(
         self,
         planner: PlannerManager,
@@ -283,7 +371,7 @@ class ScheduleManager:
             next_start = None
             if index + 1 < len(templates):
                 next_start = self._parse_template_start(templates[index + 1])
-            end_date = derive_schedule_period_end_date(start_date, next_start)
+            end_date = self._derive_template_end_date(template, start_date, next_start)
 
             applied += self._apply_template_period(
                 planner,

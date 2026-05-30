@@ -53,6 +53,7 @@ namespace
     struct ParsedLesson
     {
         int day = 0;
+        std::string date_text;
         std::string time_start;
         std::string time_end;
         std::string subject;
@@ -67,9 +68,11 @@ namespace
     {
         std::string title;
         std::string semester_start;
+        std::string schedule_type = "weekly";
         bool first_week_even = false;
         std::vector<ParsedLesson> odd;
         std::vector<ParsedLesson> even;
+        std::vector<ParsedLesson> dated;
     };
 
     std::string g_last_error_message;
@@ -768,6 +771,221 @@ namespace
         };
     }
 
+    int days_from_civil(int year, int month, int day)
+    {
+        year -= month <= 2;
+        const int era = (year >= 0 ? year : year - 399) / 400;
+        const unsigned yoe = static_cast<unsigned>(year - era * 400);
+        const unsigned doy = (153 * (month + (month > 2 ? -3 : 9)) + 2) / 5
+            + static_cast<unsigned>(day) - 1;
+        const unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+        return era * 146097 + static_cast<int>(doe) - 719468;
+    }
+
+    int iso_weekday_from_date(int day, int month, int year)
+    {
+        const int absolute_days = days_from_civil(year, month, day);
+        const int weekday_base = (absolute_days + 3) % 7;
+        return weekday_base >= 0 ? weekday_base + 1 : weekday_base + 8;
+    }
+
+    std::string get_required_cell(
+        const std::unordered_map<std::string, std::string>& cells,
+        const std::string& cell_name
+    );
+
+    bool looks_like_session_sheet(const std::unordered_map<std::string, std::string>& cells)
+    {
+        const auto header_a = cells.find("A3");
+        const auto header_b = cells.find("B3");
+        if (header_a == cells.end() || header_b == cells.end()) {
+            return false;
+        }
+
+        return collapse_spaces(header_a->second) == "Дни"
+            && collapse_spaces(header_b->second) == "Числа";
+    }
+
+    std::tuple<int, int, int> parse_session_date(
+        const std::string& raw_value,
+        int year_a,
+        int year_b
+    )
+    {
+        const std::string value = collapse_spaces(raw_value);
+        const std::size_t dot = value.find('.');
+        if (dot == std::string::npos) {
+            throw std::runtime_error("Не удалось прочитать дату пары из файла сессии.");
+        }
+
+        const int day = std::stoi(value.substr(0, dot));
+        const int month = std::stoi(value.substr(dot + 1, 2));
+        const int year = month >= 8 ? year_a : year_b;
+        return {day, month, year};
+    }
+
+    std::size_t find_first_teacher_role(const std::string& text, std::size_t start = 0)
+    {
+        std::size_t best = std::string::npos;
+        for (const std::string& role : kTeacherRoles) {
+            const std::size_t current = text.find(role, start);
+            if (current != std::string::npos && (best == std::string::npos || current < best)) {
+                best = current;
+            }
+        }
+        return best;
+    }
+
+    ParsedLesson parse_session_text(
+        int day,
+        int month,
+        int year,
+        const std::string& raw_text
+    )
+    {
+        const std::vector<std::string> lines = split_lines(raw_text);
+        if (lines.empty()) {
+            throw std::runtime_error("В файле сессии встретилась пустая ячейка пары.");
+        }
+
+        const std::string first_line = lines.front();
+        const std::size_t space = first_line.find(' ');
+        if (space == std::string::npos) {
+            throw std::runtime_error("В файле сессии не удалось прочитать время пары.");
+        }
+
+        const std::string time_start = trim_ascii(first_line.substr(0, space));
+        const int start_minutes = parse_time_to_minutes(time_start);
+        if (start_minutes < 0) {
+            throw std::runtime_error("В файле сессии найдено некорректное время пары.");
+        }
+
+        std::vector<std::string> payload_lines;
+        payload_lines.push_back(trim_ascii(first_line.substr(space + 1)));
+        for (std::size_t index = 1; index < lines.size(); ++index) {
+            payload_lines.push_back(lines[index]);
+        }
+
+        const std::string payload = collapse_spaces(join_strings(payload_lines, " "));
+        if (payload.empty()) {
+            throw std::runtime_error("В файле сессии не найдено название пары.");
+        }
+
+        std::string subject = payload;
+        std::string teacher;
+        std::string room;
+        std::string auditorium;
+        std::string building;
+
+        const std::size_t teacher_pos = find_first_teacher_role(payload);
+        if (teacher_pos != std::string::npos) {
+            subject = trim_ascii(payload.substr(0, teacher_pos));
+            const auto [teachers, rooms] = parse_teacher_room_lists(payload.substr(teacher_pos));
+            teacher = join_strings(teachers, " / ");
+            room = join_strings(rooms, " / ");
+            const auto [aud, build] = split_room_parts(rooms.empty() ? std::string() : rooms.front());
+            auditorium = aud;
+            building = build;
+        }
+        else {
+            std::size_t room_pos = std::string::npos;
+            for (std::size_t index = 0; index < payload.size(); ++index) {
+                if (std::isdigit(static_cast<unsigned char>(payload[index])) != 0) {
+                    room_pos = index;
+                    break;
+                }
+            }
+
+            if (room_pos != std::string::npos) {
+                subject = trim_ascii(payload.substr(0, room_pos));
+                room = trim_ascii(payload.substr(room_pos));
+                const auto [aud, build] = split_room_parts(room);
+                auditorium = aud;
+                building = build;
+            }
+        }
+
+        ParsedLesson lesson;
+        lesson.day = iso_weekday_from_date(day, month, year);
+        lesson.date_text = format_date(day, month, year);
+        lesson.time_start = time_start;
+        lesson.time_end = format_time_from_minutes(start_minutes + kLessonDurationMinutes);
+        lesson.subject = subject;
+        lesson.teacher = teacher;
+        lesson.room = room;
+        lesson.auditorium = auditorium;
+        lesson.building = building;
+        return lesson;
+    }
+
+    ParsedSchedule parse_session_schedule(
+        const std::unordered_map<std::string, std::string>& cells
+    )
+    {
+        ParsedSchedule schedule;
+        schedule.title = trim_ascii(get_required_cell(cells, "A1"));
+        schedule.schedule_type = "session";
+
+        int year_a = 0;
+        int year_b = 0;
+        {
+            const std::string years_info = collapse_spaces(schedule.title);
+            std::size_t first_digit = years_info.find_first_of("0123456789");
+            if (first_digit == std::string::npos || first_digit + 9 >= years_info.size()) {
+                throw std::runtime_error("Не удалось определить учебный год из заголовка файла сессии.");
+            }
+            year_a = std::stoi(years_info.substr(first_digit, 4));
+            std::size_t second_digit = years_info.find_first_of("0123456789", first_digit + 4);
+            if (second_digit == std::string::npos) {
+                throw std::runtime_error("Не удалось определить второй год из заголовка файла сессии.");
+            }
+            year_b = std::stoi(years_info.substr(second_digit, 4));
+        }
+
+        for (int row = 4; row <= 128; ++row) {
+            const std::string event_cell = cell_ref_name(3, row);
+            const auto event_found = cells.find(event_cell);
+            if (event_found == cells.end() || trim_ascii(event_found->second).empty()) {
+                continue;
+            }
+
+            const std::string date_cell = cell_ref_name(2, row);
+            const auto date_found = cells.find(date_cell);
+            if (date_found == cells.end()) {
+                continue;
+            }
+
+            const auto [day, month, year] = parse_session_date(date_found->second, year_a, year_b);
+            schedule.dated.push_back(parse_session_text(day, month, year, event_found->second));
+        }
+
+        if (schedule.dated.empty()) {
+            throw std::runtime_error("В файле сессии не найдено ни одной пары.");
+        }
+
+        std::sort(schedule.dated.begin(), schedule.dated.end(), [](const ParsedLesson& lhs, const ParsedLesson& rhs) {
+            if (lhs.date_text != rhs.date_text) {
+                const int lhs_day = std::stoi(lhs.date_text.substr(0, 2));
+                const int lhs_month = std::stoi(lhs.date_text.substr(3, 2));
+                const int lhs_year = std::stoi(lhs.date_text.substr(6, 4));
+                const int rhs_day = std::stoi(rhs.date_text.substr(0, 2));
+                const int rhs_month = std::stoi(rhs.date_text.substr(3, 2));
+                const int rhs_year = std::stoi(rhs.date_text.substr(6, 4));
+                return days_from_civil(lhs_year, lhs_month, lhs_day)
+                    < days_from_civil(rhs_year, rhs_month, rhs_day);
+            }
+            const int lhs_minutes = parse_time_to_minutes(lhs.time_start);
+            const int rhs_minutes = parse_time_to_minutes(rhs.time_start);
+            if (lhs_minutes != rhs_minutes) {
+                return lhs_minutes < rhs_minutes;
+            }
+            return lhs.subject < rhs.subject;
+        });
+        schedule.semester_start = schedule.dated.front().date_text;
+        schedule.first_week_even = false;
+        return schedule;
+    }
+
     ParsedLesson parse_lesson_text(int day, const std::string& time_start, const std::string& raw_text)
     {
         const int start_minutes = parse_time_to_minutes(time_start);
@@ -841,6 +1059,10 @@ namespace
         const std::vector<std::string> shared_strings = parse_shared_strings(shared_strings_xml);
         const std::unordered_map<std::string, std::string> cells = parse_cells(sheet_xml, shared_strings);
         const std::vector<MergeRange> merges = parse_merge_ranges(sheet_xml);
+
+        if (looks_like_session_sheet(cells)) {
+            return parse_session_schedule(cells);
+        }
 
         ParsedSchedule schedule;
         schedule.title = trim_ascii(get_required_cell(cells, "A1"));
@@ -953,6 +1175,7 @@ namespace
                 stream
                     << "    {\n"
                     << "      \"day\": " << lesson.day << ",\n"
+                    << "      \"date_text\": \"" << json_escape(lesson.date_text) << "\",\n"
                     << "      \"time_start\": \"" << json_escape(lesson.time_start) << "\",\n"
                     << "      \"time_end\": \"" << json_escape(lesson.time_end) << "\",\n"
                     << "      \"subject\": \"" << json_escape(lesson.subject) << "\",\n"
@@ -972,16 +1195,21 @@ namespace
 
         stream
             << "{\n"
-            << "  \"version\": 2,\n"
+            << "  \"version\": 3,\n"
             << "  \"title\": \"" << json_escape(schedule.title) << "\",\n"
             << "  \"semester_start\": \"" << json_escape(schedule.semester_start) << "\",\n"
             << "  \"first_week_even\": " << (schedule.first_week_even ? "true" : "false") << ",\n"
+            << "  \"schedule_type\": \"" << json_escape(schedule.schedule_type) << "\",\n"
             << "  \"odd\": [\n";
         write_lessons(schedule.odd);
         stream
             << "  ],\n"
             << "  \"even\": [\n";
         write_lessons(schedule.even);
+        stream
+            << "  ],\n"
+            << "  \"dated\": [\n";
+        write_lessons(schedule.dated);
         stream
             << "  ]\n"
             << "}\n";

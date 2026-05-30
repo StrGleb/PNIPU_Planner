@@ -1,10 +1,11 @@
 import logging
-
 import flet as ft
 
 from bridges.planner_bridge import is_valid_time
 from managers.alarm_manager import AlarmManager
 from managers.config_manager import ConfigManager
+from utils.geocoder_utils import get_coordinates_by_address
+from utils.route_utis import get_route
 from models.alarm_model import Alarm, WEEK_ANY, WEEK_EVEN, WEEK_ODD
 
 logger = logging.getLogger(__name__)
@@ -31,19 +32,21 @@ def build_alarm_view(
     auto_alarm_service,
     page: ft.Page,
 ) -> ft.View:
+    
+    cfg = config_manager.config
     alarms_column = ft.Column(spacing = 10, scroll = ft.ScrollMode.AUTO)
     alarms_container = ft.Container(
         content = alarms_column,
         expand = True,
         padding = ft.Padding.symmetric(horizontal = 16),
     )
-
     alarm_dialog = ft.AlertDialog(modal = True, title = ft.Text(""))
     page.overlay.append(alarm_dialog)
 
     auto_label = ft.Text("", size = 14, weight = ft.FontWeight.BOLD, color = ft.Colors.WHITE)
 
     def show_info(message: str) -> None:
+        """ Для отображения информационных сообщений """
         snack = ft.SnackBar(
             content = ft.Text(message),
             bgcolor = ft.Colors.GREEN_700,
@@ -54,6 +57,7 @@ def build_alarm_view(
         page.update()
 
     def show_error(message: str) -> None:
+        """ Для отображений об ошибке """
         snack = ft.SnackBar(
             content = ft.Text(message),
             bgcolor = ft.Colors.RED_700,
@@ -64,6 +68,7 @@ def build_alarm_view(
         page.update()
 
     def _refresh_auto_button() -> None:
+        """ Обновление кнопки вкл/выкл """
         enabled = config_manager.config.auto_alarm_enabled
         auto_label.value = "Авто: вкл" if enabled else "Авто: выкл"
         btn_auto.bgcolor = ft.Colors.BLUE_600 if enabled else ft.Colors.BLUE_GREY_600
@@ -339,6 +344,20 @@ def build_alarm_view(
             config_manager.set_auto_alarm_enabled(False)
         refresh_list()
         _show_auto_result(result)
+    
+    def _on_week(e) -> None:
+        result, count = auto_alarm_service.sync_week_ahead()
+        refresh_list()
+        if result == "scheduled":
+            show_info(f"Будильников на неделю: {count}")
+        elif result == "missing_prep":
+            show_error("Укажите время на сборы в настройках.")
+        elif result == "no_upcoming_entries":
+            show_info("Занятий на ближайшие 7 дней нет.")
+        elif result == "route_unavailable":
+            show_error("Укажите время до ВУЗа (мин) в настройках.")
+        else:
+            show_error("Не удалось расставить будильники.")
 
     btn_auto = ft.Container(
         content = auto_label,
@@ -348,6 +367,16 @@ def build_alarm_view(
         on_click = _on_auto,
         ink = True,
     )
+
+    btn_week = ft.Container(
+        content = ft.Text("На неделю", size = 14, weight = ft.FontWeight.BOLD, color = ft.Colors.WHITE),
+        bgcolor = ft.Colors.TEAL_600,
+        border_radius = 16,
+        padding = ft.Padding.symmetric(horizontal = 20, vertical = 14),
+        on_click = _on_week,
+        ink = True,
+    )
+
     btn_add = ft.Container(
         content = ft.Icon(ft.Icons.ADD, color = ft.Colors.WHITE),
         bgcolor = ft.Colors.BLUE_200,
@@ -361,14 +390,19 @@ def build_alarm_view(
 
     bottom_row = ft.Container(
         content = ft.Row(
-            [btn_auto, ft.Container(expand = True), btn_add],
+            [
+                # btn_week, 
+                # ft.Container(width = 8), 
+                btn_auto, 
+                ft.Container(expand = True), 
+                btn_add
+            ],
             vertical_alignment = ft.CrossAxisAlignment.CENTER,
         ),
         padding = ft.Padding.symmetric(horizontal = 16, vertical = 12),
     )
 
     refresh_list()
-
     return ft.View(
         route = "/alarm",
         padding = 0,
