@@ -135,8 +135,8 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
-.envrc
+*.env
+*.envrc
 .venv
 env/
 venv/
@@ -214,3 +214,4 @@ app/test.py
 # Игнорировать среду разработки
 .venv/
 .vscode/
+*.xlsx
