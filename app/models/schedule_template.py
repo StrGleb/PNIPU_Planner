@@ -1,16 +1,18 @@
 from dataclasses import dataclass, field
 from typing import List
 
+
 @dataclass
 class TemplateLesson:
-    """Одна пара из шаблона расписания."""
-    day: int # 1=Пн, 2=Вт, 3=Ср, 4=Чт, 5=Пт, 6=Сб
-    time_start: str # "9:40"
-    time_end: str # "11:10"
+    day: int
+    time_start: str
+    time_end: str
     subject: str
-    lesson_type: str # "лек" | "пр" | "лаб"
-    teacher: str
-    room: str
+    lesson_type: str = ""
+    teacher: str = ""
+    room: str = ""
+    auditorium: str = ""
+    building: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -21,27 +23,33 @@ class TemplateLesson:
             "lesson_type": self.lesson_type,
             "teacher": self.teacher,
             "room": self.room,
+            "auditorium": self.auditorium,
+            "building": self.building,
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "TemplateLesson":
+    def from_dict(cls, data: dict) -> "TemplateLesson":
         return cls(
-            day=int(d["day"]),
-            time_start=d["time_start"],
-            time_end=d["time_end"],
-            subject=d["subject"],
-            lesson_type=d.get("lesson_type", ""),
-            teacher=d.get("teacher", ""),
-            room=d.get("room", ""),
+            day = int(data["day"]),
+            time_start = data["time_start"],
+            time_end = data["time_end"],
+            subject = data["subject"],
+            lesson_type = data.get("lesson_type", ""),
+            teacher = data.get("teacher", ""),
+            room = data.get("room", ""),
+            auditorium = data.get("auditorium", ""),
+            building = data.get("building", ""),
         )
 
 
 @dataclass
 class ScheduleTemplate:
-    """Шаблон расписания — два списка пар (чётная/нечётная)"""
     version: int = 1
-    odd:  List[TemplateLesson] = field(default_factory=list)   # нечётная
-    even: List[TemplateLesson] = field(default_factory=list)   # чётная
+    title: str = ""
+    semester_start: str = ""
+    first_week_even: bool = False
+    odd: List[TemplateLesson] = field(default_factory = list)
+    even: List[TemplateLesson] = field(default_factory = list)
 
     def get_week(self, is_even: bool) -> List[TemplateLesson]:
         return self.even if is_even else self.odd
@@ -49,14 +57,49 @@ class ScheduleTemplate:
     def to_dict(self) -> dict:
         return {
             "version": self.version,
-            "odd":  [l.to_dict() for l in self.odd],
-            "even": [l.to_dict() for l in self.even],
+            "title": self.title,
+            "semester_start": self.semester_start,
+            "first_week_even": self.first_week_even,
+            "odd": [lesson.to_dict() for lesson in self.odd],
+            "even": [lesson.to_dict() for lesson in self.even],
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "ScheduleTemplate":
+    def from_dict(cls, data: dict) -> "ScheduleTemplate":
         return cls(
-            version=d.get("version", 1),
-            odd=[TemplateLesson.from_dict(x) for x in d.get("odd", [])],
-            even=[TemplateLesson.from_dict(x) for x in d.get("even", [])],
+            version = data.get("version", 1),
+            title = data.get("title", ""),
+            semester_start = data.get("semester_start", ""),
+            first_week_even = bool(data.get("first_week_even", False)),
+            odd = [TemplateLesson.from_dict(item) for item in data.get("odd", [])],
+            even = [TemplateLesson.from_dict(item) for item in data.get("even", [])],
         )
+
+
+@dataclass
+class ScheduleArchive:
+    version: int = 2
+    templates: List[ScheduleTemplate] = field(default_factory = list)
+
+    def to_dict(self) -> dict:
+        return {
+            "version": self.version,
+            "templates": [template.to_dict() for template in self.templates],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ScheduleArchive":
+        if isinstance(data, dict) and "templates" in data:
+            return cls(
+                version = data.get("version", 2),
+                templates = [
+                    ScheduleTemplate.from_dict(item)
+                    for item in data.get("templates", [])
+                    if isinstance(item, dict)
+                ],
+            )
+
+        if isinstance(data, dict):
+            return cls(templates = [ScheduleTemplate.from_dict(data)])
+
+        return cls()

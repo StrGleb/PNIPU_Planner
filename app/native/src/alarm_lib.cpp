@@ -2,6 +2,7 @@
 
 namespace
 {
+    // Преобразует календарную дату в дни с момента эпохи
     int days_from_civil(int year, int month, int day)
     {
         year -= month <= 2;
@@ -13,6 +14,7 @@ namespace
         return era * 146097 + static_cast<int>(doe) - 719468;
     }
 
+    // Целочисленное деление с корректной обработкой отрицательных чисел
     int floor_div(int value, int divisor)
     {
         int quotient = value / divisor;
@@ -30,6 +32,7 @@ int make_alarm(
     int time_to_get_ready,
     int time_to_way
 ) {
+    // Автоматически высчитывает подходящее время для старта будильника на основе временит начала пары, времени, требующегося студенту на сборы и на дорогу до ВУЗа
     int start_minutes = hour_start * 60 + min_start;
     int alarm_minutes = start_minutes - time_to_get_ready - time_to_way;
 
@@ -42,11 +45,13 @@ int make_alarm(
 
 int is_valid_time(int hour, int minute)
 {
+    // Проверяет корректный ли формат времени
     return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
 }
 
 int time_to_minutes(int hour, int minute)
 {
+    // перевод времени из часов и минут просто в минуты 
     if (!is_valid_time(hour, minute)) {
         return -1;
     }
@@ -56,6 +61,7 @@ int time_to_minutes(int hour, int minute)
 
 int normalize_duration_minutes(int minutes)
 {
+    // Нормализует количество введённых минут на случай, если пользователь захочет ввести отрицательное количество времени
     return minutes < 0 ? 0 : minutes;
 }
 
