@@ -2,6 +2,7 @@
 import calendar
 import datetime
 import inspect
+import logging
 from typing import Any, Callable
 
 import flet as ft
@@ -21,6 +22,8 @@ from models.lesson_model import (
     normalize_event_reminder_lead_minutes,
 )
 from models.task_model import TASK_TYPE_HOMEWORK, TASK_TYPE_LAB, TASK_TYPE_TEST
+
+logger = logging.getLogger(__name__)
 
 HOUR_HEIGHT = 80
 START_HOUR = 8
@@ -86,6 +89,8 @@ def build_planner_view(
                 asyncio.create_task(result)
             except RuntimeError:
                 pass
+            except Exception:
+                logger.debug("Не удалось создать асинхронную задачу страницы", exc_info = True)
 
     def sync_auto_alarm():
         try:

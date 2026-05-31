@@ -48,6 +48,7 @@ class PlannerManager:
                 self._lessons[lesson.id] = lesson
         except Exception:
             logger.exception("Не удалось загрузить пользовательские события")
+            return
 
     def _save_custom_lessons(self) -> None:
         custom_lessons = [lesson.to_dict() for lesson in self._lessons.values() if lesson.is_custom]
@@ -214,3 +215,4 @@ class PlannerManager:
                 self._lessons[lesson.id] = lesson
             except Exception:
                 logger.exception("Не удалось загрузить шаблон расписания")
+                return

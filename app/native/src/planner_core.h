@@ -43,6 +43,21 @@ extern "C"
         int lead_minutes
     );
 
+    PLANNER_CORE_API int is_alarm_within_recheck_datetime_window(
+        int alarm_day,
+        int alarm_month,
+        int alarm_year,
+        int alarm_hour,
+        int alarm_minute,
+        int now_day,
+        int now_month,
+        int now_year,
+        int now_hour,
+        int now_minute,
+        int lead_minutes,
+        int after_minutes
+    );
+
     PLANNER_CORE_API int can_recheck_alarm_now(
         const char* rechecked_at,
         int now_day,
@@ -208,6 +223,18 @@ extern "C"
         int now_year,
         int now_minutes,
         int max_days_ahead
+    );
+
+    PLANNER_CORE_API int collect_upcoming_lesson_indices_with_horizon(
+        const char* const* date_strings,
+        const int* start_minutes,
+        int count,
+        int now_day,
+        int now_month,
+        int now_year,
+        int now_minutes,
+        int max_days_ahead,
+        int* out_indices
     );
 
     PLANNER_CORE_API int compute_buffered_alarm_minutes(

@@ -121,6 +121,23 @@ _NATIVE_SIGNATURES: dict[str, tuple[list[object], object]] = {
         [ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int],
         ctypes.c_int,
     ),
+    "is_alarm_within_recheck_datetime_window": (
+        [
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+        ],
+        ctypes.c_int,
+    ),
     "can_recheck_alarm_now": (
         [ctypes.c_char_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int],
         ctypes.c_int,
@@ -279,6 +296,20 @@ _NATIVE_SIGNATURES: dict[str, tuple[list[object], object]] = {
             ctypes.c_int,
             ctypes.c_int,
             ctypes.c_int,
+        ],
+        ctypes.c_int,
+    ),
+    "collect_upcoming_lesson_indices_with_horizon": (
+        [
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int),
         ],
         ctypes.c_int,
     ),
@@ -463,6 +494,10 @@ def has_native_schedule_parser() -> bool:
     return _lib is not None and hasattr(_lib, "parse_schedule_xlsx")
 
 
+def _has_native_function(name: str) -> bool:
+    return _lib is not None and hasattr(_lib, name)
+
+
 def _parse_time_text(time_text: str):
     try:
         hour_text, minute_text = time_text.strip().split(":", 1)
@@ -570,6 +605,40 @@ def is_alarm_within_recheck_window(
     )
 
 
+def is_alarm_within_recheck_datetime_window(
+    alarm_datetime: datetime.datetime,
+    now: datetime.datetime,
+    lead_minutes: int,
+    after_minutes: int,
+) -> bool:
+    if lead_minutes < 0 or after_minutes < 0:
+        return False
+
+    if _has_native_function("is_alarm_within_recheck_datetime_window"):
+        native_function = _require_native_function("is_alarm_within_recheck_datetime_window")
+        return bool(
+            native_function(
+                alarm_datetime.day,
+                alarm_datetime.month,
+                alarm_datetime.year,
+                alarm_datetime.hour,
+                alarm_datetime.minute,
+                now.day,
+                now.month,
+                now.year,
+                now.hour,
+                now.minute,
+                int(lead_minutes),
+                int(after_minutes),
+            )
+        )
+
+    return (
+        now >= alarm_datetime - datetime.timedelta(minutes = lead_minutes)
+        and now <= alarm_datetime + datetime.timedelta(minutes = after_minutes)
+    )
+
+
 def can_recheck_alarm_now(
     rechecked_at: str,
     now: datetime.datetime,
@@ -594,6 +663,7 @@ def is_week_even(
     semester_start: str,
     first_week_even: bool,
 ) -> bool:
+    """Return True when the week should be treated as even."""
     try:
         start = datetime.datetime.strptime(semester_start, "%d.%m.%Y").date()
     except Exception:
@@ -982,6 +1052,53 @@ def select_next_lesson_index(
             now_minutes,
         )
     )
+
+
+def collect_upcoming_lesson_indices_with_horizon(
+    date_strings: list[str],
+    start_minutes: list[int],
+    now: datetime.datetime,
+    max_days_ahead: int,
+) -> list[int]:
+    if not date_strings or not start_minutes or len(date_strings) != len(start_minutes):
+        return []
+
+    count = len(date_strings)
+    if _has_native_function("collect_upcoming_lesson_indices_with_horizon"):
+        native_function = _require_native_function("collect_upcoming_lesson_indices_with_horizon")
+        date_values = _encode_text_values(date_strings)
+        minute_values = (ctypes.c_int * count)(*start_minutes)
+        output_indices = (ctypes.c_int * count)()
+        matched_count = native_function(
+            date_values,
+            minute_values,
+            count,
+            now.day,
+            now.month,
+            now.year,
+            now.hour * 60 + now.minute,
+            int(max_days_ahead),
+            output_indices,
+        )
+        return list(output_indices[:matched_count])
+
+    upcoming: list[tuple[datetime.date, int, int]] = []
+    cutoff = now.date() + datetime.timedelta(days = max_days_ahead)
+    for index, (date_text, start_minute) in enumerate(zip(date_strings, start_minutes, strict = False)):
+        if start_minute < 0:
+            continue
+        try:
+            lesson_date = datetime.datetime.strptime(date_text, "%d.%m.%Y").date()
+        except ValueError:
+            continue
+        if lesson_date < now.date() or lesson_date > cutoff:
+            continue
+        if lesson_date == now.date() and start_minute <= (now.hour * 60 + now.minute):
+            continue
+        upcoming.append((lesson_date, start_minute, index))
+
+    upcoming.sort(key = lambda item: (item[0], item[1], item[2]))
+    return [index for _date, _start_minute, index in upcoming]
 
 
 def compute_buffered_alarm_minutes(

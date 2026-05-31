@@ -1,0 +1,26 @@
+[project]
+name = "pnipu-alarm-bridge"
+version = "0.1.0"
+description = "Android alarm queue bridge service for PNIPU Planner"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "PNIPU Planner" }]
+dependencies = [
+    "flet>=0.85.0",
+]
+
+[tool.setuptools.package-data]
+"flutter.pnipu_alarm_bridge" = ["**/*"]
+
+[tool.setuptools]
+license-files = []
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["pnipu_alarm_bridge", "pnipu_alarm_bridge.*", "flutter", "flutter.*"]
+namespaces = true
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"

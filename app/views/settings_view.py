@@ -51,7 +51,7 @@ def build_settings_view(
         try:
             auto_alarm_service.handle_planner_change()
         except Exception:
-            ...
+            logger.exception("Failed to refresh auto alarm queue after settings change")
 
     def _show_message(text: str):
         page.snack_bar = ft.SnackBar(ft.Text(text))
@@ -200,19 +200,32 @@ def build_settings_view(
     cb_first_even = ft.Checkbox(
         label = "Первая неделя семестра чётная",
         value = cfg.first_week_even,
-        on_change = lambda e: config_manager.set_first_week_even(e.control.value),
+        on_change = on_first_even_change,
     )
       
     # ── Факультет ────────────────────────────────────────────────────────────────
+    def on_faculty_select(value: str) -> None:
+        previous_value = config_manager.config.user_faculty
+        config_manager.set_user_faculty(value)
+        if config_manager.config.user_faculty != previous_value:
+            _refresh_auto_alarm_if_needed()
+
     dd_faculty = _make_selector(
         options = [(f, f) for f in FACULTIES],
         initial_key = cfg.user_faculty if cfg.user_faculty in FACULTIES else FACULTIES[0],
-        on_select = config_manager.set_user_faculty,
+        on_select = on_faculty_select,
         width = 280,
     )
 
     # ── Способ передвижения ───────────────────────────────────────────────────────────────────
     valid_transport_keys = {"driving", "public_transport", "pedestrian"}
+
+    def on_transport_select(value: str) -> None:
+        previous_value = config_manager.config.transport_type
+        config_manager.set_transport_type(value)
+        if config_manager.config.transport_type != previous_value:
+            _refresh_auto_alarm_if_needed()
+
     dd_transport = _make_selector(
         options = [
             ("public_transport", "Общественный транспорт"),
@@ -220,7 +233,7 @@ def build_settings_view(
             ("pedestrian",       "Пеший ход"),
         ],
         initial_key = cfg.transport_type if cfg.transport_type in valid_transport_keys else "public_transport",
-        on_select = config_manager.set_transport_type,
+        on_select = on_transport_select,
         width = 280,
     )
       

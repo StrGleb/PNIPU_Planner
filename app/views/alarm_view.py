@@ -1,28 +1,17 @@
 import logging
+
 import flet as ft
 
 from bridges.planner_bridge import is_valid_time
 from managers.alarm_manager import AlarmManager
 from managers.config_manager import ConfigManager
-from utils.geocoder_utils import get_coordinates_by_address
-from utils.route_utis import get_route
 from models.alarm_model import Alarm, WEEK_ANY, WEEK_EVEN, WEEK_ODD
 
 logger = logging.getLogger(__name__)
 
 _DAYS = [(1, "Пн"), (2, "Вт"), (3, "Ср"), (4, "Чт"), (5, "Пт"), (6, "Сб"), (7, "Вс")]
-_WEEKS = [(WEEK_ANY, "Любая"), (WEEK_ODD, "Нечёт."), (WEEK_EVEN, "Чётная")]
-FACULTIES_COORDS = {
-    "ЭТФ - Электротехнический факультет": [58.054531, 56.222769], 
-    "ХТФ - Факультет химических технологий, промышленной экологии и биотехнологий": [58.054541, 56.223820],
-    "АКФ - Аэрокосмический факультет": [58.054355, 56.231653], 
-    "Гуманитарный факультет": [58.002134, 56.247455], 
-    "МТФ - Механико-технологический факультет": [58.008495, 56.239190],
-    "Строительный факультет": [57.984680, 56.247428], 
-    "Прикладной математики и механики": [58.054531, 56.224898],
-    "ГНФ - Горно-нефтяной факультет": [58.008295, 56.240250],
-    "Автодорожный факультет": [58.056593, 56.235830],
-}
+_WEEKS = [(WEEK_ANY, "Любая"), (WEEK_ODD, "Нечет."), (WEEK_EVEN, "Четная")]
+
 
 def build_alarm_view(
     navigation_bar: ft.NavigationBar,
@@ -31,9 +20,8 @@ def build_alarm_view(
     config_manager: ConfigManager,
     auto_alarm_service,
     page: ft.Page,
+    auto_alarm_bridge_manager = None,
 ) -> ft.View:
-    
-    cfg = config_manager.config
     alarms_column = ft.Column(spacing = 10, scroll = ft.ScrollMode.AUTO)
     alarms_container = ft.Container(
         content = alarms_column,
@@ -44,9 +32,13 @@ def build_alarm_view(
     page.overlay.append(alarm_dialog)
 
     auto_label = ft.Text("", size = 14, weight = ft.FontWeight.BOLD, color = ft.Colors.WHITE)
+    exact_alarm_text = ft.Text(
+        "",
+        size = 12,
+        color = ft.Colors.WHITE,
+    )
 
     def show_info(message: str) -> None:
-        """ Для отображения информационных сообщений """
         snack = ft.SnackBar(
             content = ft.Text(message),
             bgcolor = ft.Colors.GREEN_700,
@@ -57,7 +49,6 @@ def build_alarm_view(
         page.update()
 
     def show_error(message: str) -> None:
-        """ Для отображений об ошибке """
         snack = ft.SnackBar(
             content = ft.Text(message),
             bgcolor = ft.Colors.RED_700,
@@ -68,10 +59,26 @@ def build_alarm_view(
         page.update()
 
     def _refresh_auto_button() -> None:
-        """ Обновление кнопки вкл/выкл """
         enabled = config_manager.config.auto_alarm_enabled
         auto_label.value = "Авто: вкл" if enabled else "Авто: выкл"
         btn_auto.bgcolor = ft.Colors.BLUE_600 if enabled else ft.Colors.BLUE_GREY_600
+
+    def _refresh_exact_alarm_state(refresh_permission: bool = False) -> None:
+        if (
+            auto_alarm_bridge_manager is None
+            or not auto_alarm_bridge_manager.is_android_bridge_enabled
+        ):
+            exact_alarm_banner.visible = False
+            return
+
+        has_permission = auto_alarm_bridge_manager.can_schedule_exact_alarms(
+            refresh = refresh_permission,
+        )
+        exact_alarm_banner.visible = not has_permission
+        exact_alarm_text.value = (
+            "Точные будильники Android выключены. "
+            "Без этого недельная очередь не сможет надежно срабатывать в фоне."
+        )
 
     def refresh_list() -> None:
         alarms_column.controls.clear()
@@ -81,6 +88,7 @@ def build_alarm_view(
             alarms_column.controls.append(_build_alarm_tile(alarm))
         try:
             _refresh_auto_button()
+            _refresh_exact_alarm_state()
             page.update()
         except Exception as exc:
             logger.error("Failed to refresh alarm list: %s", exc)
@@ -288,20 +296,34 @@ def build_alarm_view(
 
     def _show_auto_result(result: str) -> None:
         messages = {
-            "scheduled": ("info", "Автобудильник обновлен под ближайшее событие."),
+            "scheduled": ("info", "Очередь авто-будильников обновлена, в списке показан ближайший."),
             "no_upcoming_entries": ("info", "Ближайших событий пока нет. Авто-режим остается включенным."),
             "missing_prep": ("error", "Укажите время на сборы в настройках."),
             "invalid_lesson_time": ("error", "Не удалось определить время ближайшего события."),
-            "disabled": ("info", "Автобудильники выключены."),
+            "disabled": ("info", "Авто-будильники выключены."),
         }
-        level, message = messages.get(result, ("error", "Не удалось обновить автобудильник."))
+        level, message = messages.get(result, ("error", "Не удалось обновить авто-будильники."))
         if result == "route_unavailable":
-            show_error("Не удалось рассчитать маршрут. Проверьте адрес, API-ключи или укажите запасное время до вуза.")
+            show_error("Не удалось рассчитать маршрут. Проверьте адрес или укажите запасное время до вуза.")
             return
         if level == "info":
             show_info(message)
         else:
             show_error(message)
+
+    def _open_exact_alarm_settings(e) -> None:
+        if auto_alarm_bridge_manager is None:
+            return
+        auto_alarm_bridge_manager.open_exact_alarm_settings()
+        _refresh_exact_alarm_state(refresh_permission = True)
+        if config_manager.config.auto_alarm_enabled:
+            result = auto_alarm_service.sync_next_upcoming(force = True)
+            if result in {"missing_prep", "invalid_lesson_time", "route_unavailable"}:
+                config_manager.set_auto_alarm_enabled(False)
+            refresh_list()
+            _show_auto_result(result)
+            return
+        page.update()
 
     def _on_auto(e) -> None:
         if config_manager.config.auto_alarm_enabled:
@@ -310,54 +332,13 @@ def build_alarm_view(
             refresh_list()
             _show_auto_result("disabled")
             return
- 
-        # ── Рассчитываем время в пути ─────────────────────────────────────────
-        user_address = "Пермь, " + cfg.user_address
-        try:
-            user_address_coordinates = tuple(reversed(list(get_coordinates_by_address(user_address))))
-        except Exception as e:
-            ...
-        faculty_name = cfg.user_faculty
-        try:
-            faculty_address_coordinates = tuple(FACULTIES_COORDS[faculty_name])
-        except Exception:
-            ...
-        transport_type = cfg.transport_type
-
-        try:
-            travel_minutes = get_route(user_address_coordinates, faculty_address_coordinates, transport_type)
-            if type(travel_minutes) == dict:
-                travel_minutes = travel_minutes['duration_min']
-            else:
-                travel_minutes = round(travel_minutes[0] / 60)
-        except Exception as e:
-            logger.warning(f"Маршрут не рассчитан. Произошла ошибка: {e}")
-            if cfg.travel_time <= 0:
-                show_error(
-                    f"Не удалось рассчитать маршрут:\n"
-                )
-                return
 
         config_manager.set_auto_alarm_enabled(True)
-        result = auto_alarm_service.sync_next_upcoming(force = True)
+        result, _count = auto_alarm_service.sync_week_ahead()
         if result in {"missing_prep", "invalid_lesson_time", "route_unavailable"}:
             config_manager.set_auto_alarm_enabled(False)
         refresh_list()
         _show_auto_result(result)
-    
-    def _on_week(e) -> None:
-        result, count = auto_alarm_service.sync_week_ahead()
-        refresh_list()
-        if result == "scheduled":
-            show_info(f"Будильников на неделю: {count}")
-        elif result == "missing_prep":
-            show_error("Укажите время на сборы в настройках.")
-        elif result == "no_upcoming_entries":
-            show_info("Занятий на ближайшие 7 дней нет.")
-        elif result == "route_unavailable":
-            show_error("Укажите время до ВУЗа (мин) в настройках.")
-        else:
-            show_error("Не удалось расставить будильники.")
 
     btn_auto = ft.Container(
         content = auto_label,
@@ -365,15 +346,6 @@ def build_alarm_view(
         border_radius = 16,
         padding = ft.Padding.symmetric(horizontal = 20, vertical = 14),
         on_click = _on_auto,
-        ink = True,
-    )
-
-    btn_week = ft.Container(
-        content = ft.Text("На неделю", size = 14, weight = ft.FontWeight.BOLD, color = ft.Colors.WHITE),
-        bgcolor = ft.Colors.TEAL_600,
-        border_radius = 16,
-        padding = ft.Padding.symmetric(horizontal = 20, vertical = 14),
-        on_click = _on_week,
         ink = True,
     )
 
@@ -388,14 +360,38 @@ def build_alarm_view(
         ink = True,
     )
 
+    exact_alarm_banner = ft.Container(
+        visible = False,
+        margin = ft.Margin.symmetric(horizontal = 16, vertical = 8),
+        padding = ft.Padding.symmetric(horizontal = 14, vertical = 12),
+        bgcolor = ft.Colors.ORANGE_700,
+        border_radius = 14,
+        content = ft.Column(
+            [
+                ft.Text(
+                    "Нужно разрешение на точные будильники",
+                    size = 14,
+                    weight = ft.FontWeight.BOLD,
+                    color = ft.Colors.WHITE,
+                ),
+                exact_alarm_text,
+                ft.FilledButton(
+                    "Открыть настройки",
+                    icon = ft.Icons.OPEN_IN_NEW,
+                    on_click = _open_exact_alarm_settings,
+                ),
+            ],
+            spacing = 8,
+            tight = True,
+        ),
+    )
+
     bottom_row = ft.Container(
         content = ft.Row(
             [
-                # btn_week, 
-                # ft.Container(width = 8), 
-                btn_auto, 
-                ft.Container(expand = True), 
-                btn_add
+                btn_auto,
+                ft.Container(expand = True),
+                btn_add,
             ],
             vertical_alignment = ft.CrossAxisAlignment.CENTER,
         ),
@@ -421,6 +417,7 @@ def build_alarm_view(
                                 spacing = 2,
                             ),
                         ),
+                        exact_alarm_banner,
                         alarms_container,
                         bottom_row,
                     ],

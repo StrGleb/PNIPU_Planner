@@ -453,6 +453,43 @@ int is_alarm_within_recheck_window(
     return minutes_until_alarm >= 0 && minutes_until_alarm <= lead_minutes;
 }
 
+int is_alarm_within_recheck_datetime_window(
+    int alarm_day,
+    int alarm_month,
+    int alarm_year,
+    int alarm_hour,
+    int alarm_minute,
+    int now_day,
+    int now_month,
+    int now_year,
+    int now_hour,
+    int now_minute,
+    int lead_minutes,
+    int after_minutes
+)
+{
+    const int alarm_minutes = time_to_minutes(alarm_hour, alarm_minute);
+    const int current_minutes = time_to_minutes(now_hour, now_minute);
+    if (
+        alarm_minutes < 0
+        || current_minutes < 0
+        || lead_minutes < 0
+        || after_minutes < 0
+    ) {
+        return 0;
+    }
+
+    const int alarm_total_minutes =
+        days_from_civil(alarm_year, alarm_month, alarm_day) * 24 * 60
+        + alarm_minutes;
+    const int current_total_minutes =
+        days_from_civil(now_year, now_month, now_day) * 24 * 60
+        + current_minutes;
+
+    const int minutes_until_alarm = alarm_total_minutes - current_total_minutes;
+    return minutes_until_alarm >= -after_minutes && minutes_until_alarm <= lead_minutes;
+}
+
 int can_recheck_alarm_now(
     const char* rechecked_at,
     int now_day,
@@ -1142,6 +1179,87 @@ int select_next_lesson_index_with_horizon(
     }
 
     return best_index;
+}
+
+int collect_upcoming_lesson_indices_with_horizon(
+    const char* const* date_strings,
+    const int* start_minutes,
+    int count,
+    int now_day,
+    int now_month,
+    int now_year,
+    int now_minutes,
+    int max_days_ahead,
+    int* out_indices
+)
+{
+    if (
+        count <= 0
+        || date_strings == nullptr
+        || start_minutes == nullptr
+        || out_indices == nullptr
+    ) {
+        return 0;
+    }
+
+    struct UpcomingLessonIndex
+    {
+        int index;
+        int day_count;
+        int start_minute;
+    };
+
+    const int now_days = days_from_civil(now_year, now_month, now_day);
+    std::vector<UpcomingLessonIndex> matches;
+    matches.reserve(static_cast<std::size_t>(count));
+
+    for (int i = 0; i < count; ++i) {
+        const int lesson_start = start_minutes[i];
+        if (lesson_start < 0) {
+            continue;
+        }
+
+        int day = 0;
+        int month = 0;
+        int year = 0;
+        if (!parse_date_text(date_strings[i], day, month, year)) {
+            continue;
+        }
+
+        const int lesson_days = days_from_civil(year, month, day);
+        const int day_delta = lesson_days - now_days;
+        if (day_delta < 0) {
+            continue;
+        }
+        if (max_days_ahead >= 0 && day_delta > max_days_ahead) {
+            continue;
+        }
+        if (day_delta == 0 && lesson_start <= now_minutes) {
+            continue;
+        }
+
+        matches.push_back({i, lesson_days, lesson_start});
+    }
+
+    std::stable_sort(
+        matches.begin(),
+        matches.end(),
+        [](const UpcomingLessonIndex& lhs, const UpcomingLessonIndex& rhs) {
+            if (lhs.day_count != rhs.day_count) {
+                return lhs.day_count < rhs.day_count;
+            }
+            if (lhs.start_minute != rhs.start_minute) {
+                return lhs.start_minute < rhs.start_minute;
+            }
+            return lhs.index < rhs.index;
+        }
+    );
+
+    for (std::size_t i = 0; i < matches.size(); ++i) {
+        out_indices[i] = matches[i].index;
+    }
+
+    return static_cast<int>(matches.size());
 }
 
 int compute_buffered_alarm_minutes(

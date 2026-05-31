@@ -9,6 +9,7 @@ import flet as ft
 
 from bridges.planner_bridge import is_week_even
 from managers.alarm_manager import AlarmManager
+from managers.auto_alarm_bridge_manager import AutoAlarmBridgeManager
 from managers.auto_alarm_service import AutoAlarmService
 from managers.config_manager import ConfigManager
 from managers.notification_manager import send_notification, start_daily_checker
@@ -20,6 +21,18 @@ from views.alarm_view import build_alarm_view
 from views.home_view import build_home_view
 from views.planner_view import build_planner_view
 from views.settings_view import build_settings_view
+
+_PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
+_EXTENSION_SRC = _PROJECT_ROOT / "pnipu_alarm_bridge" / "src"
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+if _EXTENSION_SRC.exists() and str(_EXTENSION_SRC) not in sys.path:
+    sys.path.insert(0, str(_EXTENSION_SRC))
+
+try:
+    from pnipu_alarm_bridge import PnipuAlarmBridge
+except Exception:
+    PnipuAlarmBridge = None
 
 is_android = hasattr(sys, "getandroidapilevel")
 
@@ -49,6 +62,20 @@ def main(page: ft.Page):
 
         config_manager = ConfigManager()
         tasks_manager = TasksManager()
+        bridge_service = None
+        bridge_manager = AutoAlarmBridgeManager(page = page)
+
+        if is_android and PnipuAlarmBridge is not None:
+            try:
+                bridge_service = PnipuAlarmBridge()
+                page.services.append(bridge_service)
+                bridge_manager = AutoAlarmBridgeManager(
+                    page = page,
+                    bridge_service = bridge_service,
+                    enabled = True,
+                )
+            except Exception:
+                logger.exception("Failed to initialize Android alarm bridge")
 
         now = lambda: strftime("%H:%M:%S", localtime())
         clock_text = ft.Text(value=now())
@@ -135,6 +162,7 @@ def main(page: ft.Page):
             alarm_manager = alarm_manager,
             config_manager = config_manager,
             planner_manager = planner_manager,
+            bridge_manager = bridge_manager,
         )
         alarm_manager.start_background_checker()
         auto_alarm_service.start()
@@ -216,6 +244,7 @@ def main(page: ft.Page):
                         alarm_manager = alarm_manager,
                         config_manager = config_manager,
                         auto_alarm_service = auto_alarm_service,
+                        auto_alarm_bridge_manager = bridge_manager,
                         page = page,
                     )
                 )
