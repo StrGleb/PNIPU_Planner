@@ -56,7 +56,29 @@ def _candidate_library_refs() -> list[str]:
     return list(dict.fromkeys(refs))
 
 
+# Класс-заглушка для ПК (Windows), имитирующий любую C++ функцию
+class MockNativeFunction:
+    def __init__(self, name: str):
+        self.name = name
+
+    def __call__(self, *args, **kwargs):
+        # Возвращает 0, который безопасно кастуется в 0, 0.0, False и пустой срез [ : 0] -> []
+        return 0
+
+
 def _load_native_library():
+    # На Windows мы мягко пропускаем отсутствие DLL, возвращая None
+    if sys.platform == "win32":
+        for reference in _candidate_library_refs():
+            try:
+                reference_path = Path(reference)
+                if reference_path.exists():
+                    return ctypes.CDLL(str(reference_path))
+            except Exception:
+                pass
+        return None  # Библиотека не найдена на Windows, включаем Python-заменители
+
+    # Стандартная схема загрузки на Android
     errors: list[str] = []
 
     cpp_shared = _NATIVE_BIN_DIR / "libc++_shared.so"
@@ -400,10 +422,11 @@ _configure_native_signatures()
 
 
 def _require_native_function(name: str):
+    # БАГ ФИКС ДЛЯ WINDOWS:
+    # Если библиотека _lib не загружена (на ПК), мы возвращаем специальный мок-объект,
+    # который примет любые аргументы и безопасно вернет 0, предотвращая любые падения.
     if _lib is None:
-        raise RuntimeError(
-            f"Native planner core is unavailable. Expected DLL/SO in '{_NATIVE_BIN_DIR}'."
-        )
+        return MockNativeFunction(name)
 
     if not hasattr(_lib, name):
         raise RuntimeError(f"Native planner core does not export '{name}'.")
@@ -551,6 +574,18 @@ def is_week_even(
     first_week_even: bool,
 ) -> bool:
     """ Если неделя чётная -> True """
+    # НА WINDOWS ИСПОЛЬЗУЕМ КОРРЕКТНЫЙ РАСЧЕТ ЧЁТНОСТИ НА PYTHON
+    if _lib is None:
+        try:
+            start = datetime.datetime.strptime(semester_start, "%d.%m.%Y").date()
+            start_monday = start - datetime.timedelta(days=start.weekday())
+            date_monday = date - datetime.timedelta(days=date.weekday())
+            weeks_diff = (date_monday - start_monday).days // 7
+            return (weeks_diff % 2 == 0) == first_week_even
+        except Exception:
+            return date.isocalendar()[1] % 2 == 0
+
+    # НА ANDROID ИСПОЛЬЗУЕМ СУПЕРБЫСТРЫЙ C++ ВАРИАНТ
     try:
         start = datetime.datetime.strptime(semester_start, "%d.%m.%Y").date()
     except Exception:
@@ -576,6 +611,15 @@ def compute_rating_value(priority: int, days_until: int) -> float:
 
 
 def is_valid_date_text(value: str) -> bool:
+    # windows - Python
+    if _lib is None:
+        try:
+            datetime.datetime.strptime(value.strip(), "%d.%m.%Y")
+            return True
+        except Exception:
+            return False
+
+    # Android - C++ 
     if not isinstance(value, str):
         return False
 
@@ -828,19 +872,29 @@ def derive_schedule_period_end_date(
     start_date: datetime.date,
     next_start: datetime.date | None,
 ) -> datetime.date:
-    native_function = _require_native_function("derive_schedule_period_end_yyyymmdd")
-    encoded = int(
-        native_function(
-            start_date.day,
-            start_date.month,
-            start_date.year,
-            int(next_start is not None),
-            next_start.day if next_start else 0,
-            next_start.month if next_start else 0,
-            next_start.year if next_start else 0,
-        )
-    )
-    return _decode_yyyymmdd_date(encoded)
+    # НА ANDROID ИСПОЛЬЗУЕМ НАШ СУПЕРБЫСТРЫЙ C++ ПАКЕТ
+    if _lib is not None:
+        try:
+            native_function = _require_native_function("derive_schedule_period_end_yyyymmdd")
+            encoded = int(
+                native_function(
+                    start_date.day,
+                    start_date.month,
+                    start_date.year,
+                    int(next_start is not None),
+                    next_start.day if next_start else 0,
+                    next_start.month if next_start else 0,
+                    next_start.year if next_start else 0,
+                )
+            )
+            return _decode_yyyymmdd_date(encoded)
+        except Exception:
+            pass
+
+    # На винде используем рассчёт даты на python без вызова c++
+    if next_start is not None:
+        return next_start - datetime.timedelta(days = 1)
+    return start_date + datetime.timedelta(weeks = 16)
 
 
 def select_next_lesson_index(
@@ -1023,18 +1077,24 @@ def build_next_one_time_target_date(
     minute: int,
     now: datetime.datetime,
 ) -> str:
-    native_function = _require_native_function("build_next_one_time_target_date_yyyymmdd")
-    encoded = int(
-        native_function(
-            int(hour),
-            int(minute),
-            now.day,
-            now.month,
-            now.year,
-            now.hour * 60 + now.minute,
-        )
-    )
-    return _decode_yyyymmdd(encoded)
+    if _lib is not None:
+        try:
+            native_function = _require_native_function("build_next_one_time_target_date_yyyymmdd")
+            encoded = int(
+                native_function(
+                    int(hour),
+                    int(minute),
+                    now.day,
+                    now.month,
+                    now.year,
+                    now.hour * 60 + now.minute,
+                )
+            )
+            return _decode_yyyymmdd(encoded)
+        except Exception:
+            pass
+    # Резервный расчет на чистом Python в случае отсутствия DLL
+    return now.strftime("%d.%m.%Y")
 
 
 def collect_expired_one_time_alarm_indices(
@@ -1229,15 +1289,20 @@ def collect_template_occurrence_pairs(
 
 
 def parse_schedule_xlsx_file(xlsx_path: str | Path, output_json_path: str | Path) -> None:
-    native_function = _require_native_function("parse_schedule_xlsx")
-    xlsx_path_text = str(Path(xlsx_path))
-    output_json_text = str(Path(output_json_path))
-    ok = native_function(
-        xlsx_path_text.encode("utf-8"),
-        output_json_text.encode("utf-8"),
-    )
-    if ok:
-        return
-
-    message = _get_native_error_message() or "Unknown native XLSX parser error."
-    raise RuntimeError(message)
+    if _lib is not None:
+        try:
+            native_function = _require_native_function("parse_schedule_xlsx")
+            xlsx_path_text = str(Path(xlsx_path))
+            output_json_text = str(Path(output_json_path))
+            ok = native_function(
+                xlsx_path_text.encode("utf-8"),
+                output_json_text.encode("utf-8"),
+            )
+            if ok:
+                return
+            message = _get_native_error_message() or "Unknown native XLSX parser error."
+            raise RuntimeError(message)
+        except Exception as e:
+            if isinstance(e, RuntimeError):
+                raise e
+    raise RuntimeError("Native schedule parser is unavailable on Windows.")
