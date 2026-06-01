@@ -1,11 +1,13 @@
 import datetime
-
+import logging
 import flet as ft
 
 from bridges.planner_bridge import time_to_minutes
 from managers.tasks_manager import TasksManager
 from utils.time_utils import greeting_choose
-from utils.weather_utils import get_weather_by_coords, get_weather_recommendation
+from utils.weather_utils import get_weather_by_coords, get_weather_recommendation, get_weather_by_coords_openweathermap
+
+logger = logging.getLogger(__name__)
 
 PRIORITY_DOT_COLORS = {
     0: ft.Colors.GREY_400,
@@ -59,16 +61,21 @@ def build_home_view(
 
 
     # ── Получение погоды ────────────────────────────────────────
-    weather_data = None
     weather_widget = None
 
-    if config_manager and config_manager.config.user_address.strip():
+    try:
         # address = "Пермь, " + config_manager.config.user_address
         coords = 1
         if coords:
             latitude = 58.0105
             longitude = 56.2502
-            weather_data = get_weather_by_coords(latitude, longitude)
+            try:
+                weather_data = get_weather_by_coords(latitude, longitude)
+            except:
+                weather_data = get_weather_by_coords_openweathermap(latitude, longitude)
+    except:
+        logger.error("Нет данных пользователя дял получения данных о погоде")
+
 
     if weather_data:
         temp = weather_data["temp"]
@@ -81,7 +88,7 @@ def build_home_view(
         dark_theme_gradient = ft.LinearGradient(
             begin = ft.Alignment(0, -1),
             end = ft.Alignment(0, 1),
-            colors = [ft.Colors.BLUE_900, ft.Colors.BLUE_950]
+            colors = [ft.Colors.BLUE_900, ft.Colors.BLUE_900]
         )
 
         # Градиент для СВЕТЛОЙ темы (нежный светлый переход)

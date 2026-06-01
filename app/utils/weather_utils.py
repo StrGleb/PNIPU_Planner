@@ -272,10 +272,10 @@ def example_get_weather():
 
 
 if __name__ == "__main__":
-    # print("=" * 60)
-    # print("Пример получения погоды")
-    # print("=" * 60)
-    # example_get_weather()
+    print("=" * 60)
+    print("Пример получения погоды")
+    print("=" * 60)
+    example_get_weather()
     lat = 58.0105,
     lon = 56.2502,
 
