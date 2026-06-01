@@ -14,7 +14,7 @@
 
 | Главная | Планер (день) | Будильники | Настройки |
 |---------|--------------|------------|-----------|
-| ![Home](screenshots/home.png) | ![Planner](screenshots/planner_day.png) | ![Alarms](screenshots/alarms.png) | ![Settings](screenshots/settings.png) |
+| ![Home](screenshots/home.jpg) | ![Planner](screenshots/planner_day.jpg) | ![Alarms](screenshots/alarms.jpg) | ![Settings](screenshots/settings.jpg) |
 
 ## ✨ Возможности
 
