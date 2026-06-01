@@ -16,8 +16,6 @@
 |---------|--------------|------------|-----------|
 | ![Home](screenshots/home.png) | ![Planner](screenshots/planner_day.png) | ![Alarms](screenshots/alarms.png) | ![Settings](screenshots/settings.png) |
 
-> 💡 Положи скрины в папку `screenshots/` в корне репозитория.
-
 ## ✨ Возможности
 
 ### 📆 Расписание
