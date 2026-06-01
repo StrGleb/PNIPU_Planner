@@ -175,7 +175,9 @@ def main(page: ft.Page):
                 user_name = config_manager.config.user_name or "Студент",
                 tasks_manager = tasks_manager,
                 config_manager = config_manager,
+                theme = page,
             )
+        
 
         def refresh_home_view():
             home_view = build_home_root()

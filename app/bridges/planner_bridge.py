@@ -664,6 +664,16 @@ def is_week_even(
     first_week_even: bool,
 ) -> bool:
     """Return True when the week should be treated as even."""
+    if _lib is None:
+        try:
+            start = datetime.datetime.strptime(semester_start, "%d.%m.%Y").date()
+            start_monday = start - datetime.timedelta(days = start.weekday())
+            date_monday = date - datetime.timedelta(days = date.weekday())
+            weeks_diff = (date_monday - start_monday).days // 7
+            return (weeks_diff % 2 == 0) == first_week_even
+        except Exception:
+            return date.isocalendar()[1] % 2 == 0
+
     try:
         start = datetime.datetime.strptime(semester_start, "%d.%m.%Y").date()
     except Exception:
@@ -954,21 +964,29 @@ def derive_schedule_period_end_date(
     template_title: str = "",
     schedule_type: str = "weekly",
 ) -> datetime.date:
-    native_function = _require_native_function("derive_schedule_period_end_yyyymmdd")
-    encoded = int(
-        native_function(
-            start_date.day,
-            start_date.month,
-            start_date.year,
-            int(next_start is not None),
-            next_start.day if next_start else 0,
-            next_start.month if next_start else 0,
-            next_start.year if next_start else 0,
-            str(template_title).encode("utf-8"),
-            str(schedule_type).encode("utf-8"),
-        )
-    )
-    return _decode_yyyymmdd_date(encoded)
+    if _lib is not None:
+        try:
+            native_function = _require_native_function("derive_schedule_period_end_yyyymmdd")
+            encoded = int(
+                native_function(
+                    start_date.day,
+                    start_date.month,
+                    start_date.year,
+                    int(next_start is not None),
+                    next_start.day if next_start else 0,
+                    next_start.month if next_start else 0,
+                    next_start.year if next_start else 0,
+                    str(template_title).encode("utf-8"),
+                    str(schedule_type).encode("utf-8"),
+                )
+            )
+            return _decode_yyyymmdd_date(encoded)
+        except Exception:
+            pass
+
+    if next_start is not None:
+        return next_start - datetime.timedelta(days = 1)
+    return start_date + datetime.timedelta(weeks = 16)
 
 
 def derive_schedule_template_end_date(

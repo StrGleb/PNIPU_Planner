@@ -992,14 +992,19 @@ def build_planner_view(
                 spacing = 6,
                 vertical_alignment = ft.CrossAxisAlignment.CENTER,
             )
-
-        legend = ft.Row(
-            [
-                build_legend_item(ft.Colors.GREEN_200, ft.Colors.GREEN_400, "\u041f\u0430\u0440\u044b"),
-                build_legend_item(ft.Colors.BLUE_200, ft.Colors.BLUE_400, "\u0421\u043e\u0431\u044b\u0442\u0438\u044f"),
-                build_legend_item(ft.Colors.TEAL_200, ft.Colors.TEAL_400, "\u041f\u0430\u0440\u044b + \u0441\u043e\u0431\u044b\u0442\u0438\u044f"),
-            ],
-            spacing = 14,
+        
+        legend = ft.Container(
+            content = ft.Row(
+                [
+                    build_legend_item(ft.Colors.GREEN_200, ft.Colors.GREEN_400, "Пары"),
+                    build_legend_item(ft.Colors.BLUE_200, ft.Colors.BLUE_400, "События"),
+                    build_legend_item(ft.Colors.TEAL_200, ft.Colors.TEAL_400, "Пары + события"),
+                ],
+                spacing = 14,
+                alignment = ft.MainAxisAlignment.CENTER, 
+            ),
+            padding = ft.Padding.symmetric(vertical = 8),
+            alignment = ft.Alignment(0, 0),
         )
 
         week_rows = []
@@ -1012,7 +1017,12 @@ def build_planner_view(
                         day_markers,
                     )
                 )
-            week_rows.append(ft.Row(controls, spacing = 6))
+            week_rows.append(
+                ft.Container(
+                    content = ft.Row(controls, spacing = 6), 
+                    padding = ft.Padding.only(left = 16, right= 16),
+                    )
+                )
 
         return ft.Column(
             [
@@ -1096,10 +1106,11 @@ def build_planner_view(
 
         all_tasks.sort(key = task_sort_key)
 
+        # УДАЛИЛИ ПАРАМЕТР width ИЗ КОНСТРУКТОРОВ
         filter_dropdown = ft.Dropdown(
             label = "Тип",
             value = state["task_filter"],
-            width = 220,
+            border_radius = 12,
             options = [
                 ft.DropdownOption(key = "all", text = "Все"),
                 ft.DropdownOption(key = TASK_TYPE_HOMEWORK, text = "Домашки"),
@@ -1111,7 +1122,7 @@ def build_planner_view(
         sort_dropdown = ft.Dropdown(
             label = "Сортировка",
             value = state["task_sort"],
-            width = 220,
+            border_radius = 12,
             options = [
                 ft.DropdownOption(key = "date", text = "По дате"),
                 ft.DropdownOption(key = "subject", text = "По предмету"),
@@ -1120,14 +1131,14 @@ def build_planner_view(
             ],
             on_select = lambda e: set_task_sort(e.control.value or "date"),
         )
+        
+        # УБРАЛИ ЖЕСТКОЕ ПЕРЕОПРЕДЕЛЕНИЕ ШИРИНЫ НА 240
         filter_dropdown.label = None
-        filter_dropdown.width = 240
         sort_dropdown.label = None
-        sort_dropdown.width = 240
         sort_dropdown.options = [
-            ft.DropdownOption(key = "date", text = "\u041f\u043e \u0434\u0430\u0442\u0435"),
-            ft.DropdownOption(key = "subject", text = "\u041f\u043e \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u0443"),
-            ft.DropdownOption(key = "priority", text = "\u041f\u043e \u043f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442\u0443"),
+            ft.DropdownOption(key = "date", text = "По дате"),
+            ft.DropdownOption(key = "subject", text = "По предмету"),
+            ft.DropdownOption(key = "priority", text = "По приоритету"),
         ]
 
         task_cards: list[ft.Control] = [build_task_card(task) for task in all_tasks]
@@ -1147,27 +1158,32 @@ def build_planner_view(
                         [
                             ft.Column(
                                 [
-                                    ft.Text("\u0422\u0438\u043f \u0437\u0430\u0434\u0430\u0447", size = 12, color = ft.Colors.GREY_600),
+                                    ft.Text("Тип задач", size = 12, color = ft.Colors.GREY_600),
                                     filter_dropdown,
                                 ],
                                 spacing = 6,
+                                expand = True,
+                                horizontal_alignment = ft.CrossAxisAlignment.STRETCH,
                             ),
                             ft.Column(
                                 [
-                                    ft.Text("\u0421\u043e\u0440\u0442\u0438\u0440\u043e\u0432\u043a\u0430", size = 12, color = ft.Colors.GREY_600),
+                                    ft.Text("Сортировка", size = 12, color = ft.Colors.GREY_600),
                                     sort_dropdown,
                                 ],
                                 spacing = 6,
+                                expand = True,
+                                horizontal_alignment = ft.CrossAxisAlignment.STRETCH,
                             ),
                         ],
                         wrap = True,
                         spacing = 12,
                         run_spacing = 12,
+                        expand = True,
                     ),
                 ),
                 ft.Container(
                     padding = ft.Padding.symmetric(horizontal = 10),
-                    content = ft.Text(f"\u0412\u0441\u0435\u0433\u043e \u0437\u0430\u0434\u0430\u0447: {len(all_tasks)}", size = 12, color = ft.Colors.GREY_600),
+                    content = ft.Text(f"Всего задач: {len(all_tasks)}", size = 12, color = ft.Colors.GREY_600),
                 ),
                 ft.Container(
                     padding = ft.Padding.symmetric(horizontal = 10),
