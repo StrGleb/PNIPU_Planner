@@ -1,11 +1,20 @@
 import datetime
+import logging
+import threading
 
 import flet as ft
 
 from bridges.planner_bridge import time_to_minutes
 from managers.tasks_manager import TasksManager
 from utils.time_utils import greeting_choose
-from utils.weather_utils import get_weather_for_address, get_weather_recommendation
+from utils.weather_utils import (
+    get_weather_for_config,
+    get_weather_recommendation,
+    should_refresh_weather,
+)
+
+
+logger = logging.getLogger(__name__)
 
 PRIORITY_DOT_COLORS = {
     0: ft.Colors.GREY_400,
@@ -48,129 +57,148 @@ def build_home_view(
     labs_tomorrow = _sort_tasks_by_time(tasks_manager.get_labs_for_date(tomorrow))
 
     current_theme = get_current_theme(theme)
-    weather_data = None
     has_user_address = False
+    cached_weather = None
+    should_load_weather = False
 
     if config_manager is not None:
         user_address = str(config_manager.config.user_address or "").strip()
         has_user_address = bool(user_address)
-        if user_address:
-            weather_address = user_address if "," in user_address else f"Пермь, {user_address}"
-            weather_data = get_weather_for_address(weather_address)
+        cached_weather = getattr(config_manager.config, "weather_payload", None) or None
+        cached_at = getattr(config_manager.config, "weather_cached_at", "")
+        should_load_weather = has_user_address and (cached_weather is None or should_refresh_weather(cached_at))
 
-    def build_weather_widget() -> ft.Container:
+    dark_theme_gradient = ft.LinearGradient(
+        begin = ft.Alignment(0, -1),
+        end = ft.Alignment(0, 1),
+        colors = [ft.Colors.BLUE_900, ft.Colors.BLUE_900],
+    )
+    light_theme_gradient = ft.LinearGradient(
+        begin = ft.Alignment(0, -1),
+        end = ft.Alignment(0, 1),
+        colors = [ft.Colors.BLUE_200, ft.Colors.BLUE_50],
+    )
+
+    is_dark = current_theme == "dark"
+    active_gradient = dark_theme_gradient if is_dark else light_theme_gradient
+    text_color = ft.Colors.WHITE if is_dark else ft.Colors.GREY_800
+    subtext_color = ft.Colors.WHITE70 if is_dark else ft.Colors.GREY_600
+    recommendation_color = ft.Colors.BLUE_100 if is_dark else ft.Colors.BLUE_800
+    divider_color = ft.Colors.BLUE_100 if is_dark else ft.Colors.BLUE_300
+
+    weather_icon = ft.Text("🌤️", size = 40)
+    weather_temp = ft.Text("Погода", size = 28, weight = ft.FontWeight.BOLD, color = text_color)
+    weather_meta = ft.Text("Загружаем актуальный прогноз...", size = 14, color = subtext_color)
+    weather_description = ft.Text("Погодный виджет", size = 16, color = text_color, weight = ft.FontWeight.W_500)
+    weather_recommendation = ft.Text("Подготовим рекомендации по одежде.", size = 13, color = recommendation_color, italic = True)
+    weather_status = ft.Text("", size = 11, color = subtext_color)
+    weather_loader = ft.ProgressRing(width = 18, height = 18, stroke_width = 2, visible = False)
+
+    def _set_weather_placeholder() -> None:
+        if has_user_address:
+            weather_icon.value = "🌥️"
+            weather_temp.value = "Погода недоступна"
+            weather_meta.value = "Не удалось обновить прогноз для текущего адреса."
+            weather_description.value = "Проверьте подключение к сети или ключи API."
+            weather_recommendation.value = "Когда данные снова появятся, совет по одежде обновится автоматически."
+            weather_status.value = ""
+        else:
+            weather_icon.value = "📍"
+            weather_temp.value = "Погода не настроена"
+            weather_meta.value = "Добавьте адрес в настройках."
+            weather_description.value = "После этого мы сохраним координаты и начнём обновлять погоду."
+            weather_recommendation.value = "Прогноз запрашивается не чаще одного раза в 6 часов."
+            weather_status.value = ""
+
+    def _apply_weather_data(weather_data: dict | None, loading: bool = False) -> None:
+        weather_loader.visible = loading
         if weather_data:
-            temp = weather_data["temp"]
-            feels_like = weather_data["feels_like"]
-            icon = weather_data["icon"]
-            description = weather_data["description"]
-            recommendation = get_weather_recommendation(temp)
+            temp = weather_data.get("temp", 0)
+            feels_like = weather_data.get("feels_like", 0)
+            weather_icon.value = str(weather_data.get("icon", "🌡️"))
+            weather_temp.value = f"{temp}°C"
+            weather_meta.value = f"Ощущается как {feels_like}°C"
+            weather_description.value = str(weather_data.get("description", "Погода")).capitalize()
+            weather_recommendation.value = f"Совет: {get_weather_recommendation(temp)}"
+            provider = str(weather_data.get("provider", "")).strip()
+            weather_status.value = f"Источник: {provider}" if provider else ""
+            return
+        _set_weather_placeholder()
 
-            dark_theme_gradient = ft.LinearGradient(
-                begin = ft.Alignment(0, -1),
-                end = ft.Alignment(0, 1),
-                colors = [ft.Colors.BLUE_900, ft.Colors.BLUE_950],
-            )
-            light_theme_gradient = ft.LinearGradient(
-                begin = ft.Alignment(0, -1),
-                end = ft.Alignment(0, 1),
-                colors = [ft.Colors.BLUE_200, ft.Colors.BLUE_50],
-            )
+    if cached_weather:
+        _apply_weather_data(cached_weather, loading = should_load_weather)
+    else:
+        _set_weather_placeholder()
+        weather_loader.visible = should_load_weather
 
-            is_dark = current_theme == "dark"
-            active_gradient = dark_theme_gradient if is_dark else light_theme_gradient
-            text_color = ft.Colors.WHITE if is_dark else ft.Colors.GREY_800
-            subtext_color = ft.Colors.WHITE70 if is_dark else ft.Colors.GREY_600
-            recommendation_color = ft.Colors.BLUE_100 if is_dark else ft.Colors.BLUE_800
-            divider_color = ft.Colors.BLUE_100 if is_dark else ft.Colors.BLUE_300
-
-            return ft.Container(
-                gradient = active_gradient,
-                border_radius = 16,
-                padding = ft.Padding.symmetric(horizontal = 16, vertical = 14),
-                content = ft.ResponsiveRow(
+    weather_widget = ft.Container(
+        gradient = active_gradient,
+        border_radius = 16,
+        padding = ft.Padding.symmetric(horizontal = 16, vertical = 14),
+        content = ft.ResponsiveRow(
+            [
+                ft.Column(
                     [
-                        ft.Column(
+                        ft.Row(
                             [
-                                ft.Row(
+                                weather_icon,
+                                ft.Column(
                                     [
-                                        ft.Text(icon, size = 40),
-                                        ft.Column(
-                                            [
-                                                ft.Text(
-                                                    f"{temp}°C",
-                                                    size = 28,
-                                                    weight = ft.FontWeight.BOLD,
-                                                    color = text_color,
-                                                ),
-                                                ft.Text(
-                                                    f"Ощущается как {feels_like}°C",
-                                                    size = 14,
-                                                    color = subtext_color,
-                                                ),
-                                            ],
-                                            spacing = 0,
-                                        ),
+                                        weather_temp,
+                                        weather_meta,
                                     ],
-                                    spacing = 10,
-                                    vertical_alignment = ft.CrossAxisAlignment.CENTER,
-                                )
-                            ],
-                            col = {"xs": 12, "md": 4},
-                        ),
-                        ft.Column(
-                            [
-                                ft.Container(height = 2, bgcolor = divider_color, border_radius = 999),
-                            ],
-                            col = {"xs": 12, "md": 1},
-                            alignment = ft.MainAxisAlignment.CENTER,
-                        ),
-                        ft.Column(
-                            [
-                                ft.Text(
-                                    description.capitalize(),
-                                    size = 16,
-                                    color = text_color,
-                                    weight = ft.FontWeight.W_500,
-                                ),
-                                ft.Text(
-                                    f"Совет: {recommendation}",
-                                    size = 13,
-                                    color = recommendation_color,
-                                    italic = True,
+                                    spacing = 0,
                                 ),
                             ],
-                            spacing = 4,
-                            col = {"xs": 12, "md": 7},
+                            spacing = 10,
+                            vertical_alignment = ft.CrossAxisAlignment.CENTER,
+                        )
+                    ],
+                    col = {"xs": 12, "md": 4},
+                ),
+                ft.Column(
+                    [ft.Container(height = 2, bgcolor = divider_color, border_radius = 999)],
+                    col = {"xs": 12, "md": 1},
+                    alignment = ft.MainAxisAlignment.CENTER,
+                ),
+                ft.Column(
+                    [
+                        weather_description,
+                        weather_recommendation,
+                        ft.Row(
+                            [weather_loader, weather_status],
+                            spacing = 8,
+                            vertical_alignment = ft.CrossAxisAlignment.CENTER,
                         ),
                     ],
-                    spacing = 12,
-                    run_spacing = 12,
-                    vertical_alignment = ft.CrossAxisAlignment.CENTER,
+                    spacing = 4,
+                    col = {"xs": 12, "md": 7},
                 ),
-            )
+            ],
+            spacing = 12,
+            run_spacing = 12,
+            vertical_alignment = ft.CrossAxisAlignment.CENTER,
+        ),
+    )
 
-        if has_user_address:
-            title = "Погода пока недоступна"
-            subtitle = "Проверьте API-ключи или подключение к сети"
-        else:
-            title = "Погода не настроена"
-            subtitle = "Добавьте адрес в настройках, чтобы видеть прогноз"
+    if should_load_weather and config_manager is not None:
+        def _load_weather_in_background() -> None:
+            try:
+                weather_data = get_weather_for_config(config_manager)
+                _apply_weather_data(weather_data)
+            except Exception:
+                logger.exception("Failed to refresh home weather widget")
+                _set_weather_placeholder()
+            finally:
+                weather_loader.visible = False
+                try:
+                    if theme.route == "/":
+                        weather_widget.update()
+                        theme.update()
+                except Exception:
+                    logger.debug("Weather widget update skipped because home view is no longer active")
 
-        return ft.Container(
-            bgcolor = ft.Colors.GREY_100,
-            border_radius = 16,
-            padding = ft.Padding.symmetric(horizontal = 16, vertical = 14),
-            content = ft.Column(
-                [
-                    ft.Text(title, size = 14, color = ft.Colors.GREY_700, weight = ft.FontWeight.W_500),
-                    ft.Text(subtitle, size = 12, color = ft.Colors.GREY_500),
-                ],
-                spacing = 4,
-            ),
-        )
-
-    weather_widget = build_weather_widget()
+        threading.Thread(target = _load_weather_in_background, daemon = True).start()
 
     def _task_row(task) -> ft.Row:
         dot = ft.Container(

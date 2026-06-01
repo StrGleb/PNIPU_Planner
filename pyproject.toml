@@ -7,6 +7,9 @@ requires-python = ">=3.10"
 dependencies = [
     "flet>=0.85.0",
     "pnipu-alarm-bridge",
+    "plyer>=2.1.0",
+    "requests>=2.34.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [dependency-groups]

@@ -12,7 +12,7 @@ from managers.alarm_manager import AlarmManager
 from managers.auto_alarm_bridge_manager import AutoAlarmBridgeManager
 from managers.auto_alarm_service import AutoAlarmService
 from managers.config_manager import ConfigManager
-from managers.notification_manager import send_notification, start_daily_checker
+from managers.notification_manager import start_daily_checker
 from managers.planner_manager import PlannerManager
 from managers.schedule_manager import ScheduleManager
 from managers.tasks_manager import TasksManager
@@ -65,17 +65,20 @@ def main(page: ft.Page):
         bridge_service = None
         bridge_manager = AutoAlarmBridgeManager(page = page)
 
-        if is_android and PnipuAlarmBridge is not None:
-            try:
-                bridge_service = PnipuAlarmBridge()
-                page.services.append(bridge_service)
-                bridge_manager = AutoAlarmBridgeManager(
-                    page = page,
-                    bridge_service = bridge_service,
-                    enabled = True,
-                )
-            except Exception:
-                logger.exception("Failed to initialize Android alarm bridge")
+        # Временное отключение Android AlarmManager-интеграции.
+        # Локальная очередь авто-будильников и ручные будильники продолжают работать,
+        # но системное планирование пока не используем, пока не закрепим финальную логику.
+        # if is_android and PnipuAlarmBridge is not None:
+        #     try:
+        #         bridge_service = PnipuAlarmBridge()
+        #         page.services.append(bridge_service)
+        #         bridge_manager = AutoAlarmBridgeManager(
+        #             page = page,
+        #             bridge_service = bridge_service,
+        #             enabled = True,
+        #         )
+        #     except Exception:
+        #         logger.exception("Failed to initialize Android alarm bridge")
 
         now = lambda: strftime("%H:%M:%S", localtime())
         clock_text = ft.Text(value=now())
@@ -144,7 +147,9 @@ def main(page: ft.Page):
             page.overlay.append(snack)
             snack.open = True
             page.update()
-            send_notification(title, message)
+            # Временная пауза для системных уведомлений, пока не будет
+            # согласована финальная Android-интеграция через AlarmManager.
+            # send_notification(title, message)
             if alarm.is_auto_schedule:
                 auto_alarm_service.handle_alarm_triggered(alarm)
 

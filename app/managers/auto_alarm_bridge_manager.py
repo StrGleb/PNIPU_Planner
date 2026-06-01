@@ -36,7 +36,9 @@ class AutoAlarmBridgeManager:
 
     @property
     def use_system_schedule(self) -> bool:
-        return self.is_android_bridge_enabled and self.can_schedule_exact_alarms()
+        # Временная заглушка: системное расписание через Android AlarmManager
+        # отключено, пока не будет утверждена финальная схема интеграции.
+        return False
 
     def _load_payload(self) -> dict[str, Any]:
         if not self._path.exists():

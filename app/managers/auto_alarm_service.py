@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 _ALARM_BUFFER_MINUTES = 10
 _UPCOMING_HORIZON_DAYS = 60
-_QUEUE_HORIZON_DAYS = 7
+_QUEUE_HORIZON_DAYS = 3
 _QUEUE_VERSION = 1
 _RECHECK_COOLDOWN_MINUTES = 45
 _PUBLIC_TRANSPORT_RECHECK_LEAD_MINUTES = 90
@@ -376,24 +376,19 @@ class AutoAlarmService:
         try:
             from utils.geocoder_utils import get_coordinates_by_address
             from utils.route_utis import get_route
+            from utils.weather_utils import normalize_weather_address, resolve_coordinates_for_config
         except Exception:
             logger.exception("Route utilities are unavailable")
             return None
 
-        address_query = user_address
-        if "перм" not in address_query.lower():
-            address_query = f"Пермь, {address_query}"
-
-        coordinates = get_coordinates_by_address(address_query)
+        coordinates = resolve_coordinates_for_config(self._config_manager)
         if not coordinates:
             return None
 
         start = (coordinates[1], coordinates[0])
 
         if destination_address:
-            destination_query = destination_address
-            if "перм" not in destination_query.lower():
-                destination_query = f"Пермь, {destination_query}"
+            destination_query = normalize_weather_address(destination_address)
             destination_coordinates_raw = get_coordinates_by_address(destination_query)
             if not destination_coordinates_raw:
                 return None
