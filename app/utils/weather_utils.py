@@ -10,6 +10,7 @@ load_dotenv(Path(__file__).resolve().parent.parent.parent / "app/utils/config.en
 logger = logging.getLogger(__name__)
 
 YANDEX_WEATHER_API_URL = "https://api.weather.yandex.ru/v2/informers"
+OPEN_WEATHER_MAP_URL = "https://api.openweathermap.org/data/2.5/weather"
 
 # Рекомендации по температуре
 TEMP_RECOMMENDATIONS = [
@@ -30,6 +31,7 @@ WEATHER_ICONS = {
     "clear": "☀️", # ясно
     "partly-cloudy": "⛅", # малооблачно
     "cloudy": "☁️", # облачно с прояснениями
+    "clouds": "☁️", # облачность
     "overcast": "☁️", # пасмурно
     "drizzle": "🌦️", # моросящий дождь
     "light-rain": "🌧️", # небольшой дождь
@@ -43,6 +45,10 @@ WEATHER_ICONS = {
     "snow": "❄️", # снег
     "snow-showers": "❄️", # снежные ливни
     "hail": "🌨️", # град
+    "mist": "☁️", # туман
+    "fog": "☁️", # туман
+    "haze": "☁️", # дымка
+    "smoke": "☁️", # смог, дым
     "thunderstorm": "⛈️", # гроза
     "thunderstorm-with-rain": "⛈️", # дождь с грозой
     "thunderstorm-with-hail": "⛈️", # гроза с градом
@@ -63,6 +69,77 @@ def get_weather_recommendation(temp_celsius: float) -> str:
         if min_temp <= temp_celsius < max_temp:
             return recommendation
     return "Погода необычная, оденьтесь по ситуации!"
+
+def get_weather_by_coords_openweathermap(latitude: float, longitude: float) -> Optional[Dict]:
+    """
+    Получает текущую погоду по координатам используя openweathermap API.
+
+    Args:
+        latitude: Широта
+        longitude: Долгота
+
+    Returns:
+        dict с информацией о погоде или None, если произошла ошибка
+        {
+            'temp': температура (°C),
+            'feels_like': ощущается как (°C),
+            'description': описание погоды,
+            'icon': иконка погоды,
+            'humidity': влажность (%),
+            'wind_speed': скорость ветра (м/с),
+        }
+    """
+    try:
+        api_key = os.getenv("OPENWEATHER_API_KEY")
+        if not api_key:
+            logger.warning("OPENWEATHER_API_KEY не найден в переменных окружения")
+            return None
+
+        params = {
+            "lat": latitude,
+            "lon": longitude,
+            "appid": api_key,
+            "units": "metric",
+            "lang": "ru"
+        }
+
+        response = requests.get(OPEN_WEATHER_MAP_URL, params = params, timeout = 10)
+        response.raise_for_status()
+
+        data = response.json()
+        weather_entries = data.get("weather") or [{}]
+        weather_data = weather_entries[0] if weather_entries else {}
+        main_data = data.get("main", {})
+        wind_data = data.get("wind", {})
+        name = str(weather_data.get("main", "")).lower()
+        icon = WEATHER_ICONS.get(name, "🌡️")
+        temp = main_data.get("temp", 0)
+        feels_like = main_data.get("feels_like", 0)
+        humidity = main_data.get("humidity", 0)
+        wind_speed = wind_data.get("speed", 0)
+        description = weather_data.get("description", name)
+        
+        result = {
+            "temp": round(temp),
+            "feels_like": round(feels_like),
+            "description": description,
+            "icon": icon,
+            "humidity": humidity,
+            "wind_speed": round(wind_speed, 1),
+            "city": data['name'],
+        }
+
+        logger.info(f"Получена погода для координат ({latitude}, {longitude}): {result}")
+        return result
+    except requests.exceptions.Timeout:
+        logger.error("Timeout при обращении к OpenWeatherMap API")
+        return None
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Ошибка при обращении к OpenWeatherMap API: {e}")
+        return None
+    except (KeyError, ValueError, IndexError, TypeError) as e:
+        logger.error(f"Ошибка при парсинге ответа OpenWeatherMap API: {e}")
+        return None
 
 
 def get_weather_by_coords(latitude: float, longitude: float) -> Optional[Dict]:
@@ -85,10 +162,11 @@ def get_weather_by_coords(latitude: float, longitude: float) -> Optional[Dict]:
         }
     """
     try:
+        # Первый запрос делаем в Яндекс Погоду.
         api_key = os.getenv("YANDEX_WEATHER_API_KEY")
         if not api_key:
             logger.warning("YANDEX_WEATHER_API_KEY не найден в переменных окружения")
-            return None
+            return get_weather_by_coords_openweathermap(latitude, longitude)
 
         headers = {
             "X-Yandex-API-Key": api_key
@@ -155,13 +233,13 @@ def get_weather_by_coords(latitude: float, longitude: float) -> Optional[Dict]:
 
     except requests.exceptions.Timeout:
         logger.error("Timeout при обращении к Яндекс.Погода API")
-        return None
+        return get_weather_by_coords_openweathermap(latitude, longitude)
     except requests.exceptions.RequestException as e:
         logger.error(f"Ошибка при обращении к Яндекс.Погода API: {e}")
-        return None
-    except (KeyError, ValueError, IndexError) as e:
+        return get_weather_by_coords_openweathermap(latitude, longitude)
+    except (KeyError, ValueError, IndexError, TypeError) as e:
         logger.error(f"Ошибка при парсинге ответа от API: {e}")
-        return None
+        return get_weather_by_coords_openweathermap(latitude, longitude)
 
 
 def get_weather_for_address(address: str) -> Optional[Dict]:
