@@ -10,6 +10,7 @@ load_dotenv(Path(__file__).resolve().parent.parent.parent / "app/utils/config.en
 logger = logging.getLogger(__name__)
 
 YANDEX_WEATHER_API_URL = "https://api.weather.yandex.ru/v2/informers"
+OPEN_WEATHER_MAP_URL = "https://api.openweathermap.org/data/2.5/weather"
 
 # Рекомендации по температуре
 TEMP_RECOMMENDATIONS = [
@@ -30,6 +31,7 @@ WEATHER_ICONS = {
     "clear": "☀️", # ясно
     "partly-cloudy": "⛅", # малооблачно
     "cloudy": "☁️", # облачно с прояснениями
+    "clouds": "☁️", # облачность
     "overcast": "☁️", # пасмурно
     "drizzle": "🌦️", # моросящий дождь
     "light-rain": "🌧️", # небольшой дождь
@@ -43,6 +45,10 @@ WEATHER_ICONS = {
     "snow": "❄️", # снег
     "snow-showers": "❄️", # снежные ливни
     "hail": "🌨️", # град
+    "mist": "☁️", # туман
+    "fog": "☁️", # туман
+    "haze": "☁️", # дымка
+    "smoke": "☁️", # смог, дым
     "thunderstorm": "⛈️", # гроза
     "thunderstorm-with-rain": "⛈️", # дождь с грозой
     "thunderstorm-with-hail": "⛈️", # гроза с градом
@@ -63,6 +69,67 @@ def get_weather_recommendation(temp_celsius: float) -> str:
         if min_temp <= temp_celsius < max_temp:
             return recommendation
     return "Погода необычная, оденьтесь по ситуации!"
+
+def get_weather_by_coords_openweathermap(latitude: float, longitude: float) -> Optional[Dict]:
+    """
+    Получает текущую погоду по координатам используя openweathermap API.
+
+    Args:
+        latitude: Широта
+        longitude: Долгота
+
+    Returns:
+        dict с информацией о погоде или None, если произошла ошибка
+        {
+            'temp': температура (°C),
+            'feels_like': ощущается как (°C),
+            'description': описание погоды,
+            'icon': иконка погоды,
+            'humidity': влажность (%),
+            'wind_speed': скорость ветра (м/с),
+        }
+    """
+    try:
+        OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
+        params = {
+            "lat": latitude,
+            "lon": longitude,
+            "appid": OPENWEATHER_API_KEY,
+            "units": "metric",
+            "lang": "ru"
+        }
+
+        response = requests.get(OPEN_WEATHER_MAP_URL, params = params)
+        if response.status_code == 200:
+            data = response.json()
+            temp = data['main']['temp']
+            feels_like = data['main']['feels_like']
+            name = str(data['weather'][0]['main']).lower()
+            try:
+                icon = WEATHER_ICONS.get(name, "🌡️")
+            except:
+                logger.warning(f"НЕ удалось найти иконку для погоды типа: {name}")
+            humidity = data['main']['humidity']
+            wind_speed = data['wind']['speed']
+            description = data['weather'][0]['description']
+        else:
+            logger.error(f"❌ OpenWeatherMap: Ошибка {response.status_code}: {response.text}")
+            return
+        
+        result = {
+            "temp": round(temp),
+            "feels_like": round(feels_like),
+            "description": description,
+            "icon": icon,
+            "humidity": humidity,
+            "wind_speed": round(wind_speed, 1),
+            "city": data['name'],
+        }
+
+        logger.info(f"Получена погода для координат ({latitude}, {longitude}): {result}")
+        return result
+    except:
+        return
 
 
 def get_weather_by_coords(latitude: float, longitude: float) -> Optional[Dict]:
@@ -85,6 +152,7 @@ def get_weather_by_coords(latitude: float, longitude: float) -> Optional[Dict]:
         }
     """
     try:
+        # Первый запрос делаем в Яндекс Погоду 
         api_key = os.getenv("YANDEX_WEATHER_API_KEY")
         if not api_key:
             logger.warning("YANDEX_WEATHER_API_KEY не найден в переменных окружения")
@@ -189,7 +257,8 @@ def example_get_weather():
     latitude = 58.0105
     longitude = 56.2502
 
-    weather = get_weather_by_coords(latitude, longitude)
+    # weather = get_weather_by_coords(latitude, longitude)
+    weather = get_weather_by_coords_openweathermap(latitude, longitude)
 
     if weather:
         print(f"Город: {weather['city']}")
@@ -203,7 +272,11 @@ def example_get_weather():
 
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print("Пример получения погоды")
-    print("=" * 60)
-    example_get_weather()
+    # print("=" * 60)
+    # print("Пример получения погоды")
+    # print("=" * 60)
+    # example_get_weather()
+    lat = 58.0105,
+    lon = 56.2502,
+
+    print(get_weather_by_coords_openweathermap(lat, lon))
