@@ -47,7 +47,7 @@
 | UI-фреймворк | [Flet](https://flet.dev) 0.85.0 (Flutter под Python) |
 | Язык | Python 3.11+ |
 | Нативное ядро | C++11 → `libplanner_core.so` / `.dll` |
-| Импорт расписания | `openpyxl` + нативный XLSX-парсер |
+| Импорт расписания | нативный XLSX-парсер |
 | API маршрутов | 2ГИС Routing API |
 | API геокодирования | Yandex Geocoder API |
 | API погоды | Яндекс.Погода API |
@@ -159,8 +159,7 @@ flet build apk --project pnipu_planner
 ## ⚠️ Известные ограничения
 
 - `ft.FilePicker` нестабилен на десктопе — используется `tkinter.filedialog` как замена на Windows.
-- `.pyd` файлы не работают на Android — все нативные модули компилируются в `.so` через NDK.
-- Нативное ядро (`libplanner_core`) должен быть скомпилирован отдельно.
+- Нативное ядро (`libplanner_core`) должно быть скомпилирован отдельно.
 
 ---
 
