@@ -8,7 +8,10 @@ import threading
 from time import sleep
 from typing import TYPE_CHECKING
 
-from plyer import notification
+try:
+    from plyer import notification
+except Exception:
+    notification = None
 
 if TYPE_CHECKING:
     from managers.tasks_manager import TasksManager
@@ -20,6 +23,9 @@ logger = logging.getLogger(__name__)
 
 def send_notification(title: str, message: str) -> None:
     """Send a system notification through plyer when available."""
+    if notification is None:
+        logger.warning("Plyer is unavailable, skipping system notification")
+        return
     try:
         notification.notify(
             title = title,

@@ -41,10 +41,39 @@ class ConfigManager:
         except Exception:
             return self._sanitize(UserConfig())
 
+    @staticmethod
+    def _normalize_optional_float(value):
+        try:
+            if value in {"", None}:
+                return None
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
     def _sanitize_transport_type(self, value: str) -> str:
         normalized = str(value).strip()
         if normalized in VALID_TRANSPORT_TYPES:
             return normalized
+        return UserConfig().transport_type
+
+    def _sanitize_weather_payload(self, payload) -> dict:
+        if not isinstance(payload, dict):
+            return {}
+
+        cleaned = {}
+        for key in (
+            "temp",
+            "feels_like",
+            "description",
+            "icon",
+            "humidity",
+            "wind_speed",
+            "city",
+            "provider",
+        ):
+            if key in payload:
+                cleaned[key] = payload[key]
+        return cleaned
 
     def _sanitize(self, config: UserConfig) -> UserConfig:
         defaults = UserConfig()
@@ -61,6 +90,10 @@ class ConfigManager:
             getattr(config, "transport_type", ""),
         )
 
+        weather_cached_at = str(getattr(config, "weather_cached_at", "")).strip()
+        user_longitude = self._normalize_optional_float(getattr(config, "user_longitude", None))
+        user_latitude = self._normalize_optional_float(getattr(config, "user_latitude", None))
+
         return UserConfig(
             theme = normalize_theme(config.theme),
             user_name = str(config.user_name).strip(),
@@ -74,12 +107,21 @@ class ConfigManager:
             auto_alarm_enabled = bool(getattr(config, "auto_alarm_enabled", False)),
             auto_alarm_refresh_hour = refresh_hour,
             auto_alarm_recheck_lead_minutes = recheck_lead,
+            user_longitude = user_longitude,
+            user_latitude = user_latitude,
+            weather_cached_at = weather_cached_at,
+            weather_payload = self._sanitize_weather_payload(getattr(config, "weather_payload", {})),
         )
 
     def save(self) -> None:
         self.config = self._sanitize(self.config)
         with open(self._path, "w", encoding = "utf-8") as file:
             json.dump(self.config.to_dict(), file, ensure_ascii = False, indent = 2)
+
+    def get_user_coordinates(self) -> tuple[float, float] | None:
+        if self.config.user_longitude is None or self.config.user_latitude is None:
+            return None
+        return self.config.user_longitude, self.config.user_latitude
 
     def set_theme(self, value: str) -> None:
         self.config.theme = normalize_theme(value)
@@ -95,6 +137,28 @@ class ConfigManager:
 
     def set_user_address(self, value: str) -> None:
         self.config.user_address = str(value).strip()
+        self.save()
+
+    def set_user_coordinates(self, longitude: float | None, latitude: float | None) -> None:
+        self.config.user_longitude = self._normalize_optional_float(longitude)
+        self.config.user_latitude = self._normalize_optional_float(latitude)
+        self.save()
+
+    def clear_location_cache(self) -> None:
+        self.config.user_longitude = None
+        self.config.user_latitude = None
+        self.config.weather_cached_at = ""
+        self.config.weather_payload = {}
+        self.save()
+
+    def set_weather_cache(self, payload: dict, cached_at: str) -> None:
+        self.config.weather_payload = self._sanitize_weather_payload(payload)
+        self.config.weather_cached_at = str(cached_at).strip()
+        self.save()
+
+    def clear_weather_cache(self) -> None:
+        self.config.weather_cached_at = ""
+        self.config.weather_payload = {}
         self.save()
 
     def set_user_faculty(self, value: str) -> None:

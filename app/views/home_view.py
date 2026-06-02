@@ -1,3 +1,371 @@
+# import datetime
+# import logging
+# import threading
+
+# import flet as ft
+
+# from bridges.planner_bridge import time_to_minutes
+# from managers.tasks_manager import TasksManager
+# from utils.time_utils import greeting_choose
+# from utils.weather_utils import get_weather_by_coords, get_weather_recommendation, get_weather_by_coords_openweathermap
+
+# logger = logging.getLogger(__name__)
+
+# PRIORITY_DOT_COLORS = {
+#     0: ft.Colors.GREY_400,
+#     1: ft.Colors.BLUE_400,
+#     2: ft.Colors.ORANGE_400,
+#     3: ft.Colors.RED_500,
+# }
+
+
+# def get_current_theme(page: ft.Page) -> str:
+#     if page.theme_mode == ft.ThemeMode.LIGHT or page.theme_mode == "light":
+#         return "light"
+#     if page.theme_mode == ft.ThemeMode.DARK or page.theme_mode == "dark":
+#         return "dark"
+#     if page.platform_brightness == "dark":
+#         return "dark"
+#     return "light"
+
+
+# def build_home_view(
+#     navigation_bar: ft.NavigationBar,
+#     user_name: str,
+#     tasks_manager: TasksManager,
+#     theme: ft.Page,
+#     config_manager = None,
+# ) -> ft.View:
+#     greeting = greeting_choose()
+#     today = datetime.date.today()
+#     tomorrow = today + datetime.timedelta(days = 1)
+
+#     def _sort_tasks_by_time(items: list) -> list:
+#         return sorted(
+#             items,
+#             key = lambda task: (time_to_minutes(task.time_start), task.subject.lower(), task.text.lower()),
+#         )
+
+#     tests_today = _sort_tasks_by_time(tasks_manager.get_tests_for_date(today))
+#     tests_tomorrow = _sort_tasks_by_time(tasks_manager.get_tests_for_date(tomorrow))
+#     homework_tomorrow = _sort_tasks_by_time(tasks_manager.get_homework_for_date(tomorrow))
+#     labs_tomorrow = _sort_tasks_by_time(tasks_manager.get_labs_for_date(tomorrow))
+
+#     current_theme = get_current_theme(theme)
+#     has_user_address = False
+#     cached_weather = None
+#     should_load_weather = False
+    
+    
+    
+    
+#     # ── Получение погоды ────────────────────────────────────────
+#     weather_widget = None
+
+#     try:
+#         # address = "Пермь, " + config_manager.config.user_address
+#         coords = 1
+#         if coords:
+#             latitude = 58.0105
+#             longitude = 56.2502
+#             try:
+#                 weather_data = get_weather_by_coords(latitude, longitude)
+#             except:
+#                 weather_data = get_weather_by_coords_openweathermap(latitude, longitude)
+#     except:
+#         logger.error("Нет данных пользователя дял получения данных о погоде")
+
+        
+        
+        
+        
+        
+#     if config_manager is not None:
+#         user_address = str(config_manager.config.user_address or "").strip()
+#         has_user_address = bool(user_address)
+#         cached_weather = getattr(config_manager.config, "weather_payload", None) or None
+#         cached_at = getattr(config_manager.config, "weather_cached_at", "")
+#         should_load_weather = has_user_address and (cached_weather is None or should_refresh_weather(cached_at))
+
+#     dark_theme_gradient = ft.LinearGradient(
+#         begin = ft.Alignment(0, -1),
+#         end = ft.Alignment(0, 1),
+#         colors = [ft.Colors.BLUE_900, ft.Colors.BLUE_900],
+#     )
+#     light_theme_gradient = ft.LinearGradient(
+#         begin = ft.Alignment(0, -1),
+#         end = ft.Alignment(0, 1),
+#         colors = [ft.Colors.BLUE_200, ft.Colors.BLUE_50],
+#     )
+
+#     is_dark = current_theme == "dark"
+#     active_gradient = dark_theme_gradient if is_dark else light_theme_gradient
+#     text_color = ft.Colors.WHITE if is_dark else ft.Colors.GREY_800
+#     subtext_color = ft.Colors.WHITE70 if is_dark else ft.Colors.GREY_600
+#     recommendation_color = ft.Colors.BLUE_100 if is_dark else ft.Colors.BLUE_800
+#     divider_color = ft.Colors.BLUE_100 if is_dark else ft.Colors.BLUE_300
+
+    
+    
+    
+    
+    
+    
+#         # Градиент для ТЁМНОЙ темы (глубокий синий)
+#         dark_theme_gradient = ft.LinearGradient(
+#             begin = ft.Alignment(0, -1),
+#             end = ft.Alignment(0, 1),
+#             colors = [ft.Colors.BLUE_900, ft.Colors.BLUE_900]
+#         )
+        
+        
+        
+        
+        
+        
+#     weather_icon = ft.Text("🌤️", size = 40)
+#     weather_temp = ft.Text("Погода", size = 28, weight = ft.FontWeight.BOLD, color = text_color)
+#     weather_meta = ft.Text("Загружаем актуальный прогноз...", size = 14, color = subtext_color)
+#     weather_description = ft.Text("Погодный виджет", size = 16, color = text_color, weight = ft.FontWeight.W_500)
+#     weather_recommendation = ft.Text("Подготовим рекомендации по одежде.", size = 13, color = recommendation_color, italic = True)
+#     weather_status = ft.Text("", size = 11, color = subtext_color)
+#     weather_loader = ft.ProgressRing(width = 18, height = 18, stroke_width = 2, visible = False)
+
+
+
+
+
+
+
+
+#     def _set_weather_placeholder() -> None:
+#         if has_user_address:
+#             weather_icon.value = "🌥️"
+#             weather_temp.value = "Погода недоступна"
+#             weather_meta.value = "Не удалось обновить прогноз для текущего адреса."
+#             weather_description.value = "Проверьте подключение к сети или ключи API."
+#             weather_recommendation.value = "Когда данные снова появятся, совет по одежде обновится автоматически."
+#             weather_status.value = ""
+#         else:
+#             weather_icon.value = "📍"
+#             weather_temp.value = "Погода не настроена"
+#             weather_meta.value = "Добавьте адрес в настройках."
+#             weather_description.value = "После этого мы сохраним координаты и начнём обновлять погоду."
+#             weather_recommendation.value = "Прогноз запрашивается не чаще одного раза в 6 часов."
+#             weather_status.value = ""
+
+#     def _apply_weather_data(weather_data: dict | None, loading: bool = False) -> None:
+#         weather_loader.visible = loading
+#         if weather_data:
+#             temp = weather_data.get("temp", 0)
+#             feels_like = weather_data.get("feels_like", 0)
+#             weather_icon.value = str(weather_data.get("icon", "🌡️"))
+#             weather_temp.value = f"{temp}°C"
+#             weather_meta.value = f"Ощущается как {feels_like}°C"
+#             weather_description.value = str(weather_data.get("description", "Погода")).capitalize()
+#             weather_recommendation.value = f"Совет: {get_weather_recommendation(temp)}"
+#             provider = str(weather_data.get("provider", "")).strip()
+#             weather_status.value = f"Источник: {provider}" if provider else ""
+#             return
+#         _set_weather_placeholder()
+
+#     if cached_weather:
+#         _apply_weather_data(cached_weather, loading = should_load_weather)
+#     else:
+#         _set_weather_placeholder()
+#         weather_loader.visible = should_load_weather
+
+#     weather_widget = ft.Container(
+#         gradient = active_gradient,
+#         border_radius = 16,
+#         padding = ft.Padding.symmetric(horizontal = 16, vertical = 14),
+#         content = ft.ResponsiveRow(
+#             [
+#                 ft.Column(
+#                     [
+#                         ft.Row(
+#                             [
+#                                 weather_icon,
+#                                 ft.Column(
+#                                     [
+#                                         weather_temp,
+#                                         weather_meta,
+#                                     ],
+#                                     spacing = 0,
+#                                 ),
+#                             ],
+#                             spacing = 10,
+#                             vertical_alignment = ft.CrossAxisAlignment.CENTER,
+#                         )
+#                     ],
+#                     col = {"xs": 12, "md": 4},
+#                 ),
+#                 ft.Column(
+#                     [ft.Container(height = 2, bgcolor = divider_color, border_radius = 999)],
+#                     col = {"xs": 12, "md": 1},
+#                     alignment = ft.MainAxisAlignment.CENTER,
+#                 ),
+#                 ft.Column(
+#                     [
+#                         weather_description,
+#                         weather_recommendation,
+#                         ft.Row(
+#                             [weather_loader, weather_status],
+#                             spacing = 8,
+#                             vertical_alignment = ft.CrossAxisAlignment.CENTER,
+#                         ),
+#                     ],
+#                     spacing = 4,
+#                     col = {"xs": 12, "md": 7},
+#                 ),
+#             ],
+#             spacing = 12,
+#             run_spacing = 12,
+#             vertical_alignment = ft.CrossAxisAlignment.CENTER,
+#         ),
+#     )
+
+#     if should_load_weather and config_manager is not None:
+#         def _load_weather_in_background() -> None:
+#             try:
+#                 weather_data = get_weather_for_config(config_manager)
+#                 _apply_weather_data(weather_data)
+#             except Exception:
+#                 logger.exception("Failed to refresh home weather widget")
+#                 _set_weather_placeholder()
+#             finally:
+#                 weather_loader.visible = False
+#                 try:
+#                     if theme.route == "/":
+#                         weather_widget.update()
+#                         theme.update()
+#                 except Exception:
+#                     logger.debug("Weather widget update skipped because home view is no longer active")
+
+#         threading.Thread(target = _load_weather_in_background, daemon = True).start()
+
+#     def _task_row(task) -> ft.Row:
+#         dot = ft.Container(
+#             width = 10,
+#             height = 10,
+#             border_radius = 5,
+#             bgcolor = PRIORITY_DOT_COLORS.get(task.priority, ft.Colors.GREY_400),
+#         )
+#         return ft.Row(
+#             [dot, ft.Text(task.display_line, size = 14, expand = True, color = ft.Colors.BLACK)],
+#             spacing = 8,
+#             vertical_alignment = ft.CrossAxisAlignment.CENTER,
+#         )
+
+#     def _task_box(items: list, empty_text: str, box_color = ft.Colors.GREY_200) -> ft.Container:
+#         content_controls = [_task_row(task) for task in items] if items else [
+#             ft.Text(empty_text, size = 14, italic = True, color = ft.Colors.GREY_500)
+#         ]
+#         return ft.Container(
+#             content = ft.Column(content_controls, spacing = 8),
+#             bgcolor = box_color,
+#             border_radius = 16,
+#             padding = ft.Padding.symmetric(horizontal = 16, vertical = 14),
+#             width = float("inf"),
+#         )
+
+#     def _dual_task_box(
+#         today_items: list,
+#         tomorrow_items: list,
+#         empty_today_text: str,
+#         empty_tomorrow_text: str,
+#         box_color = ft.Colors.GREY_200,
+#     ) -> ft.Container:
+#         def _subsection(title: str, items: list, empty_text: str) -> ft.Column:
+#             content_controls = [_task_row(task) for task in items] if items else [
+#                 ft.Text(empty_text, size = 14, italic = True, color = ft.Colors.GREY_500)
+#             ]
+#             return ft.Column(
+#                 [
+#                     ft.Text(title, size = 13, weight = ft.FontWeight.W_600, color = ft.Colors.GREY_800),
+#                     ft.Container(height = 4),
+#                     *content_controls,
+#                 ],
+#                 spacing = 8,
+#             )
+
+#         return ft.Container(
+#             content = ft.Column(
+#                 [
+#                     _subsection("Сегодня", today_items, empty_today_text),
+#                     ft.Divider(height = 18),
+#                     _subsection("Завтра", tomorrow_items, empty_tomorrow_text),
+#                 ],
+#                 spacing = 0,
+#             ),
+#             bgcolor = box_color,
+#             border_radius = 16,
+#             padding = ft.Padding.symmetric(horizontal = 16, vertical = 14),
+#             width = float("inf"),
+#         )
+
+#     def _section(label: str, box: ft.Container) -> ft.Column:
+#         return ft.Column(
+#             [ft.Text(label, size = 15, weight = ft.FontWeight.BOLD), ft.Container(height = 6), box],
+#             spacing = 0,
+#         )
+
+#     return ft.View(
+#         route = "/",
+#         scroll = ft.ScrollMode.AUTO,
+#         padding = 0,
+#         controls = [
+#             ft.SafeArea(
+#                 content = ft.Container(
+#                     padding = ft.Padding.symmetric(horizontal = 20, vertical = 24),
+#                     content = ft.Column(
+#                         [
+#                             ft.Text(
+#                                 f"{greeting},\n{user_name or 'Студент'}!",
+#                                 size = 30,
+#                                 weight = ft.FontWeight.BOLD,
+#                             ),
+#                             ft.Container(height = 20),
+#                             weather_widget,
+#                             ft.Container(height = 16),
+#                             _section(
+#                                 "Ваши контрольные работы:",
+#                                 _dual_task_box(
+#                                     tests_today,
+#                                     tests_tomorrow,
+#                                     "Контрольных работ сегодня нет",
+#                                     "Контрольных работ на завтра нет",
+#                                     ft.Colors.RED_100,
+#                                 ),
+#                             ),
+#                             ft.Container(height = 16),
+#                             _section(
+#                                 "Ваши домашние работы на завтра:",
+#                                 _task_box(
+#                                     homework_tomorrow,
+#                                     "Домашних работ на завтра нет",
+#                                     ft.Colors.BLUE_100,
+#                                 ),
+#                             ),
+#                             ft.Container(height = 16),
+#                             _section(
+#                                 "Ваши лабораторные на завтра:",
+#                                 _task_box(
+#                                     labs_tomorrow,
+#                                     "Лабораторных работ на завтра нет",
+#                                     ft.Colors.GREEN_100,
+#                                 ),
+#                             ),
+#                             ft.Container(height = 16),
+#                         ],
+#                     ),
+#                 )
+#             )
+#         ],
+#         navigation_bar = navigation_bar,
+#     )
+
+
 import datetime
 import logging
 import flet as ft

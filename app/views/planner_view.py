@@ -2,6 +2,7 @@
 import calendar
 import datetime
 import inspect
+import logging
 from typing import Any, Callable
 
 import flet as ft
@@ -15,8 +16,14 @@ from managers.config_manager import ConfigManager
 from managers.notification_manager import check_and_notify
 from managers.planner_manager import PlannerManager
 from managers.tasks_manager import TasksManager
-from models.lesson_model import Lesson
+from models.lesson_model import (
+    DEFAULT_EVENT_REMINDER_LEAD_MINUTES,
+    Lesson,
+    normalize_event_reminder_lead_minutes,
+)
 from models.task_model import TASK_TYPE_HOMEWORK, TASK_TYPE_LAB, TASK_TYPE_TEST
+
+logger = logging.getLogger(__name__)
 
 HOUR_HEIGHT = 80
 START_HOUR = 8
@@ -82,8 +89,8 @@ def build_planner_view(
                 asyncio.create_task(result)
             except RuntimeError:
                 pass
-            except Exception as e:
-                ...
+            except Exception:
+                logger.debug("Не удалось создать асинхронную задачу страницы", exc_info = True)
 
     def sync_auto_alarm():
         try:
@@ -178,7 +185,7 @@ def build_planner_view(
             return f"{week_start.strftime('%d.%m')} - {week_end.strftime('%d.%m.%Y')}"
         if state["mode"] == "month":
             return state["date"].strftime("%m.%Y")
-        return ""
+        return "Домашки, контрольные и лабораторные"
 
     add_dialog = ft.AlertDialog(modal = True, title = ft.Text("Новое событие"))
     input_dialog = ft.AlertDialog(modal = True, title = ft.Text(""))
@@ -212,14 +219,105 @@ def build_planner_view(
     def close_drawer_menu():
         run_page_call(page.close_drawer())
 
-    def open_add_dialog(e = None):
-        date_field = ft.TextField(label = "Дата ДД.ММ.ГГГГ", value = active_date().strftime("%d.%m.%Y"))
-        start_field = ft.TextField(label = "Начало ЧЧ:ММ", expand = True)
-        end_field = ft.TextField(label = "Конец ЧЧ:ММ", expand = True)
-        subject_field = ft.TextField(label = "Название события")
-        description_field = ft.TextField(label = "Описание", multiline = True, min_lines = 2, max_lines = 4)
-        address_field = ft.TextField(label = "Адрес")
+    def open_event_dialog(existing: Lesson | None = None, e = None):
+        form_scroll_host = ft.Column(
+            tight = True,
+            spacing = 10,
+            scroll = ft.ScrollMode.AUTO,
+        )
+        initial_date = existing.date if existing is not None else active_date()
+        initial_address = (existing.address if existing is not None else "").strip()
+        initial_description = (existing.description if existing is not None else "").strip()
+        initial_subject = (existing.subject if existing is not None else "").strip()
+        initial_start = (existing.time_start if existing is not None else "").strip()
+        initial_end = (existing.time_end if existing is not None else "").strip()
+        initial_reminder_enabled = bool(existing.reminder_enabled) if existing is not None else False
+
+        date_field = ft.TextField(label = "Дата ДД.ММ.ГГГГ", value = initial_date.strftime("%d.%m.%Y"))
+        start_field = ft.TextField(label = "Начало ЧЧ:ММ", expand = True, value = initial_start)
+        end_field = ft.TextField(label = "Конец ЧЧ:ММ", expand = True, value = initial_end)
+        subject_field = ft.TextField(label = "Название события", value = initial_subject)
+        description_field = ft.TextField(
+            label = "Описание",
+            multiline = True,
+            min_lines = 2,
+            max_lines = 4,
+            value = initial_description,
+        )
+        custom_address_checkbox = ft.Checkbox(value = bool(initial_address))
+        custom_address_field = ft.TextField(
+            label = "Адрес прибытия",
+            multiline = True,
+            min_lines = 2,
+            max_lines = 3,
+            visible = bool(initial_address),
+            value = initial_address,
+        )
+        reminder_checkbox = ft.Checkbox(value = initial_reminder_enabled)
         error_text = ft.Text("", color = ft.Colors.RED_400, size = 12)
+        form_sections = {
+            "date": ft.Container(key = "date_field", content = date_field),
+            "time": ft.Container(
+                key = "time_field",
+                content = ft.Row([start_field, ft.Text(" - "), end_field]),
+            ),
+            "subject": ft.Container(key = "subject_field", content = subject_field),
+            "description": ft.Container(key = "description_field", content = description_field),
+            "custom_address": ft.Container(key = "custom_address_field", content = custom_address_field),
+        }
+
+        custom_address_row = ft.Row(
+            [
+                custom_address_checkbox,
+                ft.Text(
+                    "Указать другой адрес прибытия",
+                    expand = True,
+                    no_wrap = False,
+                    size = 14,
+                ),
+            ],
+            spacing = 6,
+            vertical_alignment = ft.CrossAxisAlignment.CENTER,
+        )
+        reminder_row = ft.Row(
+            [
+                reminder_checkbox,
+                ft.Text(
+                    "Включить уведомление о событии",
+                    expand = True,
+                    no_wrap = False,
+                    size = 14,
+                ),
+            ],
+            spacing = 6,
+            vertical_alignment = ft.CrossAxisAlignment.CENTER,
+        )
+
+        def on_custom_address_toggle(e):
+            custom_address_field.visible = bool(e.control.value)
+            if not custom_address_field.visible:
+                custom_address_field.value = ""
+            safe_update(custom_address_field, form_scroll_host)
+            if custom_address_field.visible:
+                run_page_call(form_scroll_host.scroll_to(key = "custom_address_field", duration = 180))
+
+        def on_reminder_toggle(_):
+            return None
+
+        def on_field_focus(section_key: str):
+            def handler(_):
+                run_page_call(form_scroll_host.scroll_to(key = section_key, duration = 180))
+            return handler
+
+        date_field.on_focus = on_field_focus("date_field")
+        start_field.on_focus = on_field_focus("time_field")
+        end_field.on_focus = on_field_focus("time_field")
+        subject_field.on_focus = on_field_focus("subject_field")
+        description_field.on_focus = on_field_focus("description_field")
+        custom_address_field.on_focus = on_field_focus("custom_address_field")
+
+        custom_address_checkbox.on_change = on_custom_address_toggle
+        reminder_checkbox.on_change = on_reminder_toggle
 
         def save(_):
             try:
@@ -235,42 +333,70 @@ def build_planner_view(
                 page.update()
                 return
 
-            planner_manager.add_custom_event(
-                date = lesson_date,
-                time_start = time_start,
-                time_end = time_end,
-                subject = subject,
-                description = (description_field.value or "").strip(),
-                address = (address_field.value or "").strip(),
-            )
+            address_value = (custom_address_field.value or "").strip() if custom_address_checkbox.value else ""
+            if existing is None:
+                planner_manager.add_custom_event(
+                    date = lesson_date,
+                    time_start = time_start,
+                    time_end = time_end,
+                    subject = subject,
+                    description = (description_field.value or "").strip(),
+                    address = address_value,
+                    reminder_enabled = bool(reminder_checkbox.value),
+                    reminder_lead_minutes = DEFAULT_EVENT_REMINDER_LEAD_MINUTES,
+                )
+            else:
+                updated = planner_manager.update_custom_event(
+                    existing.id,
+                    date = lesson_date,
+                    time_start = time_start,
+                    time_end = time_end,
+                    subject = subject,
+                    description = (description_field.value or "").strip(),
+                    address = address_value,
+                    reminder_enabled = bool(reminder_checkbox.value),
+                    reminder_lead_minutes = normalize_event_reminder_lead_minutes(existing.reminder_lead_minutes),
+                )
+                if updated is None:
+                    error_text.value = "Событие не найдено."
+                    page.update()
+                    return
+
             add_dialog.open = False
             sync_auto_alarm()
             page.update()
             rebuild_view()
+            if existing is not None:
+                render_detail(existing.id)
 
         def cancel(_):
             add_dialog.open = False
             page.update()
 
-        add_dialog.title = ft.Text("Новое событие")
-        add_dialog.content = ft.Column(
-            [
-                date_field,
-                ft.Row([start_field, ft.Text(" - "), end_field]),
-                subject_field,
-                description_field,
-                address_field,
-                error_text,
-            ],
-            tight = True,
-            spacing = 10,
+        add_dialog.title = ft.Text("Изменить событие" if existing is not None else "Новое событие")
+        form_scroll_host.controls = [
+            form_sections["date"],
+            form_sections["time"],
+            form_sections["subject"],
+            form_sections["description"],
+            custom_address_row,
+            form_sections["custom_address"],
+            reminder_row,
+            error_text,
+        ]
+        add_dialog.content = ft.Container(
             width = 320,
+            height = min(max(getattr(page, "height", 640) * 0.58, 260), 420),
+            content = form_scroll_host,
         )
         add_dialog.actions = [
             ft.TextButton("Отмена", on_click = cancel),
-            ft.FilledButton("Добавить", on_click = save),
+            ft.FilledButton("Сохранить" if existing is not None else "Добавить", on_click = save),
         ]
         show_dialog(add_dialog)
+
+    def open_add_dialog(e = None):
+        open_event_dialog(None, e)
 
     def open_input_dialog(title: str, on_save: Callable[[str, int], None], submit_label: str = "Добавить"):
         field = ft.TextField(label = title, autofocus = True)
@@ -447,6 +573,11 @@ def build_planner_view(
             page.update()
             rebuild_view()
 
+        def edit_event(_):
+            detail_sheet.open = False
+            page.update()
+            open_event_dialog(current)
+
         lesson_meta: list[ft.Control] = []
         if current.description:
             lesson_meta.append(ft.Text(f"Описание: {current.description}", size = 13, color = ft.Colors.GREY_700))
@@ -458,6 +589,13 @@ def build_planner_view(
             lesson_meta.append(ft.Text(f"Аудитория: {current.auditorium}", size = 13, color = ft.Colors.GREY_700))
         if current.building:
             lesson_meta.append(ft.Text(f"Корпус: {current.building}", size = 13, color = ft.Colors.GREY_700))
+        if current.is_event:
+            reminder_label = (
+                f"Напоминание: за {normalize_event_reminder_lead_minutes(current.reminder_lead_minutes)} мин."
+                if current.reminder_enabled
+                else "Напоминание: выключено"
+            )
+            lesson_meta.append(ft.Text(reminder_label, size = 13, color = ft.Colors.GREY_700))
 
         task_sections: list[ft.Control] = []
         if not current.is_event:
@@ -467,15 +605,19 @@ def build_planner_view(
                 *section("Лабораторные работы:", lab_tasks, add_lab),
             ]
 
+        event_actions: list[ft.Control] = []
+        if current.is_custom and current.is_event:
+            event_actions = [
+                ft.OutlinedButton(
+                    "Изменить событие",
+                    on_click = edit_event,
+                    expand = True,
+                )
+            ]
+
         detail_sheet.content = ft.Container(
             content = ft.Column(
                 [
-                    ft.Row(
-                        [
-                            ft.Container(expand = True),
-                            ft.IconButton(ft.Icons.CLOSE, on_click = lambda e: close_detail_sheet(), icon_size = 20),
-                        ]
-                    ),
                     ft.Text(current.subject, size = 18, weight = ft.FontWeight.BOLD),
                     ft.Text(
                         f"{current.date_str}   {current.time_start} - {current.time_end}",
@@ -484,6 +626,7 @@ def build_planner_view(
                     ),
                     *lesson_meta,
                     ft.Divider(),
+                    *event_actions,
                     *task_sections,
                     ft.ElevatedButton(
                         "Удалить событие" if current.is_event else "Удалить пару",
@@ -1032,6 +1175,7 @@ def build_planner_view(
                                 horizontal_alignment = ft.CrossAxisAlignment.STRETCH,
                             ),
                         ],
+                        wrap = True,
                         spacing = 12,
                         run_spacing = 12,
                         expand = True,
@@ -1189,13 +1333,14 @@ def build_planner_view(
     def rebuild_drawer():
         nav_drawer.controls = [
             ft.Container(
-                content = ft.Row(
+                content = ft.Column(
                     [
-                        ft.Text("Меню планера", size = 15, weight = ft.FontWeight.BOLD, expand = True),
-                        ft.IconButton(ft.Icons.CLOSE, on_click = lambda e: close_drawer_menu(), icon_size = 20),
-                    ]
+                        ft.Text("Меню планера", size = 17, weight = ft.FontWeight.BOLD),
+                        ft.Text("Выберите режим просмотра", size = 12, color = ft.Colors.GREY_600),
+                    ],
+                    spacing = 4,
                 ),
-                padding = ft.Padding.only(left = 16, top = 12, right = 8, bottom = 8),
+                padding = ft.Padding.only(left = 16, top = 18, right = 16, bottom = 12),
             ),
             ft.Divider(),
             build_drawer_item("День", ft.Icons.CALENDAR_VIEW_DAY_OUTLINED, "day"),

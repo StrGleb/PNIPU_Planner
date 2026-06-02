@@ -43,6 +43,21 @@ extern "C"
         int lead_minutes
     );
 
+    PLANNER_CORE_API int is_alarm_within_recheck_datetime_window(
+        int alarm_day,
+        int alarm_month,
+        int alarm_year,
+        int alarm_hour,
+        int alarm_minute,
+        int now_day,
+        int now_month,
+        int now_year,
+        int now_hour,
+        int now_minute,
+        int lead_minutes,
+        int after_minutes
+    );
+
     PLANNER_CORE_API int can_recheck_alarm_now(
         const char* rechecked_at,
         int now_day,
@@ -66,6 +81,8 @@ extern "C"
     PLANNER_CORE_API float compute_rating_value(int priority, int days_until);
 
     PLANNER_CORE_API int is_valid_date_text(const char* text);
+
+    PLANNER_CORE_API int parse_date_text_yyyymmdd(const char* text);
 
     PLANNER_CORE_API int normalize_priority(int priority);
 
@@ -163,7 +180,28 @@ extern "C"
         int has_next_start,
         int next_start_day,
         int next_start_month,
-        int next_start_year
+        int next_start_year,
+        const char* template_title,
+        const char* schedule_type
+    );
+
+    PLANNER_CORE_API int derive_schedule_template_end_yyyymmdd(
+        int start_day,
+        int start_month,
+        int start_year,
+        int has_next_start,
+        int next_start_day,
+        int next_start_month,
+        int next_start_year,
+        const char* template_title,
+        const char* schedule_type,
+        const char* const* dated_date_texts,
+        int dated_count
+    );
+
+    PLANNER_CORE_API int is_session_schedule(
+        const char* schedule_type,
+        const char* template_title
     );
 
     PLANNER_CORE_API int select_next_lesson_index(
@@ -187,6 +225,18 @@ extern "C"
         int max_days_ahead
     );
 
+    PLANNER_CORE_API int collect_upcoming_lesson_indices_with_horizon(
+        const char* const* date_strings,
+        const int* start_minutes,
+        int count,
+        int now_day,
+        int now_month,
+        int now_year,
+        int now_minutes,
+        int max_days_ahead,
+        int* out_indices
+    );
+
     PLANNER_CORE_API int compute_buffered_alarm_minutes(
         int lesson_start_minutes,
         int time_to_get_ready,
@@ -199,6 +249,19 @@ extern "C"
         const int* start_minutes,
         int count,
         const char* expected_date,
+        int* out_indices
+    );
+
+    PLANNER_CORE_API int collect_date_text_indices_in_range_sorted(
+        const char* const* date_strings,
+        const int* start_minutes,
+        int count,
+        int start_day,
+        int start_month,
+        int start_year,
+        int end_day,
+        int end_month,
+        int end_year,
         int* out_indices
     );
 

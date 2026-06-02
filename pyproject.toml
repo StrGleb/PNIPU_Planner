@@ -1,0 +1,40 @@
+[project]
+name = "pnipu-planner"
+version = "0.1.0"
+description = "PNIPU Planner mobile application"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "flet>=0.85.0",
+    "pnipu-alarm-bridge",
+    "plyer>=2.1.0",
+    "requests>=2.34.0",
+    "python-dotenv>=1.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "flet-cli>=0.85.0",
+    "flet-desktop>=0.85.0",
+]
+
+[tool.flet]
+org = "ru.pnipu"
+product = "PNIPU Planner"
+company = "PNIPU Planner"
+
+[tool.flet.app]
+path = "app"
+
+[tool.flet.dev_packages]
+pnipu-alarm-bridge = "pnipu_alarm_bridge"
+
+[tool.flet.android.permission]
+"android.permission.SCHEDULE_EXACT_ALARM" = true
+"android.permission.RECEIVE_BOOT_COMPLETED" = true
+"android.permission.WAKE_LOCK" = true
+"android.permission.POST_NOTIFICATIONS" = true
+"android.permission.VIBRATE" = true
+
+[tool.uv.sources]
+pnipu-alarm-bridge = { path = "pnipu_alarm_bridge", editable = true }

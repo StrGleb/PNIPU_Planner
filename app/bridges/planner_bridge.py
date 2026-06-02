@@ -5,13 +5,7 @@ import platform
 import sys
 from pathlib import Path
 
-
-_NATIVE_BIN_DIR = (
-    Path(__file__).resolve().parent / ".." / "native" / "jniLibs" / "arm64-v8a"
-).resolve()
-
-if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
-    os.add_dll_directory(str(_NATIVE_BIN_DIR))
+_NATIVE_LIB_ROOT = (Path(__file__).resolve().parent / ".." / "native" / "jniLibs").resolve()
 
 
 def _candidate_library_names() -> list[str]:
@@ -44,6 +38,19 @@ def _android_abi_hints() -> list[str]:
     return list(dict.fromkeys(ordered_hints))
 
 
+def _candidate_native_dirs() -> list[Path]:
+    candidate_dirs = [(_NATIVE_LIB_ROOT / abi).resolve() for abi in _android_abi_hints()]
+    return [directory for directory in dict.fromkeys(candidate_dirs) if directory.exists()]
+
+
+_NATIVE_SEARCH_DIRS = _candidate_native_dirs()
+_NATIVE_BIN_DIR = _NATIVE_SEARCH_DIRS[0] if _NATIVE_SEARCH_DIRS else (_NATIVE_LIB_ROOT / "arm64-v8a").resolve()
+
+if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
+    for native_dir in _NATIVE_SEARCH_DIRS:
+        os.add_dll_directory(str(native_dir))
+
+
 def _candidate_library_refs() -> list[str]:
     names = _candidate_library_names()
     refs: list[str] = []
@@ -51,45 +58,25 @@ def _candidate_library_refs() -> list[str]:
     if hasattr(sys, "getandroidapilevel"):
         refs.extend(names)
 
-    refs.extend(str((_NATIVE_BIN_DIR / name).resolve()) for name in names)
+    for native_dir in _NATIVE_SEARCH_DIRS or [_NATIVE_BIN_DIR]:
+        refs.extend(str((native_dir / name).resolve()) for name in names)
 
     return list(dict.fromkeys(refs))
 
 
-# Класс-заглушка для ПК (Windows), имитирующий любую C++ функцию
-class MockNativeFunction:
-    def __init__(self, name: str):
-        self.name = name
-
-    def __call__(self, *args, **kwargs):
-        # Возвращает 0, который безопасно кастуется в 0, 0.0, False и пустой срез [ : 0] -> []
-        return 0
-
-
 def _load_native_library():
-    # На Windows мы мягко пропускаем отсутствие DLL, возвращая None
-    if sys.platform == "win32":
-        for reference in _candidate_library_refs():
-            try:
-                reference_path = Path(reference)
-                if reference_path.exists():
-                    return ctypes.CDLL(str(reference_path))
-            except Exception:
-                pass
-        return None  # Библиотека не найдена на Windows, включаем Python-заменители
-
-    # Стандартная схема загрузки на Android
     errors: list[str] = []
 
-    cpp_shared = _NATIVE_BIN_DIR / "libc++_shared.so"
-    if cpp_shared.exists():
-        try:
-            ctypes.CDLL(str(cpp_shared))
-            errors.append(f"Loaded dependency: {cpp_shared}")
-        except OSError as error:
-            errors.append(f"Failed to load dependency {cpp_shared}: {error}")
-    else:
-        errors.append(f"Dependency not found: {cpp_shared}")
+    if sys.platform != "win32":
+        cpp_shared = _NATIVE_BIN_DIR / "libc++_shared.so"
+        if cpp_shared.exists():
+            try:
+                ctypes.CDLL(str(cpp_shared))
+                errors.append(f"Loaded dependency: {cpp_shared}")
+            except OSError as error:
+                errors.append(f"Failed to load dependency {cpp_shared}: {error}")
+        else:
+            errors.append(f"Dependency not found: {cpp_shared}")
 
     for reference in _candidate_library_refs():
         try:
@@ -134,6 +121,23 @@ _NATIVE_SIGNATURES: dict[str, tuple[list[object], object]] = {
         [ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int],
         ctypes.c_int,
     ),
+    "is_alarm_within_recheck_datetime_window": (
+        [
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+        ],
+        ctypes.c_int,
+    ),
     "can_recheck_alarm_now": (
         [ctypes.c_char_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int],
         ctypes.c_int,
@@ -152,6 +156,7 @@ _NATIVE_SIGNATURES: dict[str, tuple[list[object], object]] = {
     ),
     "compute_rating_value": ([ctypes.c_int, ctypes.c_int], ctypes.c_float),
     "is_valid_date_text": ([ctypes.c_char_p], ctypes.c_int),
+    "parse_date_text_yyyymmdd": ([ctypes.c_char_p], ctypes.c_int),
     "normalize_priority": ([ctypes.c_int], ctypes.c_int),
     "theme_mode_code": ([ctypes.c_char_p], ctypes.c_int),
     "sort_indices_by_int_desc": (
@@ -247,9 +252,28 @@ _NATIVE_SIGNATURES: dict[str, tuple[list[object], object]] = {
             ctypes.c_int,
             ctypes.c_int,
             ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_char_p,
         ],
         ctypes.c_int,
     ),
+    "derive_schedule_template_end_yyyymmdd": (
+        [
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_char_p,
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.c_int,
+        ],
+        ctypes.c_int,
+    ),
+    "is_session_schedule": ([ctypes.c_char_p, ctypes.c_char_p], ctypes.c_int),
     "select_next_lesson_index": (
         [
             ctypes.POINTER(ctypes.c_char_p),
@@ -275,6 +299,20 @@ _NATIVE_SIGNATURES: dict[str, tuple[list[object], object]] = {
         ],
         ctypes.c_int,
     ),
+    "collect_upcoming_lesson_indices_with_horizon": (
+        [
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int),
+        ],
+        ctypes.c_int,
+    ),
     "compute_buffered_alarm_minutes": (
         [ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int],
         ctypes.c_int,
@@ -285,6 +323,21 @@ _NATIVE_SIGNATURES: dict[str, tuple[list[object], object]] = {
             ctypes.POINTER(ctypes.c_int),
             ctypes.c_int,
             ctypes.c_char_p,
+            ctypes.POINTER(ctypes.c_int),
+        ],
+        ctypes.c_int,
+    ),
+    "collect_date_text_indices_in_range_sorted": (
+        [
+            ctypes.POINTER(ctypes.c_char_p),
+            ctypes.POINTER(ctypes.c_int),
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
             ctypes.POINTER(ctypes.c_int),
         ],
         ctypes.c_int,
@@ -422,11 +475,10 @@ _configure_native_signatures()
 
 
 def _require_native_function(name: str):
-    # БАГ ФИКС ДЛЯ WINDOWS:
-    # Если библиотека _lib не загружена (на ПК), мы возвращаем специальный мок-объект,
-    # который примет любые аргументы и безопасно вернет 0, предотвращая любые падения.
     if _lib is None:
-        return MockNativeFunction(name)
+        raise RuntimeError(
+            f"Native planner core is unavailable. Expected DLL/SO in '{_NATIVE_BIN_DIR}'."
+        )
 
     if not hasattr(_lib, name):
         raise RuntimeError(f"Native planner core does not export '{name}'.")
@@ -440,6 +492,10 @@ def has_native_core() -> bool:
 
 def has_native_schedule_parser() -> bool:
     return _lib is not None and hasattr(_lib, "parse_schedule_xlsx")
+
+
+def _has_native_function(name: str) -> bool:
+    return _lib is not None and hasattr(_lib, name)
 
 
 def _parse_time_text(time_text: str):
@@ -549,6 +605,40 @@ def is_alarm_within_recheck_window(
     )
 
 
+def is_alarm_within_recheck_datetime_window(
+    alarm_datetime: datetime.datetime,
+    now: datetime.datetime,
+    lead_minutes: int,
+    after_minutes: int,
+) -> bool:
+    if lead_minutes < 0 or after_minutes < 0:
+        return False
+
+    if _has_native_function("is_alarm_within_recheck_datetime_window"):
+        native_function = _require_native_function("is_alarm_within_recheck_datetime_window")
+        return bool(
+            native_function(
+                alarm_datetime.day,
+                alarm_datetime.month,
+                alarm_datetime.year,
+                alarm_datetime.hour,
+                alarm_datetime.minute,
+                now.day,
+                now.month,
+                now.year,
+                now.hour,
+                now.minute,
+                int(lead_minutes),
+                int(after_minutes),
+            )
+        )
+
+    return (
+        now >= alarm_datetime - datetime.timedelta(minutes = lead_minutes)
+        and now <= alarm_datetime + datetime.timedelta(minutes = after_minutes)
+    )
+
+
 def can_recheck_alarm_now(
     rechecked_at: str,
     now: datetime.datetime,
@@ -573,19 +663,17 @@ def is_week_even(
     semester_start: str,
     first_week_even: bool,
 ) -> bool:
-    """ Если неделя чётная -> True """
-    # НА WINDOWS ИСПОЛЬЗУЕМ КОРРЕКТНЫЙ РАСЧЕТ ЧЁТНОСТИ НА PYTHON
+    """Return True when the week should be treated as even."""
     if _lib is None:
         try:
             start = datetime.datetime.strptime(semester_start, "%d.%m.%Y").date()
-            start_monday = start - datetime.timedelta(days=start.weekday())
-            date_monday = date - datetime.timedelta(days=date.weekday())
+            start_monday = start - datetime.timedelta(days = start.weekday())
+            date_monday = date - datetime.timedelta(days = date.weekday())
             weeks_diff = (date_monday - start_monday).days // 7
             return (weeks_diff % 2 == 0) == first_week_even
         except Exception:
             return date.isocalendar()[1] % 2 == 0
 
-    # НА ANDROID ИСПОЛЬЗУЕМ СУПЕРБЫСТРЫЙ C++ ВАРИАНТ
     try:
         start = datetime.datetime.strptime(semester_start, "%d.%m.%Y").date()
     except Exception:
@@ -611,20 +699,22 @@ def compute_rating_value(priority: int, days_until: int) -> float:
 
 
 def is_valid_date_text(value: str) -> bool:
-    # windows - Python
-    if _lib is None:
-        try:
-            datetime.datetime.strptime(value.strip(), "%d.%m.%Y")
-            return True
-        except Exception:
-            return False
-
-    # Android - C++ 
     if not isinstance(value, str):
         return False
 
     native_function = _require_native_function("is_valid_date_text")
     return bool(native_function(value.encode("utf-8")))
+
+
+def parse_date_text_to_date(value: str) -> datetime.date | None:
+    if not isinstance(value, str):
+        return None
+
+    native_function = _require_native_function("parse_date_text_yyyymmdd")
+    encoded = int(native_function(value.encode("utf-8")))
+    if encoded <= 0:
+        return None
+    return _decode_yyyymmdd_date(encoded)
 
 
 def normalize_priority(priority: int) -> int:
@@ -871,8 +961,9 @@ def select_active_template_index(
 def derive_schedule_period_end_date(
     start_date: datetime.date,
     next_start: datetime.date | None,
+    template_title: str = "",
+    schedule_type: str = "weekly",
 ) -> datetime.date:
-    # НА ANDROID ИСПОЛЬЗУЕМ НАШ СУПЕРБЫСТРЫЙ C++ ПАКЕТ
     if _lib is not None:
         try:
             native_function = _require_native_function("derive_schedule_period_end_yyyymmdd")
@@ -885,16 +976,54 @@ def derive_schedule_period_end_date(
                     next_start.day if next_start else 0,
                     next_start.month if next_start else 0,
                     next_start.year if next_start else 0,
+                    str(template_title).encode("utf-8"),
+                    str(schedule_type).encode("utf-8"),
                 )
             )
             return _decode_yyyymmdd_date(encoded)
         except Exception:
             pass
 
-    # На винде используем рассчёт даты на python без вызова c++
     if next_start is not None:
         return next_start - datetime.timedelta(days = 1)
     return start_date + datetime.timedelta(weeks = 16)
+
+
+def derive_schedule_template_end_date(
+    start_date: datetime.date,
+    next_start: datetime.date | None,
+    template_title: str = "",
+    schedule_type: str = "weekly",
+    dated_date_texts: list[str] | None = None,
+) -> datetime.date:
+    native_function = _require_native_function("derive_schedule_template_end_yyyymmdd")
+    date_values = _encode_text_values(dated_date_texts or [])
+    encoded = int(
+        native_function(
+            start_date.day,
+            start_date.month,
+            start_date.year,
+            int(next_start is not None),
+            next_start.day if next_start else 0,
+            next_start.month if next_start else 0,
+            next_start.year if next_start else 0,
+            str(template_title).encode("utf-8"),
+            str(schedule_type).encode("utf-8"),
+            date_values,
+            len(dated_date_texts or []),
+        )
+    )
+    return _decode_yyyymmdd_date(encoded)
+
+
+def is_session_schedule_template(schedule_type: str, template_title: str = "") -> bool:
+    native_function = _require_native_function("is_session_schedule")
+    return bool(
+        native_function(
+            str(schedule_type).encode("utf-8"),
+            str(template_title).encode("utf-8"),
+        )
+    )
 
 
 def select_next_lesson_index(
@@ -943,6 +1072,53 @@ def select_next_lesson_index(
     )
 
 
+def collect_upcoming_lesson_indices_with_horizon(
+    date_strings: list[str],
+    start_minutes: list[int],
+    now: datetime.datetime,
+    max_days_ahead: int,
+) -> list[int]:
+    if not date_strings or not start_minutes or len(date_strings) != len(start_minutes):
+        return []
+
+    count = len(date_strings)
+    if _has_native_function("collect_upcoming_lesson_indices_with_horizon"):
+        native_function = _require_native_function("collect_upcoming_lesson_indices_with_horizon")
+        date_values = _encode_text_values(date_strings)
+        minute_values = (ctypes.c_int * count)(*start_minutes)
+        output_indices = (ctypes.c_int * count)()
+        matched_count = native_function(
+            date_values,
+            minute_values,
+            count,
+            now.day,
+            now.month,
+            now.year,
+            now.hour * 60 + now.minute,
+            int(max_days_ahead),
+            output_indices,
+        )
+        return list(output_indices[:matched_count])
+
+    upcoming: list[tuple[datetime.date, int, int]] = []
+    cutoff = now.date() + datetime.timedelta(days = max_days_ahead)
+    for index, (date_text, start_minute) in enumerate(zip(date_strings, start_minutes, strict = False)):
+        if start_minute < 0:
+            continue
+        try:
+            lesson_date = datetime.datetime.strptime(date_text, "%d.%m.%Y").date()
+        except ValueError:
+            continue
+        if lesson_date < now.date() or lesson_date > cutoff:
+            continue
+        if lesson_date == now.date() and start_minute <= (now.hour * 60 + now.minute):
+            continue
+        upcoming.append((lesson_date, start_minute, index))
+
+    upcoming.sort(key = lambda item: (item[0], item[1], item[2]))
+    return [index for _date, _start_minute, index in upcoming]
+
+
 def compute_buffered_alarm_minutes(
     lesson_start_minutes: int,
     prep_minutes: int,
@@ -978,6 +1154,40 @@ def collect_lesson_indices_for_date_sorted(
         minute_values,
         count,
         expected_date.encode("utf-8"),
+        output_indices,
+    )
+    return list(output_indices[:matched_count])
+
+
+def collect_date_text_indices_in_range_sorted(
+    date_strings: list[str],
+    start_minutes: list[int],
+    start_date: datetime.date,
+    end_date: datetime.date,
+) -> list[int]:
+    if (
+        not date_strings
+        or not start_minutes
+        or len(date_strings) != len(start_minutes)
+        or end_date < start_date
+    ):
+        return []
+
+    native_function = _require_native_function("collect_date_text_indices_in_range_sorted")
+    count = len(date_strings)
+    date_values = _encode_text_values(date_strings)
+    minute_values = (ctypes.c_int * count)(*start_minutes)
+    output_indices = (ctypes.c_int * count)()
+    matched_count = native_function(
+        date_values,
+        minute_values,
+        count,
+        start_date.day,
+        start_date.month,
+        start_date.year,
+        end_date.day,
+        end_date.month,
+        end_date.year,
         output_indices,
     )
     return list(output_indices[:matched_count])
@@ -1077,24 +1287,18 @@ def build_next_one_time_target_date(
     minute: int,
     now: datetime.datetime,
 ) -> str:
-    if _lib is not None:
-        try:
-            native_function = _require_native_function("build_next_one_time_target_date_yyyymmdd")
-            encoded = int(
-                native_function(
-                    int(hour),
-                    int(minute),
-                    now.day,
-                    now.month,
-                    now.year,
-                    now.hour * 60 + now.minute,
-                )
-            )
-            return _decode_yyyymmdd(encoded)
-        except Exception:
-            pass
-    # Резервный расчет на чистом Python в случае отсутствия DLL
-    return now.strftime("%d.%m.%Y")
+    native_function = _require_native_function("build_next_one_time_target_date_yyyymmdd")
+    encoded = int(
+        native_function(
+            int(hour),
+            int(minute),
+            now.day,
+            now.month,
+            now.year,
+            now.hour * 60 + now.minute,
+        )
+    )
+    return _decode_yyyymmdd(encoded)
 
 
 def collect_expired_one_time_alarm_indices(
@@ -1289,20 +1493,15 @@ def collect_template_occurrence_pairs(
 
 
 def parse_schedule_xlsx_file(xlsx_path: str | Path, output_json_path: str | Path) -> None:
-    if _lib is not None:
-        try:
-            native_function = _require_native_function("parse_schedule_xlsx")
-            xlsx_path_text = str(Path(xlsx_path))
-            output_json_text = str(Path(output_json_path))
-            ok = native_function(
-                xlsx_path_text.encode("utf-8"),
-                output_json_text.encode("utf-8"),
-            )
-            if ok:
-                return
-            message = _get_native_error_message() or "Unknown native XLSX parser error."
-            raise RuntimeError(message)
-        except Exception as e:
-            if isinstance(e, RuntimeError):
-                raise e
-    raise RuntimeError("Native schedule parser is unavailable on Windows.")
+    native_function = _require_native_function("parse_schedule_xlsx")
+    xlsx_path_text = str(Path(xlsx_path))
+    output_json_text = str(Path(output_json_path))
+    ok = native_function(
+        xlsx_path_text.encode("utf-8"),
+        output_json_text.encode("utf-8"),
+    )
+    if ok:
+        return
+
+    message = _get_native_error_message() or "Unknown native XLSX parser error."
+    raise RuntimeError(message)
