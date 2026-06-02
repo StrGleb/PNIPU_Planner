@@ -24,6 +24,7 @@ FACULTIES_COORDS = {
     "Автодорожный факультет": [58.056593, 56.235830],
 }
 
+
 def build_alarm_view(
     navigation_bar: ft.NavigationBar,
     clock_text: ft.Text,
@@ -92,6 +93,50 @@ def build_alarm_view(
     def _on_delete(alarm_id: str) -> None:
         alarm_manager.remove(alarm_id)
         refresh_list()
+    
+    def _build_notification_banner() -> ft.Container:
+        """Создаёт плашку с напоминанием проверить уведомления"""
+        return ft.Container(
+            content = ft.Row(
+                [
+                    ft.Icon(ft.Icons.NOTIFICATIONS_ACTIVE, size = 32, color = ft.Colors.BLUE_700),
+                    ft.Column(
+                        [
+                            ft.Text(
+                                "Проверьте уведомления",
+                                size = 16,
+                                weight = ft.FontWeight.BOLD,
+                                color = ft.Colors.GREY_900,
+                            ),
+                            ft.Text(
+                                "Если напоминания не приходят, откройте\nсистемные настройки уведомлений.",
+                                size = 13,
+                                color = ft.Colors.GREY_700,
+                            ),
+                        ],
+                        spacing = 4,
+                        expand = True,
+                    ),
+                    ft.TextButton(
+                        "Открыть",
+                        style = ft.ButtonStyle(
+                            color = ft.Colors.BLUE_700,
+                        ),
+                        on_click = lambda e: page.launch_url("app-settings:notification"),
+                    ),
+                ],
+                alignment = ft.MainAxisAlignment.START,
+                vertical_alignment = ft.CrossAxisAlignment.CENTER,
+            ),
+            bgcolor = ft.Colors.BLUE_50,
+            border_radius = 16,
+            padding = ft.Padding.symmetric(horizontal = 16, vertical = 14),
+            margin = ft.Padding.symmetric(horizontal = 16, vertical = 8),
+            border = ft.Border.all(
+                color = ft.Colors.BLUE_100,
+                width = 1,
+            ),
+        )
 
     def _build_alarm_tile(alarm: Alarm) -> ft.Control:
         toggle = ft.Switch(
@@ -422,6 +467,8 @@ def build_alarm_view(
                                 spacing = 2,
                             ),
                         ),
+                        # Добавляем плашку с уведомлением
+                        _build_notification_banner(),
                         alarms_container,
                         bottom_row,
                     ],

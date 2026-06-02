@@ -27,8 +27,8 @@ if sys.platform == "win32":
     logging.basicConfig(
         level = logging.INFO,
         format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        filename = "app.log",
-        encoding = "utf-8"
+        # filename = "app.log",
+        # encoding = "utf-8"
     )
     logger = logging.getLogger(__name__)
 else: 
