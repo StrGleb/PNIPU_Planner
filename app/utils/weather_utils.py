@@ -297,6 +297,17 @@ def get_weather_for_config(
     return weather
 
 
+#     if weather:
+#         print(f"Город: {weather['city']}")
+#         print(f"Температура: {weather['temp']}°C (ощущается как {weather['feels_like']}°C)")
+#         print(f"Погода: {weather['icon']} {weather['description']}")
+#         print(f"Влажность: {weather['humidity']}%")
+#         print(f"Ветер: {weather['wind_speed']} м/с")
+#         print(f"Рекомендация: {get_weather_recommendation(weather['temp'])}")
+#     else:
+#         print("Не удалось получить данные о погоде")
+
+
 def get_weather_for_address(address: str) -> Optional[dict]:
     from .geocoder_utils import get_coordinates_by_address
 
@@ -307,3 +318,14 @@ def get_weather_for_address(address: str) -> Optional[dict]:
 
     longitude, latitude = coords
     return get_weather_by_coords(latitude, longitude)
+  
+ 
+if __name__ == "__main__":
+    print("=" * 60)
+    print("Пример получения погоды")
+    print("=" * 60)
+    example_get_weather()
+    lat = 58.0105,
+    lon = 56.2502,
+
+    print(get_weather_by_coords_openweathermap(lat, lon))
