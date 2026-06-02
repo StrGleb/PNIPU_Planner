@@ -91,10 +91,7 @@ app/
 │   ├── geocoder_utils.py            # Яндекс Геокодер
 │   ├── route_utis.py                # 2ГИС Routing
 │   ├── time_utils.py                # Вспомогательное (приветствие и т.д.)
-│   ├── weather_utils.py             # Яндекс.Погода
-│   └── excel_parser/
-│       ├── parser.py                # Парсер расписания занятий
-│       └── session_parser.py        # Парсер расписания сессии
+│   └── weather_utils.py             # Яндекс.Погода
 │
 ├── native/
 │   └── jniLibs/
