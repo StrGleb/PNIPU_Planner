@@ -1,0 +1,36 @@
+[build-system]
+requires = ["flet"]
+build-backend = "flet.build"
+
+[project]
+version = "0.0.1"
+description = "Умный планировщик расписания и будильников для студентов ПНИПУ"
+authors = [
+  {name = "Simon Stepanov", email = "semenmstepanov@gmail.com"},
+  {name = "Gleb Staricov", email = "gleb@email.com"},
+  {name = "Elena Lapteva", email = "elena@email.com"},
+  {name = "Valeria Avramova", email = "valeria@email.com"}
+]
+dependencies = [
+    "flet>=0.85.2",
+    "openpyxl>=3.1.5",
+    "requests>=2.34.2",
+    "python-dotenv>=1.2.2",
+    "plyer>=2.1.0",
+    "flet-android-notifications>=0.7.9",
+    "flet-permission-handler>=0.85.2",
+]
+
+[tool.flet]
+product = "Университетский помощник"
+name = "pnipu_planner"
+org = "ru.semyon"
+platforms = ["android"]
+
+[tool.flet.android.permission]
+"android.permission.POST_NOTIFICATIONS" = true
+"android.permission.SCHEDULE_EXACT_ALARM" = true
+"android.permission.USE_EXACT_ALARM" = true
+"android.permission.RECEIVE_BOOT_COMPLETED" = true
+"android.permission.VIBRATE" = true
+"android.permission.WAKE_LOCK" = true

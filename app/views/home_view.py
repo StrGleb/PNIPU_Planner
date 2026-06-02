@@ -36,7 +36,8 @@ def build_home_view(
     navigation_bar: ft.NavigationBar,
     user_name: str,
     tasks_manager: TasksManager,
-    theme: ft.Page, # ── БАГ ФИКС: Возвращаем параметр, который передает main.py!
+    theme: ft.Page, 
+    notifications = None,
     config_manager = None,
 ) -> ft.View:
     greeting = greeting_choose()
@@ -81,7 +82,7 @@ def build_home_view(
         dark_theme_gradient = ft.LinearGradient(
             begin = ft.Alignment(0, -1),
             end = ft.Alignment(0, 1),
-            colors = [ft.Colors.BLUE_900, ft.Colors.BLUE_950]
+            colors = [ft.Colors.BLUE_900, ft.Colors.BLUE_800]
         )
 
         # Градиент для СВЕТЛОЙ темы (нежный светлый переход)
@@ -229,6 +230,100 @@ def build_home_view(
             [ft.Text(label, size = 15, weight = ft.FontWeight.BOLD), ft.Container(height = 6), box],
             spacing = 0,
         )
+    
+    # ── ДИАЛОГ ПЛАНИРОВАНИЯ УВЕДОМЛЕНИЙ ──────────────────────────────────────────
+    notification_dialog = ft.AlertDialog(modal = True, title = ft.Text("Новое уведомление"))
+    theme.overlay.append(notification_dialog)
+
+    def open_notification_dialog(e):
+        import datetime
+        
+        time_field = ft.TextField(
+            label = "Время (ЧЧ:ММ)", 
+            value = datetime.datetime.now().strftime("%H:%M"), 
+            width = 140,
+            keyboard_type = ft.KeyboardType.NUMBER
+        )
+        text_field = ft.TextField(
+            label = "Текст напоминания", 
+            hint_text = "Пример: Пора собираться в университет!",
+            width = 300
+        )
+        error_text = ft.Text("", color = ft.Colors.RED_400, size = 12)
+
+        async def save_notification(e):
+            try:
+                # 1. Запрашиваем нативные разрешения перед планированием
+                await notifications.request_permissions()
+                await notifications.request_exact_alarm_permission()
+
+                # 2. Парсим введенное время ЧЧ:ММ
+                time_str = time_field.value.strip()
+                h, m = map(int, time_str.split(":"))
+                assert 0 <= h <= 23 and 0 <= m <= 59
+                
+                # 3. Рассчитываем точное время запуска
+                now = datetime.datetime.now()
+                target_dt = now.replace(hour=h, minute=m, second=0, microsecond=0)
+                
+                # Если введенное время на сегодня уже прошло, планируем на завтра!
+                if target_dt < now:
+                    target_dt += datetime.timedelta(days=1)
+                
+                scheduled_time_str = target_dt.strftime("%Y-%m-%d %H:%M:%S")
+                body_text = text_field.value.strip() or "Университетский Помощник"
+                
+                # Генерируем уникальный ID уведомления (на основе таймстампа)
+                notif_id = int(target_dt.timestamp()) % 100000
+
+                # 4. Вызываем нативный планировщик!
+                await notifications.schedule_notification(
+                    notification_id = notif_id,
+                    title = "⏰ Напоминание",
+                    body = body_text,
+                    scheduled_time = scheduled_time_str
+                )
+
+                # Закрываем диалог
+                notification_dialog.open = False
+                theme.update()
+
+                # Показываем Snack-бар с подтверждением
+                theme.snack_bar = ft.SnackBar(ft.Text(f"Будильник заведен на {target_dt.strftime('%d.%m %H:%M')} ✓"))
+                theme.snack_bar.open = True
+                theme.update()
+
+            except Exception:
+                error_text.value = "Ошибка! Проверьте формат времени (ЧЧ:ММ)."
+                theme.update()
+
+        def cancel_notification(e):
+            notification_dialog.open = False
+            theme.update()
+
+        notification_dialog.content = ft.Column(
+            [
+                ft.Row([time_field], alignment = ft.MainAxisAlignment.CENTER),
+                text_field,
+                error_text
+            ],
+            tight = True,
+            spacing = 12,
+            width = 300,
+        )
+        notification_dialog.actions = [
+            ft.TextButton("Отмена", on_click = cancel_notification),
+            ft.FilledButton("Запланировать", on_click = save_notification),
+        ]
+        notification_dialog.open = True
+        theme.update()
+
+    # Создаем кнопку быстрого напоминания
+    btn_notify = ft.ElevatedButton(
+        "Запланировать напоминание",
+        icon = ft.Icons.NOTIFICATION_ADD,
+        on_click = open_notification_dialog,
+    )
 
     return ft.View(
         route = "/",
@@ -246,6 +341,8 @@ def build_home_view(
                                 weight = ft.FontWeight.BOLD,
                             ),
                             ft.Container(height = 20),
+                            btn_notify,
+                            ft.Container(height = 10),
                             weather_widget,
                             ft.Container(height = 16),
                             _section(

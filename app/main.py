@@ -6,6 +6,7 @@ import threading
 from time import localtime, sleep, strftime
 
 import flet as ft
+from flet_permission_handler import PermissionHandler, Permission
 
 from bridges.planner_bridge import is_week_even
 from managers.alarm_manager import AlarmManager
@@ -19,6 +20,13 @@ from views.alarm_view import build_alarm_view
 from views.home_view import build_home_view
 from views.planner_view import build_planner_view
 from views.settings_view import build_settings_view
+
+# Безопасный импорт на случай тестов на Windows (где нет библиотеки flet-android-notifications)
+try:
+    from flet_android_notifications import FletAndroidNotifications
+    has_native_notifications = True
+except ImportError:
+    has_native_notifications = False
 
 is_android = hasattr(sys, "getandroidapilevel")
 
@@ -45,13 +53,40 @@ def main(page: ft.Page):
     try:
         page.title = "University Planner"
         page.vertical_alignment = ft.MainAxisAlignment.CENTER
-
         config_manager = ConfigManager()
         tasks_manager = TasksManager()
 
+        # Инициализируем нативный сервис уведомлений на Android
+        if is_android and has_native_notifications:
+            notifications_service = FletAndroidNotifications()
+        else:
+            # Заглушка для тестов на Windows (ПК), чтобы не было вылетов при нажатии на кнопку
+            class MockNotifications:
+                async def request_permissions(self): pass
+                async def request_exact_alarm_permission(self): pass
+                async def schedule_notification(self, *args, **kwargs):
+                    logger.info(f"[MOCK NOTIFICATION] Запланировано: {args} {kwargs}")
+            notifications_service = MockNotifications()
+
+        # Инициализируем обработчик разрешений
+        ph = PermissionHandler()
+        page.overlay.append(ph)
+
+        def ask_for_permissions(e):
+            # Вызываем системное окошко "Разрешить уведомления?"
+            ph.request_permission(Permission.NOTIFICATION)
+            
+            # Для точных будильников часто нужно отправить пользователя 
+            # в системные настройки (зависит от версии Android), но начинаем с этого:
+            ph.request_permission(Permission.SCHEDULE_EXACT_ALARM)
+
+        page.add(
+            ft.Text("Для работы расписания нужны права!"),
+            ft.ElevatedButton("Дать разрешения", on_click=ask_for_permissions)
+        )
+
         now = lambda: strftime("%H:%M:%S", localtime())
         clock_text = ft.Text(value=now())
-
         modes = {
             "light": ft.ThemeMode.LIGHT,
             "dark": ft.ThemeMode.DARK,
@@ -126,6 +161,7 @@ def main(page: ft.Page):
                 tasks_manager = tasks_manager,
                 config_manager = config_manager,
                 theme = page,
+                notifications = notifications_service,
             )
         
 
