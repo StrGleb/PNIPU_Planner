@@ -1,0 +1,144 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Native / compiled artifacts
+*.pyd
+*.so
+app/native/bin/*.dll
+app/native/bin/*.dll.a
+
+# Keep Android shared libraries in Git
+!app/native/jniLibs/**/*.so
+!app/native/bin/android/**/*.so
+
+# Virtual environments and local config
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.env
+.env.*
+*.env
+.envrc
+.python-version
+.pdm-python
+.pdm-build/
+.pixi/
+__pypackages__/
+
+# Packaging / distribution
+.Python
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Local env / secrets
+*.secret
+*.secrets
+*.local
+local.properties
+*.jks
+*.keystore
+
+# Build outputs
+build/
+app/build/*
+*.aab
+*.apks
+*.sha1
+*.zip.hash
+*.vars
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Test, coverage, and type-checker caches
+.pytest_cache/
+.hypothesis/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+
+# Local logs and databases
+*.log
+pip-log.txt
+pip-delete-this-directory.txt
+db.sqlite3
+db.sqlite3-journal
+celerybeat-schedule
+celerybeat.pid
+app/build_log.txt
+app/build_full_log.txt
+
+# Framework / notebook temp files
+instance/
+.webassets-cache
+.scrapy
+docs/_build/
+.pybuilder/
+target/
+.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+marimo/_static/
+marimo/_lsp/
+__marimo__/
+
+# IDEs / editors
+.vscode/
+.idea/
+.spyderproject
+.spyproject
+.ropeproject
+.abstra/
+.cursorignore
+.cursorindexingignore
+
+# OS files
+.DS_Store
+
+# Project-local data
+app/test.py
+*.xlsx
+test/
+*.apk
+*.env
+*.apk.sha1
+*.kt
+*.html
+app/build/
+
+tmp*/
+*.tmp
+*.bak
