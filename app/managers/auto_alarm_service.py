@@ -1,5 +1,6 @@
 import datetime
 import logging
+import threading
 
 from bridges.planner_bridge import (
     collect_alarm_indices_on_or_after_date,
@@ -11,13 +12,7 @@ from bridges.planner_bridge import (
 from managers.alarm_manager import AlarmManager
 from managers.config_manager import ConfigManager
 from managers.planner_manager import PlannerManager
-from models.alarm_model import (
-    ALARM_KIND_REMINDER,
-    ALARM_KIND_ROUTE,
-    Alarm,
-    SOURCE_AUTO_SCHEDULE,
-    WEEK_ANY,
-)
+from models.alarm_model import ALARM_KIND_REMINDER, ALARM_KIND_ROUTE, Alarm, SOURCE_AUTO_SCHEDULE
 from models.lesson_model import ENTRY_TYPE_EVENT, Lesson, normalize_event_reminder_lead_minutes
 from utils.campus_locations import FACULTIES_COORDS
 
@@ -39,123 +34,190 @@ class AutoAlarmService:
         self._alarm_manager = alarm_manager
         self._config_manager = config_manager
         self._planner_manager = planner_manager
+        self._sync_lock = threading.RLock()
+        self._planner_change_lock = threading.Lock()
+        self._planner_change_running = False
+        self._planner_change_pending_dates: set[datetime.date] | None = set()
 
     def start(self) -> None:
-        self._cleanup_expired_auto_alarms(datetime.datetime.now())
+        with self._sync_lock:
+            self._cleanup_expired_auto_alarms(datetime.datetime.now())
 
-        if not self._config_manager.config.auto_alarm_enabled:
-            return
+            if not self._config_manager.config.auto_alarm_enabled:
+                return
 
-        if self._alarm_manager.get_auto_schedule_alarms():
-            return
+            if self._alarm_manager.get_auto_schedule_alarms():
+                return
 
-        self.sync_next_upcoming(force = False)
+            self.sync_next_upcoming(force = False)
 
     def sync_tomorrow(self, force: bool = False) -> str:
-        now = datetime.datetime.now()
-        tomorrow = datetime.datetime.combine(now.date() + datetime.timedelta(days = 1), datetime.time.min)
-        return self.sync_next_upcoming(force = force, from_datetime = tomorrow)
+        with self._sync_lock:
+            now = datetime.datetime.now()
+            tomorrow = datetime.datetime.combine(now.date() + datetime.timedelta(days = 1), datetime.time.min)
+            return self.sync_next_upcoming(force = force, from_datetime = tomorrow)
 
     def sync_week_ahead(self) -> tuple[str, int]:
-        now = datetime.datetime.now()
-        cutoff = now.date() + datetime.timedelta(days = _WEEK_AHEAD_DAYS)
-        now_minutes = now.hour * 60 + now.minute
+        with self._sync_lock:
+            now = datetime.datetime.now()
+            cutoff = now.date() + datetime.timedelta(days = _WEEK_AHEAD_DAYS)
+            now_minutes = now.hour * 60 + now.minute
 
-        lessons = self._planner_manager.get_all_lessons()
-        if not lessons:
+            lessons = self._planner_manager.get_all_lessons()
+            if not lessons:
+                return "no_upcoming_entries", 0
+
+            upcoming: list[Lesson] = []
+            for lesson in lessons:
+                if lesson.date < now.date() or lesson.date > cutoff:
+                    continue
+                if lesson.date == now.date() and time_to_minutes(lesson.time_start) <= now_minutes:
+                    continue
+                upcoming.append(lesson)
+
+            if not upcoming:
+                return "no_upcoming_entries", 0
+
+            auto_alarms: list[Alarm] = []
+            route_error_seen = False
+            missing_prep_seen = False
+            for lesson in upcoming:
+                alarm, error_code = self._build_auto_alarm(lesson.date, lesson, allow_live = False)
+                if alarm is not None:
+                    auto_alarms.append(alarm)
+                    continue
+                if error_code == "missing_prep":
+                    missing_prep_seen = True
+                if error_code == "route_unavailable":
+                    route_error_seen = True
+
+            if auto_alarms:
+                self._alarm_manager.replace_auto_schedule_alarms(auto_alarms)
+                return "scheduled", len(auto_alarms)
+            if missing_prep_seen:
+                return "missing_prep", 0
+            if route_error_seen:
+                return "route_unavailable", 0
             return "no_upcoming_entries", 0
-
-        upcoming: list[Lesson] = []
-        for lesson in lessons:
-            if lesson.date < now.date() or lesson.date > cutoff:
-                continue
-            if lesson.date == now.date() and time_to_minutes(lesson.time_start) <= now_minutes:
-                continue
-            upcoming.append(lesson)
-
-        if not upcoming:
-            return "no_upcoming_entries", 0
-
-        auto_alarms: list[Alarm] = []
-        route_error_seen = False
-        missing_prep_seen = False
-        for lesson in upcoming:
-            alarm, error_code = self._build_auto_alarm(lesson.date, lesson, allow_live = False)
-            if alarm is not None:
-                auto_alarms.append(alarm)
-                continue
-            if error_code == "missing_prep":
-                missing_prep_seen = True
-            if error_code == "route_unavailable":
-                route_error_seen = True
-
-        if auto_alarms:
-            self._alarm_manager.replace_auto_schedule_alarms(auto_alarms)
-            return "scheduled", len(auto_alarms)
-        if missing_prep_seen:
-            return "missing_prep", 0
-        if route_error_seen:
-            return "route_unavailable", 0
-        return "no_upcoming_entries", 0
 
     def sync_next_upcoming(
         self,
         force: bool = False,
         from_datetime: datetime.datetime | None = None,
     ) -> str:
-        cfg = self._config_manager.config
-        if not cfg.auto_alarm_enabled and not force:
-            return "disabled"
+        with self._sync_lock:
+            cfg = self._config_manager.config
+            if not cfg.auto_alarm_enabled and not force:
+                return "disabled"
 
-        now = from_datetime or datetime.datetime.now()
-        candidate = self._select_next_candidate(now)
-        if candidate is None:
-            self._alarm_manager.clear_auto_schedule_alarms()
-            return "no_upcoming_entries"
+            now = from_datetime or datetime.datetime.now()
+            candidate = self._select_next_candidate(now)
+            if candidate is None:
+                self._alarm_manager.clear_auto_schedule_alarms()
+                return "no_upcoming_entries"
 
-        alarm, error_code = candidate
-        if alarm is None:
-            self._alarm_manager.clear_auto_schedule_alarms()
-            return error_code or "no_upcoming_entries"
+            alarm, error_code = candidate
+            if alarm is None:
+                self._alarm_manager.clear_auto_schedule_alarms()
+                return error_code or "no_upcoming_entries"
 
-        self._alarm_manager.replace_auto_schedule_alarms([alarm])
-        return "scheduled"
+            self._alarm_manager.replace_auto_schedule_alarms([alarm])
+            return "scheduled"
 
     def handle_alarm_triggered(
         self,
         alarm: Alarm,
         fired_at: datetime.datetime | None = None,
     ) -> str:
-        if not alarm.is_auto_schedule:
-            return "ignored"
+        with self._sync_lock:
+            if not alarm.is_auto_schedule:
+                return "ignored"
 
-        fire_time = fired_at or datetime.datetime.now()
-        self._alarm_manager.clear_auto_schedule_alarms()
-        next_start = fire_time + datetime.timedelta(minutes = 1)
-        return self.sync_next_upcoming(force = True, from_datetime = next_start)
+            fire_time = fired_at or datetime.datetime.now()
+            self._alarm_manager.clear_auto_schedule_alarms()
+            next_start = fire_time + datetime.timedelta(minutes = 1)
+            return self.sync_next_upcoming(force = True, from_datetime = next_start)
 
     def handle_planner_change(self) -> str:
-        if not self._config_manager.config.auto_alarm_enabled:
-            return "disabled"
-        auto_alarms = self._alarm_manager.get_auto_schedule_alarms()
-        if not auto_alarms:
-            return self.sync_next_upcoming(force = False)
-        return self._recheck_alarms_if_needed(auto_alarms, changed_dates = None)
+        with self._sync_lock:
+            if not self._config_manager.config.auto_alarm_enabled:
+                return "disabled"
+            auto_alarms = self._alarm_manager.get_auto_schedule_alarms()
+            if not auto_alarms:
+                return self.sync_next_upcoming(force = False)
+            return self._recheck_alarms_if_needed(auto_alarms, changed_dates = None)
 
     def handle_planner_change_for_dates(
         self,
         changed_dates: list[datetime.date] | None,
     ) -> str:
-        if not self._config_manager.config.auto_alarm_enabled:
-            return "disabled"
+        with self._sync_lock:
+            if not self._config_manager.config.auto_alarm_enabled:
+                return "disabled"
 
-        auto_alarms = self._alarm_manager.get_auto_schedule_alarms()
-        if not auto_alarms:
-            return self.sync_next_upcoming(force = False)
-        return self._recheck_alarms_if_needed(auto_alarms, changed_dates = changed_dates)
+            auto_alarms = self._alarm_manager.get_auto_schedule_alarms()
+            if not auto_alarms:
+                return self.sync_next_upcoming(force = False)
+            return self._recheck_alarms_if_needed(auto_alarms, changed_dates = changed_dates)
+
+    def enqueue_planner_change(
+        self,
+        changed_dates: list[datetime.date] | None = None,
+    ) -> None:
+        with self._planner_change_lock:
+            self._planner_change_pending_dates = self._merge_changed_dates(
+                self._planner_change_pending_dates,
+                changed_dates,
+            )
+            if self._planner_change_running:
+                return
+            self._planner_change_running = True
+
+        worker = threading.Thread(
+            target = self._drain_planner_change_queue,
+            daemon = True,
+            name = "auto-alarm-planner-sync",
+        )
+        worker.start()
 
     def disable(self) -> None:
-        self._alarm_manager.clear_auto_schedule_alarms()
+        with self._sync_lock:
+            self._alarm_manager.clear_auto_schedule_alarms()
+
+    def _drain_planner_change_queue(self) -> None:
+        while True:
+            with self._planner_change_lock:
+                changed_dates = self._planner_change_pending_dates
+                self._planner_change_pending_dates = set()
+
+            try:
+                if changed_dates is None:
+                    self.handle_planner_change()
+                else:
+                    self.handle_planner_change_for_dates(list(changed_dates))
+            except Exception:
+                logger.exception("Failed to refresh auto alarms after planner change")
+
+            with self._planner_change_lock:
+                has_pending = self._planner_change_pending_dates is None or bool(self._planner_change_pending_dates)
+                if has_pending:
+                    continue
+                self._planner_change_running = False
+                return
+
+    def _merge_changed_dates(
+        self,
+        current_dates: set[datetime.date] | None,
+        new_dates: list[datetime.date] | None,
+    ) -> set[datetime.date] | None:
+        if current_dates is None or new_dates is None:
+            return None
+
+        merged = set(current_dates)
+        normalized_dates = self._normalize_changed_dates(new_dates)
+        if normalized_dates:
+            merged.update(normalized_dates)
+        return merged
 
     def _select_next_candidate(
         self,

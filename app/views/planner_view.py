@@ -2,6 +2,7 @@
 import calendar
 import datetime
 import inspect
+import threading
 from typing import Any, Callable
 
 import flet as ft
@@ -97,12 +98,32 @@ def build_planner_view(
             except RuntimeError:
                 pass
 
+    def run_in_background(task: Callable[[], None]) -> None:
+        runner = getattr(page, "run_thread", None)
+        if callable(runner):
+            try:
+                runner(task)
+                return
+            except Exception:
+                pass
+
+        threading.Thread(
+            target = task,
+            daemon = True,
+            name = "planner-background-task",
+        ).start()
+
     def sync_auto_alarm(changed_dates: list[datetime.date] | None = None):
         try:
+            enqueue_change = getattr(auto_alarm_service, "enqueue_planner_change", None)
+            if callable(enqueue_change):
+                enqueue_change(changed_dates)
+                return
+
             if changed_dates:
-                auto_alarm_service.handle_planner_change_for_dates(changed_dates)
+                run_in_background(lambda: auto_alarm_service.handle_planner_change_for_dates(changed_dates))
             else:
-                auto_alarm_service.handle_planner_change()
+                run_in_background(auto_alarm_service.handle_planner_change)
         except Exception:
             pass
 

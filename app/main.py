@@ -137,7 +137,11 @@ def main(page: ft.Page):
             planner_manager = planner_manager,
         )
         alarm_manager.start_background_checker()
-        auto_alarm_service.start()
+        threading.Thread(
+            target = auto_alarm_service.start,
+            daemon = True,
+            name = "auto-alarm-startup-sync",
+        ).start()
 
         planner_cleanup = [None]
 

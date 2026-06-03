@@ -51,7 +51,11 @@ def build_settings_view(
         if auto_alarm_service is None or not config_manager.config.auto_alarm_enabled:
             return
         try:
-            auto_alarm_service.handle_planner_change()
+            enqueue_change = getattr(auto_alarm_service, "enqueue_planner_change", None)
+            if callable(enqueue_change):
+                enqueue_change(None)
+            else:
+                auto_alarm_service.handle_planner_change()
         except Exception:
             ...
 

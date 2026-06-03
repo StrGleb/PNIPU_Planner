@@ -1,4 +1,5 @@
 import logging
+import threading
 import flet as ft
 
 from bridges.planner_bridge import is_valid_time
@@ -29,6 +30,7 @@ def build_alarm_view(
     page.overlay.append(alarm_dialog)
 
     auto_label = ft.Text("", size = 14, weight = ft.FontWeight.BOLD, color = ft.Colors.WHITE)
+    auto_sync_busy = {"value": False}
 
     def show_info(message: str) -> None:
         """ Для отображения информационных сообщений """
@@ -52,9 +54,44 @@ def build_alarm_view(
         snack.open = True
         page.update()
 
+    def run_in_background(task) -> None:
+        runner = getattr(page, "run_thread", None)
+        if callable(runner):
+            try:
+                runner(task)
+                return
+            except Exception:
+                pass
+
+        threading.Thread(
+            target = task,
+            daemon = True,
+            name = "alarm-background-task",
+        ).start()
+
+    def set_auto_sync_busy(is_busy: bool) -> None:
+        auto_sync_busy["value"] = is_busy
+        btn_auto.on_click = None if is_busy else _on_auto
+        btn_auto.ink = not is_busy
+        btn_week.on_click = None if is_busy else _on_week
+        btn_week.ink = not is_busy
+        _refresh_auto_button()
+        try:
+            page.update()
+        except Exception:
+            pass
+
     def _refresh_auto_button() -> None:
         """ Обновление кнопки вкл/выкл """
         enabled = config_manager.config.auto_alarm_enabled
+        if auto_sync_busy["value"]:
+            auto_label.value = "Auto: sync..."
+            btn_auto.bgcolor = ft.Colors.BLUE_400
+            return
+        if auto_sync_busy["value"]:
+            auto_label.value = "РђРІС‚Рѕ: С‡РёС‚Р°РµРј..."
+            btn_auto.bgcolor = ft.Colors.BLUE_400
+            return
         auto_label.value = "Авто: вкл" if enabled else "Авто: выкл"
         btn_auto.bgcolor = ft.Colors.BLUE_600 if enabled else ft.Colors.BLUE_GREY_600
 
@@ -329,6 +366,8 @@ def build_alarm_view(
             show_error(message)
 
     def _on_auto(e) -> None:
+        if auto_sync_busy["value"]:
+            return
         if config_manager.config.auto_alarm_enabled:
             config_manager.set_auto_alarm_enabled(False)
             auto_alarm_service.disable()
@@ -337,13 +376,52 @@ def build_alarm_view(
             return
 
         config_manager.set_auto_alarm_enabled(True)
-        result = auto_alarm_service.sync_next_upcoming(force = True)
-        if result in {"missing_prep", "invalid_lesson_time", "route_unavailable"}:
-            config_manager.set_auto_alarm_enabled(False)
-        refresh_list()
-        _show_auto_result(result)
+        set_auto_sync_busy(True)
+
+        def worker() -> None:
+            try:
+                result = auto_alarm_service.sync_next_upcoming(force = True)
+                if result in {"missing_prep", "invalid_lesson_time", "route_unavailable"}:
+                    config_manager.set_auto_alarm_enabled(False)
+            except Exception:
+                logger.exception("Failed to enable auto alarm")
+                result = "error"
+
+            set_auto_sync_busy(False)
+            refresh_list()
+            _show_auto_result(result)
+
+        run_in_background(worker)
     
     def _on_week(e) -> None:
+        if auto_sync_busy["value"]:
+            return
+
+        set_auto_sync_busy(True)
+
+        def worker() -> None:
+            try:
+                result, count = auto_alarm_service.sync_week_ahead()
+            except Exception:
+                logger.exception("Failed to build week-ahead auto alarms")
+                result, count = "error", 0
+
+            set_auto_sync_busy(False)
+            refresh_list()
+            if result == "scheduled":
+                show_info(f"Р‘СѓРґРёР»СЊРЅРёРєРѕРІ РЅР° РЅРµРґРµР»СЋ: {count}")
+            elif result == "missing_prep":
+                show_error("РЈРєР°Р¶РёС‚Рµ РІСЂРµРјСЏ РЅР° СЃР±РѕСЂС‹ РІ РЅР°СЃС‚СЂРѕР№РєР°С….")
+            elif result == "no_upcoming_entries":
+                show_info("Р—Р°РЅСЏС‚РёР№ РЅР° Р±Р»РёР¶Р°Р№С€РёРµ 7 РґРЅРµР№ РЅРµС‚.")
+            elif result == "route_unavailable":
+                show_error("РЈРєР°Р¶РёС‚Рµ РІСЂРµРјСЏ РґРѕ Р’РЈР—Р° (РјРёРЅ) РІ РЅР°СЃС‚СЂРѕР№РєР°С….")
+            else:
+                show_error("РќРµ СѓРґР°Р»РѕСЃСЊ СЂР°СЃСЃС‚Р°РІРёС‚СЊ Р±СѓРґРёР»СЊРЅРёРєРё.")
+
+        run_in_background(worker)
+        return
+
         result, count = auto_alarm_service.sync_week_ahead()
         refresh_list()
         if result == "scheduled":
