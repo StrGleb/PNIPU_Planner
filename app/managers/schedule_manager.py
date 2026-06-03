@@ -354,7 +354,7 @@ class ScheduleManager:
         ]
         if not templates:
             if clear_existing:
-                planner.clear()
+                planner.clear(preserve_custom = True)
             return False
 
         if clear_existing:

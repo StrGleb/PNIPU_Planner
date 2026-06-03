@@ -920,7 +920,7 @@ def build_planner_view(
         day_markers: dict[str, str],
     ) -> ft.Control:
         if cell_date is None:
-            return ft.Container(expand = True, height = 64, margin = ft.Margin.symmetric(horizontal = 2))
+            return ft.Container(expand = True, height = 64, margin = ft.Margin.symmetric(horizontal = 3))
 
         date_key = cell_date.strftime("%d.%m.%Y")
         day_marker = day_markers.get(date_key)
@@ -953,7 +953,7 @@ def build_planner_view(
             expand = True,
             height = 64,
             padding = 3,
-            margin = ft.Margin.symmetric(horizontal = 2),
+            margin = ft.Margin.symmetric(horizontal = 3),
             border_radius = 14,
             border = ft.Border.all(outer_border_width, outer_border_color),
             bgcolor = outer_bg,
@@ -962,8 +962,8 @@ def build_planner_view(
             ink = True,
             content = ft.Text(
                 str(cell_date.day),
-                size = 15,
-                weight = ft.FontWeight.BOLD,
+                size = 14,
+                weight = ft.FontWeight.W_600,
                 color = day_text_color,
             ),
         )
@@ -986,9 +986,9 @@ def build_planner_view(
                 ft.Container(
                     content = ft.Text(label, size = 12, weight = ft.FontWeight.BOLD, text_align = ft.TextAlign.CENTER),
                     expand = True,
-                    alignment = ft.Alignment(0, 0),
-                    padding = ft.Padding.only(top = 6, bottom = 6),
-                    margin = ft.Margin.symmetric(horizontal = 2),
+                    alignment = ft.Alignment(0, -0.2),
+                    padding = ft.Padding.only(top = 3, bottom = 7),
+                    margin = ft.Margin.symmetric(horizontal = 3),
                 )
                 for label in ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
             ],
@@ -1019,7 +1019,8 @@ def build_planner_view(
                 build_legend_item(ft.Colors.TEAL_200, ft.Colors.TEAL_400, "\u041f\u0430\u0440\u044b + \u0441\u043e\u0431\u044b\u0442\u0438\u044f"),
             ],
             alignment = ft.MainAxisAlignment.CENTER,
-            horizontal_alignment = ft.CrossAxisAlignment.CENTER,
+            run_alignment = ft.MainAxisAlignment.CENTER,
+            vertical_alignment = ft.CrossAxisAlignment.CENTER,
             spacing = 16,
             wrap = True,
             run_spacing = 8,
@@ -1035,7 +1036,12 @@ def build_planner_view(
                         day_markers,
                     )
                 )
-            week_rows.append(ft.Row(controls, spacing = 2))
+            week_rows.append(
+                ft.Container(
+                    padding = ft.Padding.symmetric(horizontal = 2),
+                    content = ft.Row(controls, spacing = 2),
+                )
+            )
 
         return ft.Column(
             [
@@ -1045,7 +1051,7 @@ def build_planner_view(
                 ),
                 ft.Container(
                     content = weekday_header,
-                    padding = ft.Padding.symmetric(horizontal = 10),
+                    padding = ft.Padding.only(left = 12, right = 12, top = 2),
                 ),
                 ft.Container(
                     content = legend,
@@ -1120,25 +1126,38 @@ def build_planner_view(
         )
 
     def build_tasks_content() -> ft.Column:
-        all_tasks = tasks_manager.get_all_tasks()
-        if state["task_filter"] != "all":
-            all_tasks = [task for task in all_tasks if task.task_type == state["task_filter"]]
+        all_tasks = list(tasks_manager.get_all_tasks())
+        valid_filters = {"all", TASK_TYPE_HOMEWORK, TASK_TYPE_TEST, TASK_TYPE_LAB}
+        if state["task_filter"] not in valid_filters:
+            state["task_filter"] = "all"
         if state["task_sort"] not in {"date", "subject", "priority"}:
             state["task_sort"] = "date"
+        filtered_tasks = all_tasks
+        if state["task_filter"] != "all":
+            filtered_tasks = [task for task in all_tasks if task.task_type == state["task_filter"]]
 
         def parse_task_date(task) -> datetime.date:
-            return datetime.datetime.strptime(task.date_str, "%d.%m.%Y").date()
+            try:
+                return datetime.datetime.strptime(task.date_str, "%d.%m.%Y").date()
+            except Exception:
+                return datetime.date.max
+
+        def parse_task_time(task) -> int:
+            parsed_time = time_to_minutes((task.time_start or "").strip())
+            return parsed_time if parsed_time >= 0 else 24 * 60
 
         def task_sort_key(task):
             date_value = parse_task_date(task)
-            time_value = time_to_minutes(task.time_start)
+            time_value = parse_task_time(task)
+            subject_value = (task.subject or "").lower()
+            text_value = (task.text or "").lower()
             if state["task_sort"] == "subject":
-                return (task.subject.lower(), date_value, time_value, task.text.lower())
+                return (subject_value, date_value, time_value, text_value)
             if state["task_sort"] == "priority":
-                return (-task.priority, date_value, time_value, task.subject.lower())
-            return (date_value, time_value, task.subject.lower(), task.text.lower())
+                return (-getattr(task, "priority", 0), date_value, time_value, subject_value, text_value)
+            return (date_value, time_value, subject_value, text_value)
 
-        all_tasks.sort(key = task_sort_key)
+        filtered_tasks.sort(key = task_sort_key)
 
         filter_dropdown = ft.Dropdown(
             value = state["task_filter"],
@@ -1171,20 +1190,14 @@ def build_planner_view(
             options = [
                 ft.DropdownOption(key = "date", text = "По дате"),
                 ft.DropdownOption(key = "subject", text = "По предмету"),
-                ft.DropdownOption(key = "type", text = "По типу"),
                 ft.DropdownOption(key = "priority", text = "По приоритету"),
             ],
             on_select = lambda e: set_task_sort(e.control.value or "date"),
         )
         filter_dropdown.label = None
         sort_dropdown.label = None
-        sort_dropdown.options = [
-            ft.DropdownOption(key = "date", text = "\u041f\u043e \u0434\u0430\u0442\u0435"),
-            ft.DropdownOption(key = "subject", text = "\u041f\u043e \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u0443"),
-            ft.DropdownOption(key = "priority", text = "\u041f\u043e \u043f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442\u0443"),
-        ]
 
-        task_cards: list[ft.Control] = [build_task_card(task) for task in all_tasks]
+        task_cards: list[ft.Control] = [build_task_card(task) for task in filtered_tasks]
         if not task_cards:
             task_cards = [
                 ft.Container(
@@ -1220,15 +1233,13 @@ def build_planner_view(
                                 ),
                             ),
                         ],
-                        wrap = True,
                         spacing = 10,
-                        run_spacing = 12,
                     ),
                 ),
                 ft.Container(
                     padding = ft.Padding.only(left = 10, right = 10, top = 2),
                     content = ft.Text(
-                        f"Всего задач: {len(all_tasks)}",
+                        f"Всего задач: {len(filtered_tasks)}",
                         size = 12,
                         color = ft.Colors.GREY_600,
                     ),
@@ -1297,7 +1308,7 @@ def build_planner_view(
             alignment = ft.MainAxisAlignment.SPACE_BETWEEN,
             vertical_alignment = ft.CrossAxisAlignment.CENTER,
         ),
-        bgcolor = ft.Colors.WHITE,
+        bgcolor = ft.Colors.SURFACE,
         padding = ft.Padding.only(left = 8, right = 8, top = 10, bottom = 10),
     )
     header_divider = ft.Divider(height = 1, thickness = 0.8, color = ft.Colors.BLACK12)
@@ -1457,13 +1468,13 @@ def build_planner_view(
         floating_action_button = fab,
         navigation_bar = navigation_bar,
         padding = 0,
-        bgcolor = ft.Colors.WHITE,
+        bgcolor = ft.Colors.SURFACE,
         controls = [
             ft.SafeArea(
                 expand = True,
                 content = ft.Container(
                     expand = True,
-                    bgcolor = ft.Colors.WHITE,
+                    bgcolor = ft.Colors.SURFACE,
                     content = ft.Column(
                         [
                             header,

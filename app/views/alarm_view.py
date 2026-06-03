@@ -9,7 +9,7 @@ from models.alarm_model import Alarm, WEEK_ANY, WEEK_EVEN, WEEK_ODD
 logger = logging.getLogger(__name__)
 
 _DAYS = [(1, "Пн"), (2, "Вт"), (3, "Ср"), (4, "Чт"), (5, "Пт"), (6, "Сб"), (7, "Вс")]
-_WEEKS = [(WEEK_ANY, "Любая"), (WEEK_ODD, "Нечёт."), (WEEK_EVEN, "Чётная")]
+_WEEKS = [(WEEK_ANY, "Любая"), (WEEK_ODD, "Нечетная"), (WEEK_EVEN, "Четная")]
 
 def build_alarm_view(
     navigation_bar: ft.NavigationBar,
@@ -88,17 +88,37 @@ def build_alarm_view(
         tile = ft.Container(
             content = ft.Row(
                 [
-                    ft.Column(
-                        [
-                            ft.Text(alarm.label, size = 32, weight = ft.FontWeight.BOLD, color = ft.Colors.WHITE),
-                            ft.Text(alarm.days_label, size = 12, color = ft.Colors.WHITE70),
-                        ],
-                        spacing = 2,
-                        tight = True,
+                    ft.Container(
+                        expand = True,
+                        content = ft.Column(
+                            [
+                                ft.Text(
+                                    alarm.label,
+                                    size = 32,
+                                    weight = ft.FontWeight.BOLD,
+                                    color = ft.Colors.WHITE,
+                                    max_lines = 1,
+                                    overflow = ft.TextOverflow.ELLIPSIS,
+                                ),
+                                ft.Text(
+                                    alarm.days_label,
+                                    size = 12,
+                                    color = ft.Colors.WHITE70,
+                                    max_lines = 2,
+                                    overflow = ft.TextOverflow.ELLIPSIS,
+                                ),
+                            ],
+                            spacing = 2,
+                            tight = True,
+                        ),
                     ),
-                    toggle,
+                    ft.Container(
+                        width = 72,
+                        alignment = ft.Alignment(1, 0),
+                        content = toggle,
+                    ),
                 ],
-                alignment = ft.MainAxisAlignment.SPACE_BETWEEN,
+                spacing = 12,
                 vertical_alignment = ft.CrossAxisAlignment.CENTER,
             ),
             bgcolor = ft.Colors.BLUE_GREY_700 if alarm.is_auto_schedule else ft.Colors.GREY_700,
@@ -129,18 +149,20 @@ def build_alarm_view(
 
     def _open_alarm_dialog(existing: Alarm | None = None) -> None:
         is_edit = existing is not None
+        dialog_width = min(max(int(getattr(page, "width", 360)) - 72, 252), 320)
+        dialog_height = min(max(int(getattr(page, "height", 640) * 0.46), 260), 380)
 
         hour_field = ft.TextField(
             label = "Час (0-23)",
             value = str(existing.hour) if is_edit else "",
             keyboard_type = ft.KeyboardType.NUMBER,
-            width = 110,
+            expand = True,
         )
         minute_field = ft.TextField(
             label = "Минута (0-59)",
             value = str(existing.minute) if is_edit else "",
             keyboard_type = ft.KeyboardType.NUMBER,
-            width = 110,
+            expand = True,
         )
         error_text = ft.Text("", color = ft.Colors.RED_400, size = 12)
 
@@ -188,17 +210,31 @@ def build_alarm_view(
 
         def _make_week_button(week_type: str, label: str) -> ft.Container:
             button = ft.Container(
-                content = ft.Text(label, size = 11, weight = ft.FontWeight.BOLD, color = ft.Colors.WHITE),
+                expand = True,
+                height = 40,
+                alignment = ft.Alignment.CENTER,
+                content = ft.Text(
+                    label,
+                    size = 11,
+                    weight = ft.FontWeight.BOLD,
+                    color = ft.Colors.WHITE,
+                    text_align = ft.TextAlign.CENTER,
+                ),
                 bgcolor = _week_color(week_type),
                 border_radius = 12,
-                padding = ft.Padding.symmetric(horizontal = 12, vertical = 8),
+                padding = ft.Padding.symmetric(horizontal = 8, vertical = 8),
                 on_click = lambda e, current_week = week_type: _toggle_week(current_week),
                 ink = True,
             )
             week_buttons[week_type] = button
             return button
 
-        days_row = ft.Row([_make_day_button(day, label) for day, label in _DAYS], spacing = 4)
+        days_row = ft.Row(
+            [_make_day_button(day, label) for day, label in _DAYS],
+            spacing = 6,
+            wrap = True,
+            run_spacing = 6,
+        )
         weeks_row = ft.Row([_make_week_button(week_type, label) for week_type, label in _WEEKS], spacing = 8)
 
         def _save(e) -> None:
@@ -240,29 +276,33 @@ def build_alarm_view(
             page.update()
 
         alarm_dialog.title = ft.Text("Изменить будильник" if is_edit else "Новый будильник")
-        alarm_dialog.content = ft.Column(
-            [
-                ft.Row(
-                    [hour_field, ft.Text(":", size = 24, weight = ft.FontWeight.BOLD), minute_field],
-                    vertical_alignment = ft.CrossAxisAlignment.CENTER,
-                    spacing = 8,
-                ),
-                ft.Container(height = 4),
-                ft.Text("Повторять по дням:", size = 13, color = ft.Colors.GREY_500),
-                days_row,
-                ft.Text("Повторять по неделе:", size = 13, color = ft.Colors.GREY_500),
-                weeks_row,
-                ft.Text(
-                    "Если ничего не выбрано, будильник будет разовым. После срабатывания он отключится, но останется в списке.",
-                    size = 11,
-                    italic = True,
-                    color = ft.Colors.GREY_500,
-                ),
-                error_text,
-            ],
-            tight = True,
-            spacing = 10,
-            width = 320,
+        alarm_dialog.content = ft.Container(
+            width = dialog_width,
+            height = dialog_height,
+            content = ft.Column(
+                [
+                    ft.Row(
+                        [hour_field, ft.Text(":", size = 24, weight = ft.FontWeight.BOLD), minute_field],
+                        vertical_alignment = ft.CrossAxisAlignment.CENTER,
+                        spacing = 8,
+                    ),
+                    ft.Container(height = 4),
+                    ft.Text("Повторять по дням:", size = 13, color = ft.Colors.GREY_500),
+                    days_row,
+                    ft.Text("Повторять по неделе:", size = 13, color = ft.Colors.GREY_500),
+                    weeks_row,
+                    ft.Text(
+                        "Если ничего не выбрано, будильник будет разовым. После срабатывания он отключится, но останется в списке.",
+                        size = 11,
+                        italic = True,
+                        color = ft.Colors.GREY_500,
+                    ),
+                    error_text,
+                ],
+                tight = True,
+                spacing = 10,
+                scroll = ft.ScrollMode.AUTO,
+            ),
         )
         alarm_dialog.actions = [
             ft.TextButton("Отмена", on_click = _cancel),
