@@ -13,6 +13,24 @@ PRIORITY_DOT_COLORS = {
     3: ft.Colors.RED_500,
 }
 
+CONTROL_WORKS_GRADIENT = ft.LinearGradient(
+    begin = ft.Alignment(-1, -1),
+    end = ft.Alignment(1, 1),
+    colors = [ft.Colors.RED_200, ft.Colors.RED_100],
+)
+
+HOMEWORKS_GRADIENT = ft.LinearGradient(
+    begin = ft.Alignment(-1, -1),
+    end = ft.Alignment(1, 1),
+    colors = [ft.Colors.BLUE_200, ft.Colors.BLUE_100],
+)
+
+LABS_GRADIENT = ft.LinearGradient(
+    begin = ft.Alignment(-1, -1),
+    end = ft.Alignment(1, 1),
+    colors = [ft.Colors.GREEN_200, ft.Colors.GREEN_100],
+)
+
 
 def build_home_view(
     navigation_bar: ft.NavigationBar,
@@ -48,13 +66,13 @@ def build_home_view(
             vertical_alignment = ft.CrossAxisAlignment.CENTER,
         )
 
-    def _task_box(items: list, empty_text: str, box_color = ft.Colors.GREY_200) -> ft.Container:
+    def _task_box(items: list, empty_text: str, gradient: ft.LinearGradient) -> ft.Container:
         content_controls = [_task_row(task) for task in items] if items else [
             ft.Text(empty_text, size = 14, italic = True, color = ft.Colors.GREY_500)
         ]
         return ft.Container(
             content = ft.Column(content_controls, spacing = 8),
-            bgcolor = box_color,
+            gradient = gradient,
             border_radius = 16,
             padding = ft.Padding.symmetric(horizontal = 16, vertical = 14),
             width = float("inf"),
@@ -65,7 +83,7 @@ def build_home_view(
         tomorrow_items: list,
         empty_today_text: str,
         empty_tomorrow_text: str,
-        box_color = ft.Colors.GREY_200,
+        gradient: ft.LinearGradient,
     ) -> ft.Container:
         def _subsection(title: str, items: list, empty_text: str) -> ft.Column:
             content_controls = [_task_row(task) for task in items] if items else [
@@ -83,13 +101,13 @@ def build_home_view(
         return ft.Container(
             content = ft.Column(
                 [
-                    _subsection("\u0421\u0435\u0433\u043e\u0434\u043d\u044f", today_items, empty_today_text),
+                    _subsection("Сегодня", today_items, empty_today_text),
                     ft.Divider(height = 18),
-                    _subsection("\u0417\u0430\u0432\u0442\u0440\u0430", tomorrow_items, empty_tomorrow_text),
+                    _subsection("Завтра", tomorrow_items, empty_tomorrow_text),
                 ],
                 spacing = 0,
             ),
-            bgcolor = box_color,
+            gradient = gradient,
             border_radius = 16,
             padding = ft.Padding.symmetric(horizontal = 16, vertical = 14),
             width = float("inf"),
@@ -111,37 +129,37 @@ def build_home_view(
                     content = ft.Column(
                         [
                             ft.Text(
-                                f"{greeting},\n{user_name or '\u0421\u0442\u0443\u0434\u0435\u043d\u0442'}!",
+                                f"{greeting},\n{user_name or 'Студент'}!",
                                 size = 30,
                                 weight = ft.FontWeight.BOLD,
                             ),
                             ft.Container(height = 20),
                             _section(
-                                "\u0412\u0430\u0448\u0438 \u043a/\u0440:",
+                                "Ваши к/р:",
                                 _dual_task_box(
                                     tests_today,
                                     tests_tomorrow,
-                                    "\u041a\u043e\u043d\u0442\u0440\u043e\u043b\u044c\u043d\u044b\u0445 \u0440\u0430\u0431\u043e\u0442 \u0441\u0435\u0433\u043e\u0434\u043d\u044f \u043d\u0435\u0442",
-                                    "\u041a\u043e\u043d\u0442\u0440\u043e\u043b\u044c\u043d\u044b\u0445 \u0440\u0430\u0431\u043e\u0442 \u043d\u0430 \u0437\u0430\u0432\u0442\u0440\u0430 \u043d\u0435\u0442",
-                                    ft.Colors.RED_100,
+                                    "Контрольных работ сегодня нет",
+                                    "Контрольных работ на завтра нет",
+                                    CONTROL_WORKS_GRADIENT,
                                 ),
                             ),
                             ft.Container(height = 16),
                             _section(
-                                "\u0412\u0430\u0448\u0438 \u0434\u043e\u043c\u0430\u0448\u043d\u0438\u0435 \u0440\u0430\u0431\u043e\u0442\u044b \u043d\u0430 \u0437\u0430\u0432\u0442\u0440\u0430:",
+                                "Ваши домашние работы на завтра:",
                                 _task_box(
                                     homework_tomorrow,
-                                    "\u0414\u043e\u043c\u0430\u0448\u043d\u0438\u0445 \u0440\u0430\u0431\u043e\u0442 \u043d\u0430 \u0437\u0430\u0432\u0442\u0440\u0430 \u043d\u0435\u0442",
-                                    ft.Colors.BLUE_100,
+                                    "Домашних работ на завтра нет",
+                                    HOMEWORKS_GRADIENT,
                                 ),
                             ),
                             ft.Container(height = 16),
                             _section(
-                                "\u0412\u0430\u0448\u0438 \u043b\u0430\u0431\u043e\u0440\u0430\u0442\u043e\u0440\u043d\u044b\u0435 \u043d\u0430 \u0437\u0430\u0432\u0442\u0440\u0430:",
+                                "Ваши лабораторные на завтра:",
                                 _task_box(
                                     labs_tomorrow,
-                                    "\u041b\u0430\u0431\u043e\u0440\u0430\u0442\u043e\u0440\u043d\u044b\u0445 \u0440\u0430\u0431\u043e\u0442 \u043d\u0430 \u0437\u0430\u0432\u0442\u0440\u0430 \u043d\u0435\u0442",
-                                    ft.Colors.GREEN_100,
+                                    "Лабораторных работ на завтра нет",
+                                    LABS_GRADIENT,
                                 ),
                             ),
                             ft.Container(height = 16),

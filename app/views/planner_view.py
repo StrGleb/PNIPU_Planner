@@ -64,6 +64,16 @@ def _subject_gradient(subject: str) -> ft.LinearGradient:
     )
 
 
+def _current_theme(page: ft.Page) -> str:
+    if page.theme_mode == ft.ThemeMode.LIGHT or page.theme_mode == "light":
+        return "light"
+    if page.theme_mode == ft.ThemeMode.DARK or page.theme_mode == "dark":
+        return "dark"
+    if page.platform_brightness == "dark":
+        return "dark"
+    return "light"
+
+
 def build_planner_view(
     navigation_bar: ft.NavigationBar,
     planner_manager: PlannerManager,
@@ -215,6 +225,17 @@ def build_planner_view(
         if state["mode"] == "month":
             return state["date"].strftime("%m.%Y")
         return "Домашки, контрольные и лабораторные"
+
+    def header_palette() -> dict[str, str]:
+        is_dark = _current_theme(page) == "dark"
+        return {
+            "title": ft.Colors.WHITE if is_dark else ft.Colors.BLACK87,
+            "subtitle": ft.Colors.WHITE70 if is_dark else ft.Colors.GREY_600,
+            "icon": ft.Colors.WHITE if is_dark else ft.Colors.BLACK87,
+            "badge_bg": ft.Colors.WHITE if is_dark else ft.Colors.GREY_200,
+            "badge_text": ft.Colors.BLACK87 if is_dark else ft.Colors.GREY_700,
+            "divider": ft.Colors.WHITE12 if is_dark else ft.Colors.BLACK12,
+        }
 
     def is_tasks_mode() -> bool:
         return state["focus_date"] is None and state["mode"] == "tasks"
@@ -883,7 +904,7 @@ def build_planner_view(
             content = [
                 ft.Container(
                     padding = ft.Padding.only(left = 2),
-                    content = ft.Text("\u041d\u0435\u0442 \u0437\u0430\u043d\u044f\u0442\u0438\u0439", size = 12, color = ft.Colors.GREY_500, italic = True),
+                    content = ft.Text("Нет занятий", size = 12, color = ft.Colors.GREY_500, italic = True),
                 )
             ]
 
@@ -1035,9 +1056,9 @@ def build_planner_view(
 
         legend = ft.Row(
             [
-                build_legend_item(ft.Colors.GREEN_200, ft.Colors.GREEN_400, "\u041f\u0430\u0440\u044b"),
-                build_legend_item(ft.Colors.BLUE_200, ft.Colors.BLUE_400, "\u0421\u043e\u0431\u044b\u0442\u0438\u044f"),
-                build_legend_item(ft.Colors.TEAL_200, ft.Colors.TEAL_400, "\u041f\u0430\u0440\u044b + \u0441\u043e\u0431\u044b\u0442\u0438\u044f"),
+                build_legend_item(ft.Colors.GREEN_200, ft.Colors.GREEN_400, "Пары"),
+                build_legend_item(ft.Colors.BLUE_200, ft.Colors.BLUE_400, "События"),
+                build_legend_item(ft.Colors.TEAL_200, ft.Colors.TEAL_400, "Пары + события"),
             ],
             alignment = ft.MainAxisAlignment.CENTER,
             run_alignment = ft.MainAxisAlignment.CENTER,
@@ -1286,20 +1307,35 @@ def build_planner_view(
             return build_tasks_content()
         return build_day_content()
 
-    title_text = ft.Text(current_mode_title(), size = 20, weight = ft.FontWeight.BOLD, color = ft.Colors.BLACK87)
-    subtitle_text = ft.Text(current_mode_subtitle(), size = 12, color = ft.Colors.GREY_600)
+    initial_header_palette = header_palette()
+    title_text = ft.Text(
+        current_mode_title(),
+        size = 20,
+        weight = ft.FontWeight.BOLD,
+        color = initial_header_palette["title"],
+    )
+    subtitle_text = ft.Text(
+        current_mode_subtitle(),
+        size = 12,
+        color = initial_header_palette["subtitle"],
+    )
     week_label_control = ft.Text(
         week_label(),
         size = 11,
         weight = ft.FontWeight.BOLD,
-        color = ft.Colors.GREY_700,
+        color = initial_header_palette["badge_text"],
     )
-    menu_button = ft.IconButton(ft.Icons.MENU, on_click = lambda e: open_drawer_menu(), icon_size = 24)
+    menu_button = ft.IconButton(
+        ft.Icons.MENU,
+        on_click = lambda e: open_drawer_menu(),
+        icon_size = 24,
+        icon_color = initial_header_palette["icon"],
+    )
     week_badge = ft.Container(
         content = week_label_control,
         width = WEEK_BADGE_WIDTH,
         alignment = ft.Alignment(0, 0),
-        bgcolor = ft.Colors.GREY_200,
+        bgcolor = initial_header_palette["badge_bg"],
         border_radius = 8,
         padding = ft.Padding.symmetric(horizontal = 12, vertical = 8),
     )
@@ -1332,7 +1368,7 @@ def build_planner_view(
         bgcolor = ft.Colors.SURFACE,
         padding = ft.Padding.only(left = 8, right = 8, top = 10, bottom = 10),
     )
-    header_divider = ft.Divider(height = 1, thickness = 0.8, color = ft.Colors.BLACK12)
+    header_divider = ft.Divider(height = 1, thickness = 0.8, color = initial_header_palette["divider"])
 
     def set_task_filter(task_filter: str):
         state["task_filter"] = task_filter
@@ -1448,10 +1484,17 @@ def build_planner_view(
 
     def rebuild_view():
         tasks_mode = is_tasks_mode()
+        palette = header_palette()
         title_text.value = current_mode_title()
         title_text.size = 18 if tasks_mode else 20
+        title_text.color = palette["title"]
         subtitle_text.value = "" if tasks_mode else current_mode_subtitle()
         subtitle_text.visible = not tasks_mode
+        subtitle_text.color = palette["subtitle"]
+        week_label_control.color = palette["badge_text"]
+        menu_button.icon_color = palette["icon"]
+        week_badge.bgcolor = palette["badge_bg"]
+        header_divider.color = palette["divider"]
         header.padding = ft.Padding.only(
             left = 8,
             right = 8,

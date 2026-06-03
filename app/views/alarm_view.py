@@ -1,5 +1,6 @@
 import logging
 import threading
+
 import flet as ft
 
 from bridges.planner_bridge import is_valid_time
@@ -11,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 _DAYS = [(1, "Пн"), (2, "Вт"), (3, "Ср"), (4, "Чт"), (5, "Пт"), (6, "Сб"), (7, "Вс")]
 _WEEKS = [(WEEK_ANY, "Любая"), (WEEK_ODD, "Нечетная"), (WEEK_EVEN, "Четная")]
+
 
 def build_alarm_view(
     navigation_bar: ft.NavigationBar,
@@ -33,7 +35,6 @@ def build_alarm_view(
     auto_sync_busy = {"value": False}
 
     def show_info(message: str) -> None:
-        """ Для отображения информационных сообщений """
         snack = ft.SnackBar(
             content = ft.Text(message),
             bgcolor = ft.Colors.GREEN_700,
@@ -44,7 +45,6 @@ def build_alarm_view(
         page.update()
 
     def show_error(message: str) -> None:
-        """ Для отображений об ошибке """
         snack = ft.SnackBar(
             content = ft.Text(message),
             bgcolor = ft.Colors.RED_700,
@@ -82,14 +82,9 @@ def build_alarm_view(
             pass
 
     def _refresh_auto_button() -> None:
-        """ Обновление кнопки вкл/выкл """
         enabled = config_manager.config.auto_alarm_enabled
         if auto_sync_busy["value"]:
-            auto_label.value = "Auto: sync..."
-            btn_auto.bgcolor = ft.Colors.BLUE_400
-            return
-        if auto_sync_busy["value"]:
-            auto_label.value = "РђРІС‚Рѕ: С‡РёС‚Р°РµРј..."
+            auto_label.value = "Авто: считаем..."
             btn_auto.bgcolor = ft.Colors.BLUE_400
             return
         auto_label.value = "Авто: вкл" if enabled else "Авто: выкл"
@@ -368,6 +363,7 @@ def build_alarm_view(
     def _on_auto(e) -> None:
         if auto_sync_busy["value"]:
             return
+
         if config_manager.config.auto_alarm_enabled:
             config_manager.set_auto_alarm_enabled(False)
             auto_alarm_service.disable()
@@ -392,7 +388,7 @@ def build_alarm_view(
             _show_auto_result(result)
 
         run_in_background(worker)
-    
+
     def _on_week(e) -> None:
         if auto_sync_busy["value"]:
             return
@@ -409,31 +405,17 @@ def build_alarm_view(
             set_auto_sync_busy(False)
             refresh_list()
             if result == "scheduled":
-                show_info(f"Р‘СѓРґРёР»СЊРЅРёРєРѕРІ РЅР° РЅРµРґРµР»СЋ: {count}")
+                show_info(f"Будильников на неделю: {count}")
             elif result == "missing_prep":
-                show_error("РЈРєР°Р¶РёС‚Рµ РІСЂРµРјСЏ РЅР° СЃР±РѕСЂС‹ РІ РЅР°СЃС‚СЂРѕР№РєР°С….")
+                show_error("Укажите время на сборы в настройках.")
             elif result == "no_upcoming_entries":
-                show_info("Р—Р°РЅСЏС‚РёР№ РЅР° Р±Р»РёР¶Р°Р№С€РёРµ 7 РґРЅРµР№ РЅРµС‚.")
+                show_info("Занятий на ближайшие 7 дней нет.")
             elif result == "route_unavailable":
-                show_error("РЈРєР°Р¶РёС‚Рµ РІСЂРµРјСЏ РґРѕ Р’РЈР—Р° (РјРёРЅ) РІ РЅР°СЃС‚СЂРѕР№РєР°С….")
+                show_error("Укажите время до ВУЗа (мин) в настройках.")
             else:
-                show_error("РќРµ СѓРґР°Р»РѕСЃСЊ СЂР°СЃСЃС‚Р°РІРёС‚СЊ Р±СѓРґРёР»СЊРЅРёРєРё.")
+                show_error("Не удалось расставить будильники.")
 
         run_in_background(worker)
-        return
-
-        result, count = auto_alarm_service.sync_week_ahead()
-        refresh_list()
-        if result == "scheduled":
-            show_info(f"Будильников на неделю: {count}")
-        elif result == "missing_prep":
-            show_error("Укажите время на сборы в настройках.")
-        elif result == "no_upcoming_entries":
-            show_info("Занятий на ближайшие 7 дней нет.")
-        elif result == "route_unavailable":
-            show_error("Укажите время до ВУЗа (мин) в настройках.")
-        else:
-            show_error("Не удалось расставить будильники.")
 
     btn_auto = ft.Container(
         content = auto_label,
@@ -467,11 +449,9 @@ def build_alarm_view(
     bottom_row = ft.Container(
         content = ft.Row(
             [
-                # btn_week, 
-                # ft.Container(width = 8), 
-                btn_auto, 
-                ft.Container(expand = True), 
-                btn_add
+                btn_auto,
+                ft.Container(expand = True),
+                btn_add,
             ],
             vertical_alignment = ft.CrossAxisAlignment.CENTER,
         ),

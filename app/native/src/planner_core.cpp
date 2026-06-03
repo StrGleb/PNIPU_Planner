@@ -241,8 +241,8 @@ namespace
             return true;
         }
 
-        return contains_text(template_title, "СЃРµСЃСЃРё")
-            || contains_text(template_title, "СЌРєР·Р°Рј");
+        return contains_text(template_title, "сесси")
+            || contains_text(template_title, "экзам");
     }
 
     int derive_regular_schedule_end_days(
@@ -254,14 +254,14 @@ namespace
     {
         const int start_days = days_from_civil(start_year, start_month, start_day);
 
-        if (contains_text(template_title, "РїРѕСЃР»Рµ СЃРјРµРЅС‹")) {
+        if (contains_text(template_title, "после смены")) {
             if (start_month >= 8) {
                 return days_from_civil(start_year, 12, 30);
             }
             return days_from_civil(start_year, 5, 31);
         }
 
-        if (contains_text(template_title, "РґРѕ СЃРјРµРЅС‹")) {
+        if (contains_text(template_title, "до смены")) {
             if (start_month >= 8) {
                 return week_end_for_month_switch_days(
                     start_days,
@@ -933,7 +933,7 @@ int derive_schedule_period_end_yyyymmdd(
     if (equals_text(schedule_type, "session")) {
         end_days = start_days;
     }
-    else if (contains_text(template_title, "после смены")) {
+    else if (contains_text(template_title, "РїРѕСЃР»Рµ СЃРјРµРЅС‹")) {
         if (start_month >= 8) {
             end_days = days_from_civil(start_year, 12, 30);
         }
@@ -941,7 +941,7 @@ int derive_schedule_period_end_yyyymmdd(
             end_days = days_from_civil(start_year, 5, 31);
         }
     }
-    else if (contains_text(template_title, "до смены")) {
+    else if (contains_text(template_title, "РґРѕ СЃРјРµРЅС‹")) {
         if (start_month >= 8) {
             end_days = week_end_for_month_switch_days(
                 start_days,
