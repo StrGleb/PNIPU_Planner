@@ -1,12 +1,7 @@
-import requests
 import logging
 import os
-from dotenv import load_dotenv
 from typing import Optional, Dict
-from pathlib import Path
 
-# Загружаем переменные окружения
-load_dotenv(Path(__file__).resolve().parent.parent.parent / "app/utils/config.env")
 logger = logging.getLogger(__name__)
 
 YANDEX_WEATHER_API_URL = "https://api.weather.yandex.ru/v2/informers"
@@ -90,6 +85,12 @@ def get_weather_by_coords_openweathermap(latitude: float, longitude: float) -> O
         }
     """
     try:
+        # Загружаем переменные окружения
+        from pathlib import Path
+        from dotenv import load_dotenv
+        import requests
+        load_dotenv(Path(__file__).resolve().parent.parent.parent / "app/utils/config.env")
+
         OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
         params = {
             "lat": latitude,
@@ -152,14 +153,19 @@ def get_weather_by_coords(latitude: float, longitude: float) -> Optional[Dict]:
         }
     """
     try:
-        # Первый запрос делаем в Яндекс Погоду 
-        api_key = os.getenv("YANDEX_WEATHER_API_KEY")
-        if not api_key:
+        # Загружаем переменные окружения
+        from pathlib import Path
+        from dotenv import load_dotenv
+        import requests
+        load_dotenv(Path(__file__).resolve().parent.parent.parent / "app/utils/config.env")
+
+        YANDEX_WEATHER_API_KEY = os.getenv("YANDEX_WEATHER_API_KEY")
+        if not YANDEX_WEATHER_API_KEY:
             logger.warning("YANDEX_WEATHER_API_KEY не найден в переменных окружения")
             return None
 
         headers = {
-            "X-Yandex-API-Key": api_key
+            "X-Yandex-API-Key": YANDEX_WEATHER_API_KEY
         }
 
         params = {

@@ -1,10 +1,5 @@
-from dotenv import load_dotenv
 import requests
 import os
-from pathlib import Path
-
-# Важные начальные объявления
-load_dotenv(Path(__file__).resolve().parent.parent.parent / "app/utils/config.env")
 
 
 def get_route(start, end, transport) -> None|list[int, int]|dict:
@@ -12,7 +7,14 @@ def get_route(start, end, transport) -> None|list[int, int]|dict:
     start, end: tuple (lat, lon)
     transport: "pedestrian" | "driving" | "public_transport"
     """
-    API_KEY = os.getenv("DOUBLE_GIS_API_KEY")
+    try:
+        from pathlib import Path
+        from dotenv import load_dotenv
+        load_dotenv(Path(__file__).resolve().parent.parent.parent / "app/utils/config.env")
+        API_KEY = os.getenv("DOUBLE_GIS_API_KEY")
+    except:
+        ...
+
     if transport == "public_transport":
         url = f"https://routing.api.2gis.com/public_transport/2.0?key={API_KEY}"
         payload = {

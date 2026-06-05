@@ -1,13 +1,10 @@
-import datetime
 import logging
-import pathlib
 import sys
 import threading
 from time import localtime, sleep, strftime
 
 import flet as ft
 
-from bridges.planner_bridge import is_week_even
 from managers.alarm_manager import AlarmManager
 from managers.auto_alarm_service import AutoAlarmService
 from managers.config_manager import ConfigManager
@@ -23,12 +20,13 @@ from views.settings_view import build_settings_view
 is_android = hasattr(sys, "getandroidapilevel")
 
 if sys.platform == "win32":
+    import pathlib
     sys.path.insert(0, str(pathlib.Path(__file__).parent))
     logging.basicConfig(
         level = logging.INFO,
         format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        # filename = "app.log",
-        # encoding = "utf-8"
+        filename = "app.log",
+        encoding = "utf-8"
     )
     logger = logging.getLogger(__name__)
 else: 
@@ -74,6 +72,8 @@ def main(page: ft.Page):
 
         threading.Thread(target=update_time, daemon=True).start()
 
+        from bridges.planner_bridge import is_week_even # ИМПОРТ
+        import datetime
         alarm_manager = AlarmManager()
         alarm_manager.set_week_even_fn(
             lambda: is_week_even(

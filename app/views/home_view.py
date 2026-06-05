@@ -1,4 +1,3 @@
-import datetime
 import logging
 import flet as ft
 from bridges.planner_bridge import time_to_minutes
@@ -42,6 +41,7 @@ def build_home_view(
     config_manager = None,
 ) -> ft.View:
     greeting = greeting_choose()
+    import datetime
     today = datetime.date.today()
     tomorrow = today + datetime.timedelta(days = 1)
 
@@ -55,6 +55,17 @@ def build_home_view(
             ),
         )
 
+    # Виджет погоды с загрузкой на момент пока данный подтягиваются через API
+    weather_widget = ft.Container(
+        content = ft.Column([
+            ft.ProgressRing(width = 20, height = 20),
+            ft.Text("Узнаем погоду за окном...")
+        ]),
+        padding = 20,
+        bgcolor = ft.Colors.GREY_200,
+        border_radius = 10
+    )
+
     tests_today = _sort_tasks_by_time(tasks_manager.get_tests_for_date(today))
     tests_tomorrow = _sort_tasks_by_time(tasks_manager.get_tests_for_date(tomorrow))
     homework_tomorrow = _sort_tasks_by_time(tasks_manager.get_homework_for_date(tomorrow))
@@ -62,8 +73,50 @@ def build_home_view(
 
     current_theme = get_current_theme(theme)
 
+    dark_theme_gradient = ft.LinearGradient(
+        begin = ft.Alignment(0, -1),
+        end = ft.Alignment(0, 1),
+        colors = [ft.Colors.BLUE_900, ft.Colors.BLUE_900],
+    )
+
+    white_theme_gradient = ft.LinearGradient(
+        begin = ft.Alignment(0, -1),
+        end = ft.Alignment(0, 1),
+        colors = [ft.Colors.BLUE_200, ft.Colors.BLUE_50],
+    )
+
+    control_works_gradient = ft.LinearGradient(
+        begin = ft.Alignment(-1, -1),
+        end = ft.Alignment(1, 1),
+        colors = [ft.Colors.RED_200, ft.Colors.RED_100],
+    )
+
+    homeworks_gradient = ft.LinearGradient(
+        begin = ft.Alignment(-1, -1),
+        end = ft.Alignment(1, 1),
+        colors = [ft.Colors.BLUE_200, ft.Colors.BLUE_100],
+    )
+
+    labs_gradient = ft.LinearGradient(
+        begin = ft.Alignment(-1, -1),
+        end = ft.Alignment(1, 1),
+        colors = [ft.Colors.GREEN_200, ft.Colors.GREEN_100],
+    )
+
+    active_gradient = (
+        dark_theme_gradient if current_theme == "dark" else white_theme_gradient
+    )
+    text_color = ft.Colors.WHITE if current_theme == "dark" else ft.Colors.GREY_800
+    subtext_color = (
+        ft.Colors.WHITE70 if current_theme == "dark" else ft.Colors.GREY_600
+    )
+    recommendation_color = (
+        ft.Colors.BLUE_100 if current_theme == "dark" else ft.Colors.BLUE_800
+    )
+
     # ── Получение погоды ────────────────────────────────────────
     weather_widget = None
+    weather_data = None
 
     try:
         coords = 1
@@ -71,13 +124,13 @@ def build_home_view(
             latitude = 58.0105
             longitude = 56.2502
 
-            try:
-                weather_data = get_weather_by_coords(latitude, longitude)
-            except:
-                ...
+            # try:
+            #     weather_data = get_weather_by_coords(latitude, longitude)
+            # except:
+            #     ...
 
-            if weather_data == None:
-                weather_data = get_weather_by_coords_openweathermap(latitude, longitude)
+            # if weather_data == None:
+            #     weather_data = get_weather_by_coords_openweathermap(latitude, longitude)
     except:
         logger.error("Нет данных пользователя для получения данных о погоде")
 
@@ -88,47 +141,6 @@ def build_home_view(
         description = weather_data["description"]
         humidity = weather_data.get("humidity", 0)
         recommendation = get_weather_recommendation(temp)
-
-        dark_theme_gradient = ft.LinearGradient(
-            begin = ft.Alignment(0, -1),
-            end = ft.Alignment(0, 1),
-            colors = [ft.Colors.BLUE_900, ft.Colors.BLUE_900],
-        )
-
-        white_theme_gradient = ft.LinearGradient(
-            begin = ft.Alignment(0, -1),
-            end = ft.Alignment(0, 1),
-            colors = [ft.Colors.BLUE_200, ft.Colors.BLUE_50],
-        )
-
-        control_works_gradient = ft.LinearGradient(
-            begin = ft.Alignment(-1, -1),
-            end = ft.Alignment(1, 1),
-            colors = [ft.Colors.RED_200, ft.Colors.RED_100],
-        )
-
-        homeworks_gradient = ft.LinearGradient(
-            begin = ft.Alignment(-1, -1),
-            end = ft.Alignment(1, 1),
-            colors = [ft.Colors.BLUE_200, ft.Colors.BLUE_100],
-        )
-
-        labs_gradient = ft.LinearGradient(
-            begin = ft.Alignment(-1, -1),
-            end = ft.Alignment(1, 1),
-            colors = [ft.Colors.GREEN_200, ft.Colors.GREEN_100],
-        )
-
-        active_gradient = (
-            dark_theme_gradient if current_theme == "dark" else white_theme_gradient
-        )
-        text_color = ft.Colors.WHITE if current_theme == "dark" else ft.Colors.GREY_800
-        subtext_color = (
-            ft.Colors.WHITE70 if current_theme == "dark" else ft.Colors.GREY_600
-        )
-        recommendation_color = (
-            ft.Colors.BLUE_100 if current_theme == "dark" else ft.Colors.BLUE_800
-        )
 
         humidity_display = ft.Container(
             content = ft.Column(
